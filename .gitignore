@@ -26,11 +26,6 @@ integration/project/build.properties
 shared/.js
 shared/.jvm
 
-# temp files
-.~*
-*~
-*.orig
-*.sc
 
 # eclipse
 .scala_dependencies
