@@ -8,9 +8,6 @@ logs
 project/project/target
 project/target
 target
-tmp
-.history
-dist
 .idea
 *.iml
 /out
