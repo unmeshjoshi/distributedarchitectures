@@ -1,6 +1,5 @@
 *.avsc
 *.swp
-*.java
 checkpoint
 *.log
 ignore
