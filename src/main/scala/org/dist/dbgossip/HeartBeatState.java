@@ -17,6 +17,8 @@
  */
 package org.dist.dbgossip;
 
+import java.util.Objects;
+
 /**
  * HeartBeat State associated with any given endpoint.
  */
@@ -24,6 +26,9 @@ public class HeartBeatState
 {
     private volatile int generation;
     private volatile int version;
+
+    public HeartBeatState() {
+    }
 
     HeartBeatState(int gen)
     {
@@ -64,6 +69,20 @@ public class HeartBeatState
     public String toString()
     {
         return String.format("HeartBeat: generation = %d, version = %d", generation, version);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        HeartBeatState that = (HeartBeatState) o;
+        return generation == that.generation &&
+                version == that.version;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(generation, version);
     }
 }
 

@@ -24,6 +24,7 @@ import java.net.InetAddress;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -47,6 +48,12 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 public class VersionedValue implements Comparable<VersionedValue>
 {
+
+    //for json serdes
+    public VersionedValue() {
+        version = 0;
+        value = "";
+    }
 
     // this must be a char that cannot be present in any token
     public final static char DELIMITER = ',';
@@ -230,6 +237,20 @@ public class VersionedValue implements Comparable<VersionedValue>
         {
             return new VersionedValue(address.toString());
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        VersionedValue that = (VersionedValue) o;
+        return version == that.version &&
+                Objects.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(version, value);
     }
 }
 
