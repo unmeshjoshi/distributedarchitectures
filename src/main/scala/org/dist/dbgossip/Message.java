@@ -7,8 +7,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.dist.dbgossip.MonotonicClock.approxTime;
 
 public class Message<T> {
-    public final Header header;
-    public final T payload;
+    public Header header;
+    public T payload;
+
+    public Message() {
+    }
 
     private Message(Header header, T payload) {
         this.header = header;

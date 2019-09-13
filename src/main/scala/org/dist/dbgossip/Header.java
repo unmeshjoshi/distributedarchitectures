@@ -8,12 +8,15 @@ import java.util.Map;
  * afterwards, if the entire message is necessary and available.
  */
 public class Header {
-    public final long id;
-    public final Verb verb;
-    public final InetAddressAndPort from;
-    public final long createdAtNanos;
-    public final long expiresAtNanos;
-    private final int flags;
+    public long id;
+    public Verb verb;
+    public InetAddressAndPort from;
+    public long createdAtNanos;
+    public long expiresAtNanos;
+    private int flags;
+
+    public Header() {
+    }
 
     Header(long id, Verb verb, InetAddressAndPort from, long createdAtNanos, long expiresAtNanos, int flags) {
         this.id = id;

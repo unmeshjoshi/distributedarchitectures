@@ -17,15 +17,20 @@
  */
 package org.dist.dbgossip;
 
+import java.util.Objects;
+
 /**
  * Contains information about a specified list of Endpoints and the largest version
  * of the state they have generated as known by the local endpoint.
  */
 public class GossipDigest implements Comparable<GossipDigest>
 {
-    final InetAddressAndPort endpoint;
-    final int generation;
-    final int maxVersion;
+    InetAddressAndPort endpoint;
+    int generation;
+    int maxVersion;
+
+    public GossipDigest() {
+    }
 
     GossipDigest(InetAddressAndPort ep, int gen, int version)
     {
@@ -34,7 +39,7 @@ public class GossipDigest implements Comparable<GossipDigest>
         maxVersion = version;
     }
 
-    InetAddressAndPort getEndpoint()
+    InetAddressAndPort getEndPoint()
     {
         return endpoint;
     }
@@ -65,6 +70,21 @@ public class GossipDigest implements Comparable<GossipDigest>
         sb.append(":");
         sb.append(maxVersion);
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        GossipDigest that = (GossipDigest) o;
+        return generation == that.generation &&
+                maxVersion == that.maxVersion &&
+                Objects.equals(endpoint, that.endpoint);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(endpoint, generation, maxVersion);
     }
 }
 

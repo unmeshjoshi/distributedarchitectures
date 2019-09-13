@@ -27,9 +27,9 @@ import java.util.Map;
 public class GossipDigestAck
 {
     final List<GossipDigest> gDigestList;
-    final Map<InetAddressAndPort, EndpointState> epStateMap;
+    final Map<InetAddressAndPort, EndPointState> epStateMap;
 
-    GossipDigestAck(List<GossipDigest> gDigestList, Map<InetAddressAndPort, EndpointState> epStateMap)
+    GossipDigestAck(List<GossipDigest> gDigestList, Map<InetAddressAndPort, EndPointState> epStateMap)
     {
         this.gDigestList = gDigestList;
         this.epStateMap = epStateMap;
@@ -40,7 +40,7 @@ public class GossipDigestAck
         return gDigestList;
     }
 
-    Map<InetAddressAndPort, EndpointState> getEndpointStateMap()
+    Map<InetAddressAndPort, EndPointState> getEndpointStateMap()
     {
         return epStateMap;
     }

@@ -46,10 +46,6 @@ public class GossipDigestSynVerbHandler extends GossipVerbHandler<GossipDigestSy
         }
 
         GossipDigestSyn gDigestMessage = message.payload;
-
-
-
-
         List<GossipDigest> gDigestList = gDigestMessage.getGossipDigests();
 
         if (logger.isTraceEnabled())
@@ -64,7 +60,7 @@ public class GossipDigestSynVerbHandler extends GossipVerbHandler<GossipDigestSy
         }
 
         List<GossipDigest> deltaGossipDigestList = new ArrayList<GossipDigest>();
-        Map<InetAddressAndPort, EndpointState> deltaEpStateMap = new HashMap<InetAddressAndPort, EndpointState>();
+        Map<InetAddressAndPort, EndPointState> deltaEpStateMap = new HashMap<InetAddressAndPort, EndPointState>();
         logger.trace("sending {} digests and {} deltas", deltaGossipDigestList.size(), deltaEpStateMap.size());
         Message<GossipDigestAck> gDigestAckMessage = Message.out(GOSSIP_DIGEST_ACK, new GossipDigestAck(deltaGossipDigestList, deltaEpStateMap));
         if (logger.isTraceEnabled())

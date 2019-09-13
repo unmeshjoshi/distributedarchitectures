@@ -14,29 +14,28 @@ import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 
-public class EndpointState {
-    protected static final Logger logger = LoggerFactory.getLogger(EndpointState.class);
+public class EndPointState {
+    protected static final Logger logger = LoggerFactory.getLogger(EndPointState.class);
 
     private volatile HeartBeatState hbState;
-    private AtomicReference<Map<ApplicationState, VersionedValue>> applicationState;
+    private Map<ApplicationState, VersionedValue> applicationState;
 
     /* fields below do not get serialized */
     private volatile long updateTimestamp;
     private volatile boolean isAlive;
 
     //For json serdes
-    public EndpointState() {
+    public EndPointState() {
     }
 
-    public EndpointState(HeartBeatState initialHbState) {
+    public EndPointState(HeartBeatState initialHbState) {
         this(initialHbState, new EnumMap<ApplicationState, VersionedValue>(ApplicationState.class));
     }
 
-    EndpointState(HeartBeatState initialHbState, Map<ApplicationState, VersionedValue> states) {
+    EndPointState(HeartBeatState initialHbState, Map<ApplicationState, VersionedValue> states) {
         hbState = initialHbState;
-        applicationState = new AtomicReference<Map<ApplicationState, VersionedValue>>(new EnumMap<>(states));
+        applicationState = new EnumMap<>(states);
         updateTimestamp = System.nanoTime();
         isAlive = true;
     }
@@ -63,16 +62,11 @@ public class EndpointState {
     }
 
     public void addApplicationStates(Set<Map.Entry<ApplicationState, VersionedValue>> values) {
-        while (true) {
-            Map<ApplicationState, VersionedValue> orig = applicationState.get();
-            Map<ApplicationState, VersionedValue> copy = new EnumMap<>(orig);
+        Map<ApplicationState, VersionedValue> copy = new EnumMap<ApplicationState, VersionedValue>(ApplicationState.class);
+        for (Map.Entry<ApplicationState, VersionedValue> value : values)
+            copy.put(value.getKey(), value.getValue());
 
-            for (Map.Entry<ApplicationState, VersionedValue> value : values)
-                copy.put(value.getKey(), value.getValue());
-
-            if (applicationState.compareAndSet(orig, copy))
-                return;
-        }
+        this.applicationState = copy;
     }
 
     HeartBeatState getHeartBeatState() {
@@ -80,7 +74,7 @@ public class EndpointState {
     }
 
     public Set<Map.Entry<ApplicationState, VersionedValue>> states() {
-        return applicationState.get().entrySet();
+        return applicationState.entrySet();
     }
 
 
@@ -94,11 +88,11 @@ public class EndpointState {
         }
     }
 
-    public static EndpointState deserialize(String json) {
+    public static EndPointState deserialize(String json) {
         ObjectMapper mapper = new ObjectMapper();
         mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
         try {
-            return mapper.readValue(json, EndpointState.class);
+            return mapper.readValue(json, EndPointState.class);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -108,15 +102,19 @@ public class EndpointState {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        EndpointState that = (EndpointState) o;
+        EndPointState that = (EndPointState) o;
         return updateTimestamp == that.updateTimestamp &&
                 isAlive == that.isAlive &&
                 hbState.equals(that.hbState) &&
-                applicationState.get().equals(that.applicationState.get());
+                applicationState.equals(that.applicationState);
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(hbState, applicationState, updateTimestamp, isAlive);
+    }
+
+    public Map<ApplicationState, VersionedValue> getApplicationState() {
+        return applicationState;
     }
 }

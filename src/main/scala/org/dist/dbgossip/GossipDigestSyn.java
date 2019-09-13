@@ -21,20 +21,17 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * This is the first message that gets sent out as a start of the Gossip protocol in a
- * round.
- */
 public class GossipDigestSyn
 {
-    final String clusterId;
-    final String partioner;
-    final List<GossipDigest> gDigests;
+    String clusterId;
+    List<GossipDigest> gDigests;
 
-    public GossipDigestSyn(String clusterId, String partioner, List<GossipDigest> gDigests)
+    public GossipDigestSyn() {
+    }
+
+    public GossipDigestSyn(String clusterId, List<GossipDigest> gDigests)
     {
         this.clusterId = clusterId;
-        this.partioner = partioner;
         this.gDigests = gDigests;
     }
 

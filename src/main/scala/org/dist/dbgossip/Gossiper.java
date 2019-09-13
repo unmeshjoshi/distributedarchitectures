@@ -34,7 +34,7 @@ public class Gossiper {
     ConcurrentSkipListSet<InetAddressAndPort> seeds = new ConcurrentSkipListSet<InetAddressAndPort>();
 
     /* map where key is the endpoint and value is the state associated with the endpoint */
-    ConcurrentHashMap<InetAddressAndPort, EndpointState> endpointStateMap = new ConcurrentHashMap<InetAddressAndPort, EndpointState>();
+    ConcurrentHashMap<InetAddressAndPort, EndPointState> endpointStateMap = new ConcurrentHashMap<InetAddressAndPort, EndPointState>();
     private ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(1);
     private ScheduledFuture<?> scheduledGossipTask;
 
@@ -42,15 +42,15 @@ public class Gossiper {
         return false;
     }
 
-    public void notifyFailureDetector(Map<InetAddressAndPort, EndpointState> remoteEpStateMap) {
+    public void notifyFailureDetector(Map<InetAddressAndPort, EndPointState> remoteEpStateMap) {
 
     }
 
-    public void applyStateLocally(Map<InetAddressAndPort, EndpointState> remoteEpStateMap) {
+    public void applyStateLocally(Map<InetAddressAndPort, EndPointState> remoteEpStateMap) {
 
     }
 
-    public EndpointState getStateForVersionBiggerThan(InetAddressAndPort addr, int maxVersion) {
+    public EndPointState getStateForVersionBiggerThan(InetAddressAndPort addr, int maxVersion) {
         return null;
     }
 
@@ -58,7 +58,7 @@ public class Gossiper {
         buildSeedsList();
         /* initialize the heartbeat state for this localEndpoint */
         maybeInitializeLocalState(generationNbr);
-        EndpointState localState = endpointStateMap.get(FBUtilities.getBroadcastAddressAndPort());
+        EndPointState localState = endpointStateMap.get(FBUtilities.getBroadcastAddressAndPort());
         localState.addApplicationStates(preloadLocalStates);
 
 
@@ -71,7 +71,7 @@ public class Gossiper {
     // initialize local HB state if needed, i.e., if gossiper has never been started before.
     public void maybeInitializeLocalState(int generationNbr) {
         HeartBeatState hbState = new HeartBeatState(generationNbr);
-        EndpointState localState = new EndpointState(hbState);
+        EndPointState localState = new EndPointState(hbState);
         localState.markAlive();
         endpointStateMap.putIfAbsent(FBUtilities.getBroadcastAddressAndPort(), localState);
     }
@@ -98,14 +98,11 @@ public class Gossiper {
 
                 /* Update the local heartbeat counter. */
                 endpointStateMap.get(FBUtilities.getBroadcastAddressAndPort()).getHeartBeatState().updateHeartBeat();
-//                logger.trace("My heartbeat is now {}", endpointStateMap.get(FBUtilities.getBroadcastAddressAndPort()).getHeartBeatState().getHeartBeatVersion());
-                final List<GossipDigest> gDigests = new ArrayList<GossipDigest>();
-                Gossiper.instance.makeRandomGossipDigest(gDigests);
 
+                final List<GossipDigest> gDigests = getGossipDigests();
                 if (gDigests.size() > 0)
                 {
                     GossipDigestSyn digestSynMessage = new GossipDigestSyn(DatabaseDescriptor.getClusterName(),
-                            DatabaseDescriptor.getPartitionerName(),
                             gDigests);
                     Message<GossipDigestSyn> message = Message.out(GOSSIP_DIGEST_SYN, digestSynMessage);
                     /* Gossip to some random live member */
@@ -144,6 +141,13 @@ public class Gossiper {
             {
                 taskLock.unlock();
             }
+        }
+
+        private List<GossipDigest> getGossipDigests() {
+//                logger.trace("My heartbeat is now {}", endpointStateMap.get(FBUtilities.getBroadcastAddressAndPort()).getHeartBeatState().getHeartBeatVersion());
+            final List<GossipDigest> gDigests = new ArrayList<GossipDigest>();
+            Gossiper.instance.makeRandomGossipDigest(gDigests);
+            return gDigests;
         }
 
         private void doStatusCheck() {
@@ -238,7 +242,7 @@ public class Gossiper {
      */
     private void makeRandomGossipDigest(List<GossipDigest> gDigests)
     {
-        EndpointState epState;
+        EndPointState epState;
         int generation = 0;
         int maxVersion = 0;
 
@@ -269,12 +273,112 @@ public class Gossiper {
 
      }
 
-    int getMaxEndpointStateVersion(EndpointState epState)
+    int getMaxEndpointStateVersion(EndPointState epState)
     {
         int maxVersion = epState.getHeartBeatState().getHeartBeatVersion();
         for (Map.Entry<ApplicationState, VersionedValue> state : epState.states())
             maxVersion = Math.max(maxVersion, state.getValue().version);
         return maxVersion;
+    }
+
+    int getMaxEndPointStateVersion(EndPointState epState)
+    {
+        List<Integer> versions = new ArrayList<Integer>();
+        versions.add( epState.getHeartBeatState().getHeartBeatVersion() );
+        Map<ApplicationState, VersionedValue> appStateMap = epState.getApplicationState();
+
+        Set<ApplicationState> keys = appStateMap.keySet();
+        for ( ApplicationState key : keys )
+        {
+            int stateVersion = appStateMap.get(key).version;
+            versions.add( stateVersion );
+        }
+
+        /* sort to get the max version to build GossipDigest for this endpoint */
+        Collections.sort(versions);
+        int maxVersion = versions.get(versions.size() - 1);
+        versions.clear();
+        return maxVersion;
+    }
+
+    /*
+       This method is used to figure the state that the Gossiper has but Gossipee doesn't. The delta digests
+       and the delta state are built up.
+   */
+    synchronized void examineGossiper(List<GossipDigest> gDigestList, List<GossipDigest> deltaGossipDigestList, Map<InetAddressAndPort, EndPointState> deltaEpStateMap)
+    {
+        for ( GossipDigest gDigest : gDigestList )
+        {
+            int remoteGeneration = gDigest.getGeneration();
+            int maxRemoteVersion = gDigest.getMaxVersion();
+            /* Get state associated with the end point in digest */
+            EndPointState epStatePtr = endpointStateMap.get(gDigest.getEndPoint());
+            /*
+                Here we need to fire a GossipDigestAckMessage. If we have some data associated with this endpoint locally
+                then we follow the "if" path of the logic. If we have absolutely nothing for this endpoint we need to
+                request all the data for this endpoint.
+            */
+            if ( epStatePtr != null )
+            {
+                int localGeneration = epStatePtr.getHeartBeatState().getGeneration();
+                /* get the max version of all keys in the state associated with this endpoint */
+                int maxLocalVersion = getMaxEndPointStateVersion(epStatePtr);
+                if ( remoteGeneration == localGeneration && maxRemoteVersion == maxLocalVersion )
+                    continue;
+
+                if ( remoteGeneration > localGeneration )
+                {
+                    /* we request everything from the gossiper */
+                    requestAll(gDigest, deltaGossipDigestList, remoteGeneration);
+                }
+                if ( remoteGeneration < localGeneration )
+                {
+                    /* send all data with generation = localgeneration and version > 0 */
+                    sendAll(gDigest, deltaEpStateMap, 0);
+                }
+                if ( remoteGeneration == localGeneration )
+                {
+                    /*
+                        If the max remote version is greater then we request the remote endpoint send us all the data
+                        for this endpoint with version greater than the max version number we have locally for this
+                        endpoint.
+                        If the max remote version is lesser, then we send all the data we have locally for this endpoint
+                        with version greater than the max remote version.
+                    */
+                    if ( maxRemoteVersion > maxLocalVersion )
+                    {
+                        deltaGossipDigestList.add( new GossipDigest(gDigest.getEndPoint(), remoteGeneration, maxLocalVersion) );
+                    }
+                    if ( maxRemoteVersion < maxLocalVersion )
+                    {
+                        /* send all data with generation = localgeneration and version > maxRemoteVersion */
+                        sendAll(gDigest, deltaEpStateMap, maxRemoteVersion);
+                    }
+                }
+            }
+            else
+            {
+                /* We are here since we have no data for this endpoint locally so request everthing. */
+                requestAll(gDigest, deltaGossipDigestList, remoteGeneration);
+            }
+        }
+
+
+
+    }
+    /* Request all the state for the endpoint in the gDigest */
+    void requestAll(GossipDigest gDigest, List<GossipDigest> deltaGossipDigestList, int remoteGeneration)
+    {
+        /* We are here since we have no data for this endpoint locally so request everthing. */
+        deltaGossipDigestList.add( new GossipDigest(gDigest.getEndPoint(), remoteGeneration, 0) );
+    }
+
+    /* Send all the data with version greater than maxRemoteVersion */
+    void sendAll(GossipDigest gDigest, Map<InetAddressAndPort, EndPointState> deltaEpStateMap, int maxRemoteVersion)
+    {
+        EndPointState localEpStatePtr = getStateForVersionBiggerThan(gDigest.getEndPoint(), maxRemoteVersion) ;
+        if ( localEpStatePtr != null )
+            deltaEpStateMap.put(gDigest.getEndPoint(), localEpStatePtr);
     }
 
 }

@@ -25,14 +25,14 @@ import java.util.Map;
  */
 public class GossipDigestAck2
 {
-    final Map<InetAddressAndPort, EndpointState> epStateMap;
+    final Map<InetAddressAndPort, EndPointState> epStateMap;
 
-    GossipDigestAck2(Map<InetAddressAndPort, EndpointState> epStateMap)
+    GossipDigestAck2(Map<InetAddressAndPort, EndPointState> epStateMap)
     {
         this.epStateMap = epStateMap;
     }
 
-    Map<InetAddressAndPort, EndpointState> getEndpointStateMap()
+    Map<InetAddressAndPort, EndPointState> getEndpointStateMap()
     {
         return epStateMap;
     }

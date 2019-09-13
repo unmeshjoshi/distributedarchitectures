@@ -1,6 +1,7 @@
 package org.dist.dbgossip;
 
 import java.math.BigInteger;
+import java.security.MessageDigest;
 
 import static java.math.BigInteger.TWO;
 
@@ -34,6 +35,30 @@ public class FBUtilities {
             midpoint = distance.shiftRight(1).add(left).mod(max);
         }
         return Pair.create(midpoint, remainder);
+    }
+
+
+    public static BigInteger hash(String data)
+    {
+        byte[] result = hash("MD5", data.getBytes());
+        BigInteger hash = new BigInteger(result);
+        return hash.abs();
+    }
+
+
+    public static byte[] hash(String type, byte[] data)
+    {
+        byte[] result = null;
+        try
+        {
+            MessageDigest messageDigest = MessageDigest.getInstance(type);
+            result = messageDigest.digest(data);
+        }
+        catch (Exception e)
+        {
+            throw new RuntimeException(e);
+        }
+        return result;
     }
 
     public static InetAddressAndPort getBroadcastAddressAndPort() {

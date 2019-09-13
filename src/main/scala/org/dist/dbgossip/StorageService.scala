@@ -19,18 +19,16 @@ class StorageService {
 
     MessagingService.instance.listen()
 
-    var valueFactory = new VersionedValue.VersionedValueFactory(new RandomPartitioner)
 
 
   }
 
-  class EndpointStateBuilder(valueFactory:VersionedValue.VersionedValueFactory, generationNbr:1) {
+  class EndpointStateBuilder(generationNbr:1) {
     val appStates = new util.EnumMap[ApplicationState, VersionedValue](classOf[ApplicationState])
-    val endpointState = new EndpointState(new HeartBeatState(generationNbr))
+    val endpointState = new EndPointState(new HeartBeatState(generationNbr))
     def init(generationNbr: 1): Unit = {
       val localHostId = UUID.randomUUID
-      appStates.put(ApplicationState.HOST_ID, valueFactory.hostId(localHostId))
-      appStates.put(ApplicationState.NATIVE_ADDRESS_AND_PORT, valueFactory.nativeaddressAndPort(FBUtilities.getBroadcastAddressAndPort))
+      appStates.put(ApplicationState.HOST_ID, new VersionedValue(localHostId.toString, generationNbr))
 
       return this
     }
