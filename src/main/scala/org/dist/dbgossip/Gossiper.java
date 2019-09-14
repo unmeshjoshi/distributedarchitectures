@@ -4,12 +4,12 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -24,14 +24,14 @@ public class Gossiper {
     private static final int RING_DELAY = 30 * 1000;
     public final static int QUARANTINE_DELAY = RING_DELAY * 2;
     
-    final ConcurrentSkipListSet<InetAddressAndPort> liveEndpoints = new ConcurrentSkipListSet<InetAddressAndPort>();
+    final List<InetAddressAndPort> liveEndpoints = new ArrayList<>();
     public long firstSynSendAt;
 
     /* unreachable member set */
-    private ConcurrentHashMap<InetAddressAndPort, Long> unreachableEndpoints = new ConcurrentHashMap<InetAddressAndPort, Long>();
+    private List<InetAddressAndPort> unreachableEndpoints = new ArrayList<InetAddressAndPort>();
 
     /* initial seeds for joining the cluster */
-    ConcurrentSkipListSet<InetAddressAndPort> seeds = new ConcurrentSkipListSet<InetAddressAndPort>();
+    List<InetAddressAndPort> seeds = new ArrayList<>();
 
     /* map where key is the endpoint and value is the state associated with the endpoint */
     ConcurrentHashMap<InetAddressAndPort, EndPointState> endpointStateMap = new ConcurrentHashMap<InetAddressAndPort, EndPointState>();
@@ -46,13 +46,97 @@ public class Gossiper {
 
     }
 
+    private void handleNewJoin(InetAddressAndPort ep, EndPointState epState)
+    {
+        /* Mark this endpoint as "live" */
+        endpointStateMap.put(ep, epState);
+        isAlive(ep, epState, true);
+    }
+
+    synchronized void isAlive(InetAddressAndPort addr, EndPointState epState, boolean value)
+    {
+        epState.markAlive();
+        if ( value )
+        {
+            liveEndpoints.add(addr);
+            unreachableEndpoints.remove(addr);
+        }
+        else
+        {
+            liveEndpoints.remove(addr);
+            unreachableEndpoints.add(addr);
+        }
+    }
+
     public void applyStateLocally(Map<InetAddressAndPort, EndPointState> remoteEpStateMap) {
-
+        for (InetAddressAndPort inetAddressAndPort : remoteEpStateMap.keySet()) {
+            handleNewJoin(inetAddressAndPort, remoteEpStateMap.get(inetAddressAndPort));
+        }
     }
 
-    public EndPointState getStateForVersionBiggerThan(InetAddressAndPort addr, int maxVersion) {
-        return null;
+
+
+    public Map<InetAddressAndPort, EndPointState> handleGossipDigestSynAck(List<GossipDigest> gDigestList,
+                                                                           Map<InetAddressAndPort, EndPointState> epStateMap) {
+
+        if ( epStateMap.size() > 0 )
+        {
+            /* Notify the Failure Detector */
+            notifyFailureDetector(epStateMap);
+            applyStateLocally(epStateMap);
+        }
+
+        /* Get the state required to send to this gossipee - construct GossipDigestAck2Message */
+        Map<InetAddressAndPort, EndPointState> deltaEpStateMap = new HashMap<InetAddressAndPort, EndPointState>();
+        for( GossipDigest gDigest : gDigestList )
+        {
+            InetAddressAndPort addr = gDigest.getEndPoint();
+            EndPointState localEpStatePtr = getStateForVersionBiggerThan(addr, gDigest.getMaxVersion());
+            if ( localEpStatePtr != null )
+                deltaEpStateMap.put(addr, localEpStatePtr);
+        }
+        return deltaEpStateMap;
     }
+
+    synchronized EndPointState getStateForVersionBiggerThan(InetAddressAndPort forEndpoint, int version)
+    {
+        EndPointState epState = endpointStateMap.get(forEndpoint);
+        EndPointState reqdEndPointState = null;
+
+        if ( epState != null )
+        {
+            /*
+             * Here we try to include the Heart Beat state only if it is
+             * greater than the version passed in. It might happen that
+             * the heart beat version maybe lesser than the version passed
+             * in and some application state has a version that is greater
+             * than the version passed in. In this case we also send the old
+             * heart beat and throw it away on the receiver if it is redundant.
+             */
+            int localHbVersion = epState.getHeartBeatState().getHeartBeatVersion();
+            if ( localHbVersion > version )
+            {
+                reqdEndPointState = new EndPointState(epState.getHeartBeatState());
+            }
+            Map<ApplicationState, VersionedValue> appStateMap = epState.getApplicationState();
+            /* Accumulate all application states whose versions are greater than "version" variable */
+            Set<ApplicationState> keys = appStateMap.keySet();
+            for ( ApplicationState key : keys )
+            {
+                VersionedValue appState = appStateMap.get(key);
+                if ( appState.version > version )
+                {
+                    if ( reqdEndPointState == null )
+                    {
+                        reqdEndPointState = new EndPointState(epState.getHeartBeatState());
+                    }
+                    reqdEndPointState.addApplicationState(key, appState);
+                }
+            }
+        }
+        return reqdEndPointState;
+    }
+
 
     public void start(int generationNbr, Map<ApplicationState, VersionedValue> preloadLocalStates) {
         buildSeedsList();
@@ -144,7 +228,6 @@ public class Gossiper {
         }
 
         private List<GossipDigest> getGossipDigests() {
-//                logger.trace("My heartbeat is now {}", endpointStateMap.get(FBUtilities.getBroadcastAddressAndPort()).getHeartBeatState().getHeartBeatVersion());
             final List<GossipDigest> gDigests = new ArrayList<GossipDigest>();
             Gossiper.instance.makeRandomGossipDigest(gDigests);
             return gDigests;
@@ -191,7 +274,7 @@ public class Gossiper {
             double prob = unreachableEndpointCount / (liveEndpointCount + 1);
             double randDbl = random.nextDouble();
             if (randDbl < prob)
-                sendGossip(message, unreachableEndpoints.keySet());
+                sendGossip(message, unreachableEndpoints);
         }
     }
 
@@ -211,7 +294,7 @@ public class Gossiper {
      * @param epSet   a set of endpoint from which a random endpoint is chosen.
      * @return true if the chosen endpoint is also a seed.
      */
-    private boolean sendGossip(Message<GossipDigestSyn> message, Set<InetAddressAndPort> epSet)
+    private boolean sendGossip(Message<GossipDigestSyn> message, List<InetAddressAndPort> epSet)
     {
         List<InetAddressAndPort> liveEndpoints = ImmutableList.copyOf(epSet);
 

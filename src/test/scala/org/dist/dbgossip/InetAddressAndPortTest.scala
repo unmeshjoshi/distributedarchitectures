@@ -2,6 +2,7 @@ package org.dist.dbgossip
 
 import java.net.InetAddress
 
+import org.dist.util.Networks
 import org.scalatest.FunSuite
 
 class InetAddressAndPortTest extends FunSuite {

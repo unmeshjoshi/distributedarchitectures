@@ -1,5 +1,7 @@
 package org.dist.dbgossip;
 
+import org.dist.util.Networks;
+
 import java.math.BigInteger;
 import java.security.MessageDigest;
 

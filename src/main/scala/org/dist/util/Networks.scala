@@ -1,4 +1,4 @@
-package org.dist.dbgossip
+package org.dist.util
 
 import java.net.{Inet6Address, InetAddress, NetworkInterface}
 
@@ -40,9 +40,9 @@ class Networks(interfaceName: String, networkProvider: NetworkInterfaceProvider)
 
 class NetworkInterfaceProvider {
 
-  def allInterfaces: Seq[(Int, List[InetAddress])] =
-    NetworkInterface.getNetworkInterfaces.asScala.toList
-      .map(iface => (iface.getIndex, iface.getInetAddresses.asScala.toList))
+  def allInterfaces: Seq[(Int, List[InetAddress])] = {
+    NetworkInterface.getNetworkInterfaces.asScala.toList.map(iface => (iface.getIndex, iface.getInetAddresses.asScala.toList))
+  }
 
   def getInterface(interfaceName: String): Seq[(Int, List[InetAddress])] =
     Option(NetworkInterface.getByName(interfaceName)) match {

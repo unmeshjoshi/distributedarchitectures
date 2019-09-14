@@ -1,6 +1,7 @@
 package org.dist.dbgossip;
 
 import com.google.common.annotations.VisibleForTesting;
+import org.dist.util.Networks;
 
 import java.util.concurrent.atomic.AtomicInteger;
 

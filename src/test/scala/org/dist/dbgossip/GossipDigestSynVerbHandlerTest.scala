@@ -1,7 +1,6 @@
 package org.dist.dbgossip
 
 import java.math.BigInteger
-import java.net.InetAddress
 import java.util
 
 import org.scalatest.FunSuite
@@ -19,9 +18,31 @@ class GossipDigestSynVerbHandlerTest extends FunSuite {
     expectedDeltaGossipDigests.add(new GossipDigest(InetAddressAndPort.create("127.0.0.1", 8080), 1, 0))
     val expectedDeltaEndpointStates = new util.HashMap[InetAddressAndPort, EndPointState]()
 
-    assert(InetAddressAndPort.create("127.0.0.1", 8080) == InetAddressAndPort.create("127.0.0.1", 8080))
     assert(deltaGossipDigest == expectedDeltaGossipDigests)
     assert(deltaEndPointStates == expectedDeltaEndpointStates)
+  }
+
+
+  def gossipDigestSynAck(host: "127.0.0.1", port: 8080) = {
+    new GossipDigestAck(util.Arrays.asList(gossipDigest(host, port)), new util.HashMap[InetAddressAndPort, EndPointState]())
+  }
+
+  test("should send endpointstates for requested digests") {
+    val synAckResponse = gossipDigestSynAck("127.0.0.1", 8080)
+
+    val token = newToken()
+    gossiperState("127.0.0.1", 8080, token)
+
+    val requestedEndPointStates = new util.HashMap[InetAddressAndPort, EndPointState]()
+    Gossiper.instance.handleGossipDigestSynAck(synAckResponse.gDigestList, synAckResponse.epStateMap)
+
+    val expectedDeltaEndpointStates = new util.HashMap[InetAddressAndPort, EndPointState]()
+    val endpointState = new EndPointState(new HeartBeatState(1, 1))
+    val applicationState: util.Map[ApplicationState, VersionedValue] = new util.HashMap[ApplicationState, VersionedValue]()
+    applicationState.put(ApplicationState.TOKENS, new VersionedValue(token, 1))
+    expectedDeltaEndpointStates.put(InetAddressAndPort.create("127.0.0.1", 8080), endpointState)
+
+    assert(requestedEndPointStates == expectedDeltaEndpointStates)
   }
 
   private def gossiperState(host: String, port: Int, token: String) = {
@@ -32,8 +53,12 @@ class GossipDigestSynVerbHandlerTest extends FunSuite {
   }
 
   private def gossipDigestSyn(host: "127.0.0.1", port: 8080) = {
-    val digest = new GossipDigest(InetAddressAndPort.create(host, port), 1, 1)
+    val digest = gossipDigest(host, port)
     new GossipDigestSyn("cluster1", util.Arrays.asList(digest))
+  }
+
+  private def gossipDigest(host: "127.0.0.1", port: 8080) = {
+    new GossipDigest(InetAddressAndPort.create(host, port), 1, 0)
   }
 
   def newToken() = {

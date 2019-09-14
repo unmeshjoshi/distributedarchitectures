@@ -5,7 +5,8 @@ import java.util
 import java.util.UUID
 
 import com.fasterxml.jackson.annotation.{JsonAutoDetect, PropertyAccessor}
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import org.dist.dbgossip.Verb.GOSSIP_DIGEST_SYN
 import org.scalatest.FunSuite
 
@@ -28,6 +29,9 @@ class GossiperTest extends FunSuite {
     val message: Message[GossipDigestSyn] = Message.out(GOSSIP_DIGEST_SYN, digestSynMessage)
     val objectMapper = new ObjectMapper()
     objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    objectMapper.registerModule(DefaultScalaModule)
+
 
     val str = objectMapper.writeValueAsString(message)
     val deserializedMessage = objectMapper.readValue(str.getBytes(), classOf[Message[GossipDigestSyn]])
@@ -42,7 +46,6 @@ class GossiperTest extends FunSuite {
 
     val appStates = new util.EnumMap[ApplicationState, VersionedValue](classOf[ApplicationState])
     appStates.put(ApplicationState.HOST_ID, new VersionedValue(localHostId.toString, 1))
-
     endpointState.addApplicationStates(appStates)
 
     val gDigests = new util.ArrayList[GossipDigest]()
@@ -55,6 +58,8 @@ class GossiperTest extends FunSuite {
     val message: Message[GossipDigestAck] = Message.out(Verb.GOSSIP_DIGEST_ACK, digestSynMessage)
     val objectMapper = new ObjectMapper()
     objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    objectMapper.registerModule(DefaultScalaModule)
 
     val str = objectMapper.writeValueAsString(message)
     val deserializedMessage = objectMapper.readValue(str.getBytes(), classOf[Message[GossipDigestAck]])
@@ -81,6 +86,8 @@ class GossiperTest extends FunSuite {
     val message: Message[GossipDigestAck2] = Message.out(Verb.GOSSIP_DIGEST_ACK2, digestSynMessage)
     val objectMapper = new ObjectMapper()
     objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    objectMapper.registerModule(DefaultScalaModule)
 
     val str = objectMapper.writeValueAsString(message)
     val deserializedMessage = objectMapper.readValue(str.getBytes(), classOf[Message[GossipDigestAck2]])

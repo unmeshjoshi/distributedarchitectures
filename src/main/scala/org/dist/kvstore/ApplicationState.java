@@ -15,26 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.dist.dbgossip;
+package org.dist.kvstore;
 
-import java.util.List;
-
-public class GossipDigestSyn
+public enum ApplicationState
 {
-    String clusterId;
-    List<GossipDigest> gDigests;
-
-    public GossipDigestSyn() {
-    }
-
-    public GossipDigestSyn(String clusterId, List<GossipDigest> gDigests)
-    {
-        this.clusterId = clusterId;
-        this.gDigests = gDigests;
-    }
-
-    List<GossipDigest> getGossipDigests()
-    {
-        return gDigests;
-    }
+    LOAD,
+    SCHEMA,
+    DC,
+    RACK,
+    RELEASE_VERSION,
+    REMOVAL_COORDINATOR,
+    @Deprecated INTERNAL_IP, //Deprecated and unused in 4.0, stop publishing in 5.0, reclaim in 6.0
+    @Deprecated RPC_ADDRESS, // ^ Same
+    HOST_ID,
+    TOKENS
 }

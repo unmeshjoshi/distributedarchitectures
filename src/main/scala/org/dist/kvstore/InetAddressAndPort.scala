@@ -1,6 +1,8 @@
-package org.dist.dbgossip
+package org.dist.kvstore
 
 import java.net.InetAddress
+
+import org.dist.dbgossip.Json
 
 import scala.collection.JavaConverters._
 
@@ -9,9 +11,9 @@ object InetAddressAndPort {
   private val PortKey = "port"
   private val TimestampKey = "timestamp"
 
-  def deserialize(bytes: Array[Byte]): Option[InetAddressAndPort] = {
+  def deserialize(bytes:Array[Byte]): Option[InetAddressAndPort] = {
     val maybeValue = Json.parseBytes(bytes)
-    maybeValue.map(jsonValue ⇒ {
+    maybeValue.map(jsonValue⇒ {
       val jsonObject = jsonValue.asJsonObject
       val hostIp = jsonObject(HostKey).to[String]
       val port = jsonObject(PortKey).to[Int]
@@ -19,20 +21,21 @@ object InetAddressAndPort {
     })
   }
 
-  def create(hostIp: String, port: Int) = {
+  def create(hostIp:String, port:Int) = {
     InetAddressAndPort(InetAddress.getByName(hostIp), port)
   }
 }
 
 case class InetAddressAndPort(address: InetAddress, port: Int) {
+  def this() {
+    this(null, 0)
+  }
+
   import InetAddressAndPort._
+
   var defaultPort: Int = 7000
 
   def withPort(port: Int) = new InetAddressAndPort(address, port)
-
-  def serialize(): Array[Byte] = {
-    toJsonBytes()
-  }
 
   def toJsonBytes(): Array[Byte] = {
     val jsonMap = collection.mutable.Map(
@@ -41,6 +44,10 @@ case class InetAddressAndPort(address: InetAddress, port: Int) {
       TimestampKey -> System.currentTimeMillis().toString
     )
     Json.encodeAsBytes(jsonMap.asJava)
+  }
+
+  def serialize():Array[Byte] = {
+    toJsonBytes()
   }
 }
 
