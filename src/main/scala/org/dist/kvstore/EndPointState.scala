@@ -4,8 +4,6 @@ import java.util
 import java.util.{Collections, Map}
 import scala.collection.JavaConverters._
 
-import org.dist.dbgossip.{ApplicationState, VersionedValue}
-
 case class EndPointState(heartBeatState: HeartBeatState, applicationStates:Map[ApplicationState, VersionedValue]) {
   def addApplicationState(key: ApplicationState, value: VersionedValue): EndPointState = {
     addApplicationStates(Collections.singletonMap(key, value))

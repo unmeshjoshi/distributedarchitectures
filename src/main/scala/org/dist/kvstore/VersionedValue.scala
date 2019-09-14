@@ -1,3 +1,3 @@
 package org.dist.kvstore
 
-case class VersionedValue(int:Int, value:String)
+case class VersionedValue(value:String, version:Int = VersionGenerator.getNextVersion) {}
