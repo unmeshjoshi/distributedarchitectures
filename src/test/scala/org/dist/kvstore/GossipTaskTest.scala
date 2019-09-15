@@ -69,14 +69,14 @@ class GossipTaskTest extends FunSuite {
     val gossiper = new Gossiper(1, localEndpoint,
       DatabaseConfiguration(seeds), executor, messagingService)
 
-    assert(0 == VersionGenerator.currentVersion)
+    assert(0 == gossiper.versionGenerator.currentVersion)
 
     val gossipTask = new gossiper.GossipTask()
     gossipTask.run()
 
     val endPointState = gossiper.endpointStatemap.get(localEndpoint)
-    assert(VersionGenerator.currentVersion > 0)
-    assert(VersionGenerator.currentVersion == endPointState.heartBeatState.version)
+    assert(gossiper.versionGenerator.currentVersion > 0)
+    assert(gossiper.versionGenerator.currentVersion == endPointState.heartBeatState.version)
   }
 
 

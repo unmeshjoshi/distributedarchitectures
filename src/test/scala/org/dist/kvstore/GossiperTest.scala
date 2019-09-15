@@ -42,7 +42,7 @@ class GossiperTest extends FunSuite {
 
     val localState: EndPointState = gossiper.endpointStatemap.get(localEndpoint)
     assert(localState.heartBeatState.generation == generationNbr)
-    assert(localState.heartBeatState.version == VersionGenerator.currentVersion)
+    assert(localState.heartBeatState.version == gossiper.versionGenerator.currentVersion)
     assert(localState.applicationStates.isEmpty)
   }
 
@@ -92,7 +92,7 @@ class GossiperTest extends FunSuite {
     val node1 = InetAddressAndPort.create("127.0.0.1", 8001)
     gossiper.liveEndpoints.add(node1)
     //Adding application state should increment version to 1
-    val ep = EndPointState(HeartBeatState(1, VersionGenerator.getNextVersion), Map(ApplicationState.TOKENS → VersionedValue("1001")).asJava)
+    val ep = EndPointState(HeartBeatState(1, gossiper.versionGenerator.incrementAndGetVersion), Map(ApplicationState.TOKENS → VersionedValue("1001", gossiper.versionGenerator.incrementAndGetVersion)).asJava)
     gossiper.endpointStatemap.put(node1, ep)
 
     val node2 = InetAddressAndPort.create("127.0.0.1", 8002)
@@ -119,7 +119,7 @@ class GossiperTest extends FunSuite {
     val node1 = InetAddressAndPort.create("127.0.0.1", 8001)
     gossiper.liveEndpoints.add(node1)
     //Adding application state should increment version to 1
-    val ep = EndPointState(HeartBeatState(1, VersionGenerator.getNextVersion), Map(ApplicationState.TOKENS → VersionedValue("1001")).asJava)
+    val ep = EndPointState(HeartBeatState(1, gossiper.versionGenerator.incrementAndGetVersion), Map(ApplicationState.TOKENS → VersionedValue("1001", gossiper.versionGenerator.incrementAndGetVersion)).asJava)
     gossiper.endpointStatemap.put(node1, ep)
 
     val node2 = InetAddressAndPort.create("127.0.0.1", 8002)

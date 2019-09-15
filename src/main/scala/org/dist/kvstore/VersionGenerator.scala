@@ -2,9 +2,10 @@ package org.dist.kvstore
 
 import java.util.concurrent.atomic.AtomicInteger
 
-object VersionGenerator {
+//needs to be singleton per server instance along with Gossiper
+class VersionGenerator {
   private val version = new AtomicInteger(0)
-  def getNextVersion: Int = version.incrementAndGet
+  def incrementAndGetVersion: Int = version.incrementAndGet
 
   def currentVersion = version.get()
 

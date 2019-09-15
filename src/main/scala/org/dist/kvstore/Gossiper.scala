@@ -23,7 +23,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
 
   def applyStateLocally(epStateMap: util.Map[InetAddressAndPort, EndPointState]) = {}
 
-
+  private[kvstore] val versionGenerator = new VersionGenerator()
   private[kvstore] val logger = LoggerFactory.getLogger(classOf[Gossiper])
 
   private[kvstore] val seeds = config.nonLocalSeeds(localEndPoint)
@@ -225,7 +225,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
     private def updateLocalHeartbeatCounter = {
       /* Update the local heartbeat counter. */
       val state = endpointStatemap.get(localEndPoint)
-      val newState = state.copy(state.heartBeatState.updateVersion())
+      val newState = state.copy(state.heartBeatState.updateVersion(versionGenerator.incrementAndGetVersion))
       endpointStatemap.put(localEndPoint, newState)
     }
   }

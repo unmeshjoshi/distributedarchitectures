@@ -22,7 +22,6 @@ public class EndPointState {
     private Map<ApplicationState, VersionedValue> applicationState;
 
     /* fields below do not get serialized */
-    private volatile long updateTimestamp;
     private volatile boolean isAlive;
 
     //For json serdes
@@ -36,7 +35,6 @@ public class EndPointState {
     EndPointState(HeartBeatState initialHbState, Map<ApplicationState, VersionedValue> states) {
         hbState = initialHbState;
         applicationState = new EnumMap<>(states);
-        updateTimestamp = System.nanoTime();
         isAlive = true;
     }
 
@@ -47,10 +45,6 @@ public class EndPointState {
 
     void markDead() {
         isAlive = false;
-    }
-
-    public long getUpdateTimestamp() {
-        return updateTimestamp;
     }
 
     public void addApplicationState(ApplicationState key, VersionedValue value) {
@@ -103,15 +97,14 @@ public class EndPointState {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         EndPointState that = (EndPointState) o;
-        return updateTimestamp == that.updateTimestamp &&
-                isAlive == that.isAlive &&
+        return  isAlive == that.isAlive &&
                 hbState.equals(that.hbState) &&
                 applicationState.equals(that.applicationState);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(hbState, applicationState, updateTimestamp, isAlive);
+        return Objects.hash(hbState, applicationState, isAlive);
     }
 
     public Map<ApplicationState, VersionedValue> getApplicationState() {

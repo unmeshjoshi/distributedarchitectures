@@ -4,6 +4,7 @@ import org.scalatest.FunSuite
 
 class VersionGeneratorTest extends FunSuite {
   test("should increment version on every call") {
-    assert(VersionGenerator.getNextVersion < VersionGenerator.getNextVersion)
+    val versionGenerator = new VersionGenerator
+    assert(versionGenerator.incrementAndGetVersion < versionGenerator.incrementAndGetVersion)
   }
 }

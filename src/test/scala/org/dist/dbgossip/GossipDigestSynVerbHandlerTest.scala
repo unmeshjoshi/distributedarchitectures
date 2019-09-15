@@ -33,13 +33,13 @@ class GossipDigestSynVerbHandlerTest extends FunSuite {
     val token = newToken()
     gossiperState("127.0.0.1", 8080, token)
 
-    val requestedEndPointStates = new util.HashMap[InetAddressAndPort, EndPointState]()
-    Gossiper.instance.handleGossipDigestSynAck(synAckResponse.gDigestList, synAckResponse.epStateMap)
+    val requestedEndPointStates = Gossiper.instance.handleGossipDigestSynAck(synAckResponse.gDigestList, synAckResponse.epStateMap)
 
     val expectedDeltaEndpointStates = new util.HashMap[InetAddressAndPort, EndPointState]()
     val endpointState = new EndPointState(new HeartBeatState(1, 1))
     val applicationState: util.Map[ApplicationState, VersionedValue] = new util.HashMap[ApplicationState, VersionedValue]()
     applicationState.put(ApplicationState.TOKENS, new VersionedValue(token, 1))
+    endpointState.addApplicationStates(applicationState)
     expectedDeltaEndpointStates.put(InetAddressAndPort.create("127.0.0.1", 8080), endpointState)
 
     assert(requestedEndPointStates == expectedDeltaEndpointStates)

@@ -1,5 +1,5 @@
 package org.dist.kvstore
 
 case class HeartBeatState(generation:Int, version:Int) {
-  def updateVersion() = HeartBeatState(generation, VersionGenerator.getNextVersion)
+  def updateVersion(version:Int) = HeartBeatState(generation, version)
 }
