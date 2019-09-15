@@ -85,23 +85,73 @@ class GossipTaskTest extends FunSuite {
     val messagingService = new TestMessagingService
     val localEndpoint = InetAddressAndPort.create("127.0.0.1", 8000)
 
-    val gossiper = new Gossiper(1, localEndpoint,
-      DatabaseConfiguration(seeds), executor, messagingService)
+    val liveMembers = util.Arrays.asList(InetAddressAndPort.create("127.0.0.1", 8002))
 
-    assert(0 == VersionGenerator.currentVersion)
+    val gossiper = new Gossiper(1, localEndpoint,
+      DatabaseConfiguration(seeds), executor, messagingService, liveMembers)
 
     val gossipTask = new gossiper.GossipTask()
     gossipTask.run()
 
-    val endPointState = gossiper.endpointStatemap.get(localEndpoint)
-    assert(VersionGenerator.currentVersion > 0)
-    assert(VersionGenerator.currentVersion == endPointState.heartBeatState.version)
-
+    assert(messagingService.toAddress.contains(InetAddressAndPort.create("127.0.0.1", 8002)))
   }
 
-  //sendgossip to random live members
-  //send gossip to unreachable
-  //send gossip to seed
+  test("should not send gossip message if only seed is self") {
+    val seeds = Set(InetAddressAndPort.create("127.0.0.1", 8000))
+    val executor = new TestScheduledThreadPoolExecutor
+    val messagingService = new TestMessagingService
+    val localEndpoint = InetAddressAndPort.create("127.0.0.1", 8000)
+
+    val liveMembers = util.Collections.emptyList[InetAddressAndPort]()
+
+    val gossiper = new Gossiper(1, localEndpoint,
+      DatabaseConfiguration(seeds), executor, messagingService, liveMembers)
+
+    val gossipTask = new gossiper.GossipTask()
+    gossipTask.run()
+
+    assert(messagingService.toAddress.isEmpty)
+  }
+
+  test("should send gossip message to unreachable members") {
+    val seeds = Set(InetAddressAndPort.create("127.0.0.1", 8000))
+    val executor = new TestScheduledThreadPoolExecutor
+    val messagingService = new TestMessagingService
+    val localEndpoint = InetAddressAndPort.create("127.0.0.1", 8000)
+
+    val liveMembers = util.Collections.emptyList[InetAddressAndPort]()
+    val unreachableMembers = util.Arrays.asList(InetAddressAndPort.create("127.0.0.1", 9999))
+
+    val gossiper = new Gossiper(1, localEndpoint,
+      DatabaseConfiguration(seeds), executor, messagingService, liveMembers, unreachableMembers)
+
+    val gossipTask = new gossiper.GossipTask()
+    gossipTask.run()
+
+    assert(messagingService.toAddress.contains(InetAddressAndPort.create("127.0.0.1", 9999)))
+  }
+
+  test("should send gossip message to seed if live members list does not have seed members and seed is not self") {
+    val seeds = Set(InetAddressAndPort.create("127.0.0.1", 8000))
+    val executor = new TestScheduledThreadPoolExecutor
+    val messagingService = new TestMessagingService
+    val localEndpoint = InetAddressAndPort.create("127.0.0.1", 8001)
+
+    val liveMembers = util.Collections.emptyList[InetAddressAndPort]()
+
+    val gossiper = new Gossiper(1, localEndpoint,
+      DatabaseConfiguration(seeds), executor, messagingService)
+
+    val gossipTask = new gossiper.GossipTask()
+    gossipTask.run()
+
+    assert(messagingService.toAddress.contains(InetAddressAndPort.create("127.0.0.1", 8000)))
+  }
+
+
+  //sendgossip to random live members - Done
+  //send gossip to unreachable - Done
+  //send gossip to seed - Done
   //handle gossipsyn message
   //handle gossipsynack message
   //handle gossipsynack2 message
