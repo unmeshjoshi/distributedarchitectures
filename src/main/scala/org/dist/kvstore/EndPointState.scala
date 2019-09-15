@@ -2,9 +2,10 @@ package org.dist.kvstore
 
 import java.util
 import java.util.{Collections, Map}
+
 import scala.collection.JavaConverters._
 
-case class EndPointState(heartBeatState: HeartBeatState, applicationStates:Map[ApplicationState, VersionedValue]) {
+case class EndPointState(heartBeatState: HeartBeatState, applicationStates:Map[ApplicationState, VersionedValue] = new util.EnumMap[ApplicationState, VersionedValue](classOf[ApplicationState])) {
   def addApplicationState(key: ApplicationState, value: VersionedValue): EndPointState = {
     addApplicationStates(Collections.singletonMap(key, value))
   }

@@ -1,5 +1,7 @@
 package org.dist.kvstore
 
+import java.util.concurrent.ScheduledThreadPoolExecutor
+
 import org.dist.dbgossip.{Stage, Verb}
 import org.scalatest.FunSuite
 
@@ -99,10 +101,10 @@ class GossiperTest extends FunSuite {
 
     val digests = new gossiper.GossipDigestBuilder().makeRandomGossipDigest()
     val node1Digest = digests.asScala.filter(digest ⇒ digest.endPoint == node1)
-    assert(node1Digest(0).version == 2)
+    assert(node1Digest(0).maxVersion == 2)
 
     val localDigest = digests.asScala.filter(digest ⇒ digest.endPoint == localEndpoint)
-    assert(localDigest(0).version == 0)
+    assert(localDigest(0).maxVersion == 0)
   }
 
   test("should construct GossipSynMessage with Gossip digests") {

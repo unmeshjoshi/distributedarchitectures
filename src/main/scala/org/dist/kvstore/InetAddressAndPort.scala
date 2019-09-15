@@ -21,20 +21,20 @@ object InetAddressAndPort {
     })
   }
 
+  //FIXME: Remove this.
   def create(hostIp:String, port:Int) = {
     InetAddressAndPort(InetAddress.getByName(hostIp), port)
   }
 }
 
 case class InetAddressAndPort(address: InetAddress, port: Int) {
-  def this() {
-    this(null, 0)
-  }
-
   import InetAddressAndPort._
 
   var defaultPort: Int = 7000
 
+  def this(hostIp:String, port:Int) = {
+    this(InetAddress.getByName(hostIp), port)
+  }
   def withPort(port: Int) = new InetAddressAndPort(address, port)
 
   def toJsonBytes(): Array[Byte] = {
