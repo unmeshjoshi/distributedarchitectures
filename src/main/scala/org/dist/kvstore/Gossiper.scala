@@ -9,6 +9,8 @@ import org.dist.dbgossip.{Stage, Verb}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
+import scala.util.control.Breaks
+import scala.util.control.Breaks.breakable
 
 
 class Gossiper(private[kvstore] val generationNbr: Int,
@@ -21,7 +23,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
 
   def notifyFailureDetector(epStateMap: util.Map[InetAddressAndPort, EndPointState]) = {}
 
-  def applyStateLocally(epStateMap: util.Map[InetAddressAndPort, EndPointState]) = {}
+
 
   private[kvstore] val versionGenerator = new VersionGenerator()
   private[kvstore] val logger = LoggerFactory.getLogger(classOf[Gossiper])
@@ -48,6 +50,89 @@ class Gossiper(private[kvstore] val generationNbr: Int,
   def start() = {
     messagingService.init(this)
     executor.scheduleAtFixedRate(new GossipTask, intervalMillis, intervalMillis, TimeUnit.MILLISECONDS)
+  }
+
+  def applyStateLocally(epStateMap: util.Map[InetAddressAndPort, EndPointState]): Unit = this.synchronized {
+    val eps = epStateMap.keySet.asScala
+    for(ep ← eps) {
+      breakable {
+        if (ep == localEndPoint)
+          Breaks.break()
+
+        val localEpStatePtr = endpointStatemap.get(ep)
+        val remoteState = epStateMap.get(ep)
+        /*
+                If state does not exist just add it. If it does then add it only if the version
+                of the remote copy is greater than the local copy.
+            */
+        if (localEpStatePtr != null) {
+          val localGeneration: Int = localEpStatePtr.heartBeatState.generation
+          val remoteGeneration: Int = remoteState.heartBeatState.generation
+          if (remoteGeneration > localGeneration)
+            handleNewJoin(ep, remoteState)
+          else if (remoteGeneration == localGeneration) {
+            /* manage the membership state */
+            val localMaxVersion = localEpStatePtr.getMaxEndPointStateVersion()
+            val remoteMaxVersion = remoteState.getMaxEndPointStateVersion()
+            if (remoteMaxVersion > localMaxVersion) {
+              resusitate(ep, localEpStatePtr)
+              val newHeartbeatState = applyHeartBeatStateLocally(ep, localEpStatePtr, remoteState)
+              //TODO This has to be implemented
+              /* apply ApplicationState */
+//              applyApplicationStateLocally(ep, localEpStatePtr, remoteState)
+            }
+          }
+        } else {
+          handleNewJoin(ep, remoteState)
+        }
+      }
+    }
+  }
+
+  private[kvstore] def applyHeartBeatStateLocally(addr: InetAddressAndPort, localState: EndPointState, remoteState: EndPointState): Unit = {
+    val localHbState = localState.heartBeatState
+    val remoteHbState = remoteState.heartBeatState
+    if (remoteHbState.generation > localHbState.generation) {
+      resusitate(addr, localState)
+      return localState.copy(remoteHbState)
+    }
+    if (localHbState.generation == remoteHbState.generation) {
+      if (remoteHbState.version > localHbState.version) {
+        val oldVersion = localHbState.version
+
+        logger.debug("Updating heartbeat state version to " + localState.heartBeatState.version + " from " + oldVersion + " for " + addr + " ...")
+        return localState.copy(remoteHbState)
+      }
+    }
+    localState
+  }
+
+  def resusitate (addr: InetAddressAndPort, localState: EndPointState) {
+    logger.debug("Attempting to resusitate " + addr)
+    isAlive(addr, localState, true)
+    logger.info("EndPoint " + addr + " is now UP")
+  }
+
+  def doNotifications(ep: InetAddressAndPort, epState: EndPointState): Unit = {
+    println(s"notifications for ${ep} ${epState}")
+  }
+
+  private def handleNewJoin(ep: InetAddressAndPort, epState: EndPointState): Unit = {
+    logger.info("Node " + ep + " has now joined.")
+    /* Mark this endpoint as "live" */ endpointStatemap.put(ep, epState)
+    isAlive(ep, epState, true)
+    /* Notify interested parties about endpoint state change */ doNotifications(ep, epState)
+  }
+
+  private[kvstore] def isAlive(addr: InetAddressAndPort, epState: EndPointState, value: Boolean): Unit = {
+    if (value) {
+      liveEndpoints.add(addr)
+      unreachableEndpoints.remove(addr)
+    }
+    else {
+      liveEndpoints.remove(addr)
+      unreachableEndpoints.add(addr)
+    }
   }
 
   private def log(gDigests: util.List[GossipDigest]) = {
@@ -82,7 +167,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
 
   private[kvstore] def getStateForVersionBiggerThan(forEndpoint: InetAddressAndPort, version: Int) = {
     val epState = endpointStatemap.get(forEndpoint)
-    var reqdEndPointState: EndPointState = null
+    var reqdEndPointState:EndPointState = null
     if (epState != null) {
       /*
                   * Here we try to include the Heart Beat state only if it is
@@ -149,9 +234,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
               sendAll(gDigest, deltaEpStateMap, maxRemoteVersion)
           }
         }
-        else /* We are here since we have no data for this endpoint locally so request everthing. */ {
-          requestAll(gDigest, deltaGossipDigestList, remoteGeneration)
-        }
+        else /* We are here since we have no data for this endpoint locally so request everthing. */ requestAll(gDigest, deltaGossipDigestList, remoteGeneration)
       }
     }
   }
