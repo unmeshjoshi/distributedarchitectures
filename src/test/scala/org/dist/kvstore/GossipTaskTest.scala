@@ -51,6 +51,8 @@ class GossipTaskTest extends FunSuite {
     assert(executor.delay == 1000)
     assert(executor.period == 1000)
     assert(executor.unit == TimeUnit.MILLISECONDS)
+
+    assert(messagingService.gossiper == gossiper)
   }
 
   test("should increment heartbeat counter when run") {

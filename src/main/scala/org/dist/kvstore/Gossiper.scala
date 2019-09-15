@@ -19,6 +19,11 @@ class Gossiper(private[kvstore] val generationNbr: Int,
                private[kvstore] val liveEndpoints: util.List[InetAddressAndPort] = new util.ArrayList[InetAddressAndPort],
                private[kvstore] val unreachableEndpoints: util.List[InetAddressAndPort] = new util.ArrayList[InetAddressAndPort]) {
 
+  def notifyFailureDetector(epStateMap: util.Map[InetAddressAndPort, EndPointState]) = {}
+
+  def applyStateLocally(epStateMap: util.Map[InetAddressAndPort, EndPointState]) = {}
+
+
   private[kvstore] val logger = LoggerFactory.getLogger(classOf[Gossiper])
 
   private[kvstore] val seeds = config.nonLocalSeeds(localEndPoint)
@@ -41,6 +46,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
   }
 
   def start() = {
+    messagingService.init(this)
     executor.scheduleAtFixedRate(new GossipTask, intervalMillis, intervalMillis, TimeUnit.MILLISECONDS)
   }
 
@@ -229,6 +235,25 @@ class Gossiper(private[kvstore] val generationNbr: Int,
       val gDigestMessage = new GossipDigestSyn(config.getClusterName(), gDigests)
       val header = Header(localEndPoint, Stage.GOSSIP, Verb.GOSSIP_DIGEST_SYN)
       Message(header, JsonSerDes.serialize(gDigestMessage))
+    }
+  }
+
+  class GossipSynAckMessageBuilder {
+
+    def makeGossipDigestAckMessage(deltaGossipDigest:util.ArrayList[GossipDigest],  deltaEndPointStates:util.Map[InetAddressAndPort, EndPointState]) = {
+      val gossipDigestAck = GossipDigestAck(deltaGossipDigest, deltaEndPointStates)
+      val header = Header(localEndPoint, Stage.GOSSIP, Verb.GOSSIP_DIGEST_ACK)
+      Message(header, JsonSerDes.serialize(gossipDigestAck))
+    }
+  }
+
+
+  class GossipAck2MessageBuilder {
+
+    def makeGossipDigestAck2Message(deltaEndPointStates:util.Map[InetAddressAndPort, EndPointState]) = {
+      val gossipDigestAck2 = GossipDigestAck2(deltaEndPointStates)
+      val header = Header(localEndPoint, Stage.GOSSIP, Verb.GOSSIP_DIGEST_ACK2)
+      Message(header, JsonSerDes.serialize(gossipDigestAck2))
     }
   }
 

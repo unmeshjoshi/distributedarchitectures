@@ -9,7 +9,8 @@ import org.scalatest.FunSuite
 
 class GossipMessageHandlingTests extends FunSuite {
   /**
-   * initial gossipdigest empty endpoint state
+   * initial gossipdigest empty endpoint state - Done
+   *#TODO
    * endpoint state having same generation same version
    * endpoint state having same generation lower version
    * endpoint state having same generation higher version
@@ -32,7 +33,6 @@ class GossipMessageHandlingTests extends FunSuite {
     assert(deltaGossipDigest.get(0) == digest1)
     assert(deltaGossipDigest.get(1) == digest2)
   }
-
 
 
   private def gossipDigestSyn(host: String, port: Int) = {
