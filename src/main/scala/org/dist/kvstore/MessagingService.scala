@@ -15,7 +15,11 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
       val socket = serverSocket.accept()
       val inputStream = socket.getInputStream()
       val messageBytes = inputStream.readAllBytes()
+      println(s"Got message from ${socket.getInetAddress} ${messageBytes}")
+
       val message = JsonSerDes.deserialize(messageBytes, classOf[Message])
+
+      println(s"Got message from ${message.header.from} ${message}")
 
       inputStream.close()
       socket.close()
@@ -85,6 +89,9 @@ class MessagingService() {
       val serializedMessage = JsonSerDes.serialize(message)
       val outputStream = clientSocket.getOutputStream()
       outputStream.write(serializedMessage.getBytes)
+      outputStream.flush()
+      outputStream.close()
+
     } finally {
       clientSocket.close()
     }

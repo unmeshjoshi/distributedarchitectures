@@ -294,7 +294,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
       else random.nextInt(size)
       val to = liveEndPoints.get(index)
       println("Sending a GossipDigestSynMessage to " + to + " ..." + "from " + message.header.from)
-      messagingService.sendUdpOneWay(message, to)
+      messagingService.sendTcpOneWay(message, to)
       seeds.contains(to)
     }
 
