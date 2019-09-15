@@ -130,6 +130,13 @@ class GossiperTest extends FunSuite {
     assert(message.header.from == localEndpoint)
     assert(message.header.messageType == Stage.GOSSIP)
     assert(message.header.verb == Verb.GOSSIP_DIGEST_SYN)
-    assert(JsonSerDes.deserialize(message.payloadJson.getBytes, classOf[GossipDigestSyn]) != null)
+
+    //val messerSer = JsonSerDes.serialize(message)
+    val messerSer = "Message(Header(InetAddressAndPort(/192.168.0.120,8001),GOSSIP,GOSSIP_DIGEST_SYN),{\"clusterName\":\"TestCluster\",\"gDigests\":[{\"endPoint\":{\"port\":8001,\"address\":\"192.168.0.120\",\"defaultPort\":7000},\"generation\":1,\"maxVersion\":2}]})"
+
+    val message1 = JsonSerDes.deserialize(messerSer.getBytes, classOf[Message])
+
+
+    assert(JsonSerDes.deserialize(message1.payloadJson.getBytes, classOf[GossipDigestSyn]) != null)
   }
 }

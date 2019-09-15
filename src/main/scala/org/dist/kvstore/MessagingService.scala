@@ -3,6 +3,8 @@ package org.dist.kvstore
 import java.net.{InetSocketAddress, ServerSocket, Socket}
 import java.util
 
+import org.dist.dbgossip.Verb
+
 import scala.collection.JavaConverters._
 
 class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingService: MessagingService) extends Thread {
@@ -15,11 +17,20 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
       val socket = serverSocket.accept()
       val inputStream = socket.getInputStream()
       val messageBytes = inputStream.readAllBytes()
-      println(s"Got message from ${socket.getInetAddress} ${messageBytes}")
+      println(s"Got message ${new String(messageBytes)}")
 
       val message = JsonSerDes.deserialize(messageBytes, classOf[Message])
 
-      println(s"Got message from ${message.header.from} ${message}")
+      if(message.header.verb == Verb.GOSSIP_DIGEST_SYN) {
+        new GossipDigestSynHandler(gossiper, messagingService).handleMessage(message)
+
+      } else if (message.header.verb == Verb.GOSSIP_DIGEST_ACK) {
+        new GossipDigestSynAckHandler(gossiper, messagingService).handleMessage(message)
+
+      } else if (message.header.verb == Verb.GOSSIP_DIGEST_ACK2) {
+        new GossipDigestAck2Handler(gossiper, messagingService).handleMessage(message)
+      }
+
 
       inputStream.close()
       socket.close()
@@ -43,7 +54,7 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
   class GossipDigestSynAckHandler(gossiper: Gossiper, messagingService: MessagingService) {
     def handleMessage(synAckMessage: Message): Unit = {
       val gossipDigestSynAck = JsonSerDes.deserialize(synAckMessage.payloadJson.getBytes, classOf[GossipDigestAck])
-      val epStateMap = gossipDigestSynAck.epStateMap
+      val epStateMap = gossipDigestSynAck.stateMap.asJava
       if (epStateMap.size() > 0) {
         gossiper.notifyFailureDetector(epStateMap)
         gossiper.applyStateLocally(epStateMap)
@@ -52,7 +63,7 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
       /* Get the state required to send to this gossipee - construct GossipDigestAck2Message */
       val deltaEpStateMap = new util.HashMap[InetAddressAndPort, EndPointState]
 
-      for (gDigest <- gossipDigestSynAck.gDigestList.asScala) {
+      for (gDigest <- gossipDigestSynAck.digestList) {
         val addr = gDigest.endPoint
         val localEpStatePtr = gossiper.getStateForVersionBiggerThan(addr, gDigest.maxVersion)
         if (localEpStatePtr != null) deltaEpStateMap.put(addr, localEpStatePtr)
@@ -66,7 +77,7 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
   class GossipDigestAck2Handler(gossiper: Gossiper, messagingService: MessagingService) {
     def handleMessage(ack2Message: Message): Unit = {
       val gossipDigestAck2 = JsonSerDes.deserialize(ack2Message.payloadJson.getBytes, classOf[GossipDigestAck2])
-      val epStateMap = gossipDigestAck2.epStateMap
+      val epStateMap = gossipDigestAck2.stateMap
       gossiper.notifyFailureDetector(epStateMap)
       gossiper.applyStateLocally(epStateMap)
     }
@@ -80,6 +91,7 @@ class MessagingService() {
     this.gossiper = gossiper
   }
   def listen(localEp: InetAddressAndPort): Unit = {
+    assert(gossiper != null)
     new TcpListener(localEp, gossiper, this).start()
   }
 

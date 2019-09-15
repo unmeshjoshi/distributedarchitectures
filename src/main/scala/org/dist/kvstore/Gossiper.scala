@@ -21,6 +21,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
                private[kvstore] val liveEndpoints: util.List[InetAddressAndPort] = new util.ArrayList[InetAddressAndPort],
                private[kvstore] val unreachableEndpoints: util.List[InetAddressAndPort] = new util.ArrayList[InetAddressAndPort]) {
 
+
   def notifyFailureDetector(epStateMap: util.Map[InetAddressAndPort, EndPointState]) = {}
 
 
@@ -45,10 +46,10 @@ class Gossiper(private[kvstore] val generationNbr: Int,
       localState = EndPointState(hbState, Collections.emptyMap())
       endpointStatemap.put(localEndPoint, localState)
     }
+    messagingService.init(this)
   }
 
   def start() = {
-    messagingService.init(this)
     executor.scheduleAtFixedRate(new GossipTask, intervalMillis, intervalMillis, TimeUnit.MILLISECONDS)
   }
 
@@ -118,9 +119,11 @@ class Gossiper(private[kvstore] val generationNbr: Int,
   }
 
   private def handleNewJoin(ep: InetAddressAndPort, epState: EndPointState): Unit = {
-    logger.info("Node " + ep + " has now joined.")
-    /* Mark this endpoint as "live" */ endpointStatemap.put(ep, epState)
+    println("Node " + ep + " has now joined.")
+    /* Mark this endpoint as "live" */
+    endpointStatemap.put(ep, epState)
     isAlive(ep, epState, true)
+    println(s"Enpoint State Map for ${localEndPoint} is ${endpointStatemap}")
     /* Notify interested parties about endpoint state change */ doNotifications(ep, epState)
   }
 
@@ -234,7 +237,9 @@ class Gossiper(private[kvstore] val generationNbr: Int,
               sendAll(gDigest, deltaEpStateMap, maxRemoteVersion)
           }
         }
-        else /* We are here since we have no data for this endpoint locally so request everthing. */ requestAll(gDigest, deltaGossipDigestList, remoteGeneration)
+        else { /* We are here since we have no data for this endpoint locally so request everthing. */
+          requestAll(gDigest, deltaGossipDigestList, remoteGeneration)
+        }
       }
     }
   }
@@ -289,7 +294,8 @@ class Gossiper(private[kvstore] val generationNbr: Int,
     //@return true if the chosen endpoint is also a seed.
     private def sendGossip(message: Message, epSet: util.List[InetAddressAndPort]) = {
       val size = epSet.size
-      /* Generate a random number from 0 -> size */ val liveEndPoints = new util.ArrayList[InetAddressAndPort](epSet)
+      /* Generate a random number from 0 -> size */
+      val liveEndPoints = new util.ArrayList[InetAddressAndPort](epSet)
       val index = if (size == 1) 0
       else random.nextInt(size)
       val to = liveEndPoints.get(index)
@@ -324,7 +330,8 @@ class Gossiper(private[kvstore] val generationNbr: Int,
   class GossipSynAckMessageBuilder {
 
     def makeGossipDigestAckMessage(deltaGossipDigest:util.ArrayList[GossipDigest],  deltaEndPointStates:util.Map[InetAddressAndPort, EndPointState]) = {
-      val gossipDigestAck = GossipDigestAck(deltaGossipDigest, deltaEndPointStates)
+      val map = deltaEndPointStates.asScala.toMap
+      val gossipDigestAck = GossipDigestAck.create(deltaGossipDigest.asScala.toList, map)
       val header = Header(localEndPoint, Stage.GOSSIP, Verb.GOSSIP_DIGEST_ACK)
       Message(header, JsonSerDes.serialize(gossipDigestAck))
     }
@@ -334,7 +341,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
   class GossipAck2MessageBuilder {
 
     def makeGossipDigestAck2Message(deltaEndPointStates:util.Map[InetAddressAndPort, EndPointState]) = {
-      val gossipDigestAck2 = GossipDigestAck2(deltaEndPointStates)
+      val gossipDigestAck2 = GossipDigestAck2.create(deltaEndPointStates.asScala.toMap)
       val header = Header(localEndPoint, Stage.GOSSIP, Verb.GOSSIP_DIGEST_ACK2)
       Message(header, JsonSerDes.serialize(gossipDigestAck2))
     }
