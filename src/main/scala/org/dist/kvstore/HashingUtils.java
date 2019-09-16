@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.dist.dbgossip;
+package org.dist.kvstore;
 
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hasher;

@@ -3,8 +3,6 @@ package org.dist.kvstore
 import java.net.{InetSocketAddress, ServerSocket, Socket}
 import java.util
 
-import org.dist.dbgossip.Verb
-
 import scala.collection.JavaConverters._
 
 class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingService: MessagingService) extends Thread {
@@ -17,9 +15,10 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
       val socket = serverSocket.accept()
       val inputStream = socket.getInputStream()
       val messageBytes = inputStream.readAllBytes()
-      println(s"Got message ${new String(messageBytes)}")
 
       val message = JsonSerDes.deserialize(messageBytes, classOf[Message])
+
+      println(s"Got message ${message}")
 
       if(message.header.verb == Verb.GOSSIP_DIGEST_SYN) {
         new GossipDigestSynHandler(gossiper, messagingService).handleMessage(message)

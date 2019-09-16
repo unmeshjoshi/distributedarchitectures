@@ -13,6 +13,11 @@ class TestMessagingService extends MessagingService {
     this.message = message
     this.toAddress.add(to)
   }
+
+  override def sendTcpOneWay(message: Message, to: InetAddressAndPort): Unit = {
+    this.message = message
+    this.toAddress.add(to)
+  }
 }
 
 class TestScheduledThreadPoolExecutor extends ScheduledThreadPoolExecutor(1) {

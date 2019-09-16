@@ -1,9 +1,10 @@
 package org.dist.kvstore
 
+import java.math.BigInteger
 import java.util.concurrent.ScheduledThreadPoolExecutor
 
-class DbServer(listenAddress:InetAddressAndPort, config:DatabaseConfiguration) {
-  def start(): Unit = {
+class StorageService(listenAddress:InetAddressAndPort, config:DatabaseConfiguration) {
+  def start() = {
     val generationNbr = 1 //need to stored and read for supporting crash failures
     val messagingService = new MessagingService
 
@@ -13,5 +14,15 @@ class DbServer(listenAddress:InetAddressAndPort, config:DatabaseConfiguration) {
 
     messagingService.listen(listenAddress) //listen after gossiper is created as there is circular dependency on gossiper from messagingservice
     gossiper.start()
+    /* Make sure this token gets gossiped around. */
+    gossiper.addApplicationState(ApplicationState.TOKENS, newToken())
+
+  }
+
+  def newToken() = {
+    val guid: String = GuidGenerator.guid
+    var token: BigInteger = FBUtilities.hash(guid)
+    if (token.signum == -1) token = token.multiply(BigInteger.valueOf(-1L))
+    token.toString
   }
 }

@@ -15,27 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.dist.dbgossip;
+package org.dist.kvstore;
 
-import java.util.Map;
-
-/**
- * This ack gets sent out as a result of the receipt of a GossipDigestAckMessage. This the
- * last stage of the 3 way messaging of the Gossip protocol.
- */
-public class GossipDigestAck2
+public enum Verb
 {
-    final Map<InetAddressAndPort, EndPointState> epStateMap;
-
-    GossipDigestAck2(Map<InetAddressAndPort, EndPointState> epStateMap)
-    {
-        this.epStateMap = epStateMap;
-    }
-
-    Map<InetAddressAndPort, EndPointState> getEndpointStateMap()
-    {
-        return epStateMap;
-    }
+    GOSSIP_DIGEST_SYN,
+    GOSSIP_DIGEST_ACK,
+    GOSSIP_DIGEST_ACK2
 }
-
-

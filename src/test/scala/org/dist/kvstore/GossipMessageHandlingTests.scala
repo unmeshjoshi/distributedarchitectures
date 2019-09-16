@@ -3,7 +3,6 @@ package org.dist.kvstore
 import java.math.BigInteger
 import java.util
 
-import org.dist.dbgossip.{FBUtilities, GuidGenerator}
 import org.dist.kvstore
 import org.scalatest.FunSuite
 
