@@ -36,7 +36,9 @@ class Gossiper(private[kvstore] val generationNbr: Int,
     endpointStatemap.put(localEndPoint, newState)
   }
 
-  def notifyFailureDetector(epStateMap: util.Map[InetAddressAndPort, EndPointState]) = {}
+  def notifyFailureDetector(epStateMap: util.Map[InetAddressAndPort, EndPointState]) = {
+
+  }
 
   def initializeLocalEndpointState() = {
     var localState = endpointStatemap.get(localEndPoint)
@@ -267,7 +269,11 @@ class Gossiper(private[kvstore] val generationNbr: Int,
         if (!sentToSeedNode) { //If live members chosen to send gossip already had seed node, dont send message to seed
           doGossipToSeed(gossipDigestSynMessage)
         }
-      } finally taskLock.unlock()
+      } catch {
+        case ex:Exception ⇒ ex.printStackTrace()
+      } finally {
+        taskLock.unlock()
+      }
     }
 
     private def doGossipToSeed(message: Message): Unit = {

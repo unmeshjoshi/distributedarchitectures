@@ -13,6 +13,7 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
     println(s"Listening on ${localEp}")
     while (true) {
       val socket = serverSocket.accept()
+      socket.setSoTimeout(1000)
       val inputStream = socket.getInputStream()
       val messageBytes = inputStream.readAllBytes()
 
@@ -89,6 +90,7 @@ class MessagingService() {
   def init(gossiper:Gossiper): Unit = {
     this.gossiper = gossiper
   }
+
   def listen(localEp: InetAddressAndPort): Unit = {
     assert(gossiper != null)
     new TcpListener(localEp, gossiper, this).start()
@@ -96,12 +98,17 @@ class MessagingService() {
 
   def sendTcpOneWay(message: Message, to: InetAddressAndPort) = {
     val clientSocket = new Socket(to.address, to.port)
+    clientSocket.setSoTimeout(1000)
     try {
       val serializedMessage = JsonSerDes.serialize(message)
       val outputStream = clientSocket.getOutputStream()
       outputStream.write(serializedMessage.getBytes)
       outputStream.flush()
       outputStream.close()
+
+    } catch {
+
+      case e:Exception => e.printStackTrace()
 
     } finally {
       clientSocket.close()

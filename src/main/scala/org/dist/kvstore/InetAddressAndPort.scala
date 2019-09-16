@@ -5,7 +5,7 @@ import java.net.InetAddress
 object InetAddressAndPort {
   //FIXME: Remove this.
   def create(hostIp:String, port:Int) = {
-    InetAddressAndPort(InetAddress.getByName(hostIp), port)
+    new InetAddressAndPort(InetAddress.getByName(hostIp), port)
   }
 }
 
