@@ -3,7 +3,9 @@ package org.dist.kvstore
 import java.util
 import scala.collection.JavaConverters._
 
-case class DatabaseConfiguration(seeds:Set[InetAddressAndPort]) {
+case class DatabaseConfiguration(seeds:Set[InetAddressAndPort], systemDir:String = System.getProperty(("java.io.tmpdir"))) {
+  def getSystemDir(): String = systemDir
+
   def getClusterName() = "TestCluster"
 
 

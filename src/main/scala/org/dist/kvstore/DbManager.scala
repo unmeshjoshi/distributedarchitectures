@@ -30,7 +30,13 @@ class DbManager(metadataDirectory: String) {
   def start(localEndpoint:InetAddressAndPort): StorageMetadata = {
     val rowOpt: Option[Row] = systemTable.get(localEndpoint.toString)
     rowOpt match {
-      case Some(row) ⇒StorageMetadata(row.key, row.value.toInt)
+      case Some(row) ⇒{
+        val newGeneration = row.value.toInt + 1
+        val existingToken = row.key
+        systemTable.writer.append(existingToken, s"${newGeneration}".getBytes)
+
+        StorageMetadata(row.key, newGeneration)
+      }
       case None ⇒ {
         val token = newToken()
         val generation = 1
