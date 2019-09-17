@@ -5,6 +5,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor
 
 class StorageService(listenAddress:InetAddressAndPort, config:DatabaseConfiguration) {
   def start() = {
+    new DbManager("/home/unmesh/cassandratest")
     val generationNbr = 1 //need to stored and read for supporting crash failures
     val messagingService = new MessagingService
 

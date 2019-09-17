@@ -116,7 +116,7 @@ class MessagingService() {
   }
 
   def sendUdpOneWay(message: Message, to: InetAddressAndPort) = {
-
+    //for control messages like gossip use udp.
   }
 
 }
