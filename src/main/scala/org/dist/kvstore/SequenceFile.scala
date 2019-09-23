@@ -27,21 +27,6 @@ class SequenceFile {
       file.seek(position)
     }
 
-    def append(buffer: Array[Byte]): Unit = {
-      file.write(buffer, 0, buffer.size)
-    }
-
-    def append(keyBuffer: Array[Byte], buffer: Array[Byte]): Unit = {
-      val keyBufLength = keyBuffer.size
-      if (keyBuffer == null || keyBufLength == 0) throw new IllegalArgumentException("Key cannot be NULL or of zero length.")
-      file.seek(file.getFilePointer)
-      file.writeInt(keyBufLength)
-      file.write(keyBuffer, 0, keyBufLength)
-      val length = buffer.size
-      file.writeInt(length)
-      file.write(buffer, 0, length)
-    }
-
     def append(key: String, buffer: Array[Byte]): Unit = {
       if (key == null) throw new IllegalArgumentException("Key cannot be NULL.")
       file.seek(file.getFilePointer)
@@ -49,6 +34,7 @@ class SequenceFile {
       val length = buffer.size
       file.writeInt(length)
       file.write(buffer, 0, length)
+      file.getFD.sync()
     }
 
    def append(key: String, value: Long): Unit = {

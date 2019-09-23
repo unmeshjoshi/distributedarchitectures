@@ -25,7 +25,7 @@ object Row {
 case class Row(key: String, value: String)
 
 class DbManager(metadataDirectory: String) {
-  private val systemTable = new SystemTable("system")
+  val systemTable = new SystemTable("system")
 
   def start(localEndpoint:InetAddressAndPort): StorageMetadata = {
     val rowOpt: Option[Row] = systemTable.get(localEndpoint.toString)
@@ -91,7 +91,7 @@ class DbManager(metadataDirectory: String) {
       }
     }
 
-    private def getFileName = metadataDirectory + System.getProperty("file.separator") + table + ".db"
+    def getFileName = metadataDirectory + System.getProperty("file.separator") + table + ".db"
 
   }
 }
