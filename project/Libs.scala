@@ -5,6 +5,7 @@ object Libs {
   val ScalaVersion = "2.13.0"
   val `jgroup` = "org.jgroups" % "jgroups" % "4.0.0.Final"
   val `zookeeper` =  "org.apache.zookeeper" % "zookeeper" % "3.5.5"
+  val `zkclient` = "com.101tec" % "zkclient" % "0.11"
   val `yammer` = "com.yammer.metrics" % "metrics-core" % "2.2.0"
   val `scalaLogging` = "com.typesafe.scala-logging" %% "scala-logging" % "3.9.2"
   val `jacksonDatabind` =  "com.fasterxml.jackson.core" % "jackson-databind" % "2.9.9.3"

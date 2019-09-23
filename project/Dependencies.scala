@@ -5,6 +5,7 @@ object Dependencies {
   val Version = "0.1-SNAPSHOT"
   val Dist = Seq(
     Libs.`zookeeper`,
+    Libs.`zkclient`,
     Libs.`yammer`,
     Libs.`scalaLogging`,
     Libs.`jacksonDatabind`,
