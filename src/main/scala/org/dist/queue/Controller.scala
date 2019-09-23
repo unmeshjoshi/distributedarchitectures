@@ -1,8 +1,10 @@
 package org.dist.queue
 
+import java.nio.ByteBuffer
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-import org.I0Itec.zkclient.ZkClient
+import org.I0Itec.zkclient.{IZkDataListener, ZkClient}
 import org.dist.kvstore.JsonSerDes
 import org.dist.queue.utils.ZkUtils
 import org.dist.queue.utils.ZkUtils.Broker
@@ -26,6 +28,43 @@ object Controller extends Logging {
 }
 
 
+case class PartitionStateInfo(val leaderIsrAndControllerEpoch: LeaderIsrAndControllerEpoch,
+                              val allReplicas: Set[Int]) {
+  def replicationFactor = allReplicas.size
+
+  def writeTo(buffer: ByteBuffer) {
+    buffer.putInt(leaderIsrAndControllerEpoch.controllerEpoch)
+    buffer.putInt(leaderIsrAndControllerEpoch.leaderAndIsr.leader)
+    buffer.putInt(leaderIsrAndControllerEpoch.leaderAndIsr.leaderEpoch)
+    buffer.putInt(leaderIsrAndControllerEpoch.leaderAndIsr.isr.size)
+    leaderIsrAndControllerEpoch.leaderAndIsr.isr.foreach(buffer.putInt(_))
+    buffer.putInt(leaderIsrAndControllerEpoch.leaderAndIsr.zkVersion)
+    buffer.putInt(replicationFactor)
+    allReplicas.foreach(buffer.putInt(_))
+  }
+
+  def sizeInBytes(): Int = {
+    val size =
+      4 /* epoch of the controller that elected the leader */ +
+        4 /* leader broker id */ +
+        4 /* leader epoch */ +
+        4 /* number of replicas in isr */ +
+        4 * leaderIsrAndControllerEpoch.leaderAndIsr.isr.size /* replicas in isr */ +
+        4 /* zk version */ +
+        4 /* replication factor */ +
+        allReplicas.size * 4
+    size
+  }
+
+  override def toString(): String = {
+    val partitionStateInfo = new StringBuilder
+    partitionStateInfo.append("(LeaderAndIsrInfo:" + leaderIsrAndControllerEpoch.toString)
+    partitionStateInfo.append(",ReplicationFactor:" + replicationFactor + ")")
+    partitionStateInfo.append(",AllReplicas:" + allReplicas.mkString(",") + ")")
+    partitionStateInfo.toString()
+  }
+}
+
 object LeaderAndIsr {
   val initialLeaderEpoch: Int = 0
   val initialZKVersion: Int = 0
@@ -42,6 +81,46 @@ case class LeaderAndIsr(var leader: Int, var leaderEpoch: Int, var isr: List[Int
     Utils.mapToJson(jsonDataMap, valueInQuotes = true)
   }
 }
+
+
+class ReassignedPartitionsIsrChangeListener(controller: Controller, topic: String, partition: Int,
+                                            reassignedReplicas: Set[Int])
+  extends IZkDataListener with Logging {
+  this.logIdent = "[ReassignedPartitionsIsrChangeListener on controller " + controller.config.brokerId + "]: "
+  val zkClient = controller.controllerContext.zkClient
+  val controllerContext = controller.controllerContext
+
+  /**
+   * Invoked when some partitions need to move leader to preferred replica
+   * @throws Exception On any error.
+   */
+  @throws(classOf[Exception])
+  def handleDataChange(dataPath: String, data: Object) {
+    try {
+      controllerContext.controllerLock synchronized {
+        debug("Reassigned partitions isr change listener fired for path %s with children %s".format(dataPath, data))
+        // check if this partition is still being reassigned or not
+        val topicAndPartition = TopicAndPartition(topic, partition)
+      }
+
+    }catch {
+      case e: Throwable => error("Error while handling partition reassignment", e)
+    }
+  }
+
+  /**
+   * @throws Exception
+   *             On any error.
+   */
+  @throws(classOf[Exception])
+  def handleDataDeleted(dataPath: String) {
+  }
+}
+
+case class ReassignedPartitionsContext(var newReplicas: Seq[Int] = Seq.empty,
+                                       var isrChangeListener: ReassignedPartitionsIsrChangeListener = null)
+
+case class PartitionAndReplica(topic: String, partition: Int, replica: Int)
 
 case class LeaderIsrAndControllerEpoch(val leaderAndIsr: LeaderAndIsr, controllerEpoch: Int) {
   override def toString(): String = {
@@ -82,6 +161,14 @@ class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 600
 }
 
 class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
+  def onBrokerFailure(toSeq: scala.Seq[Int]) = {
+
+  }
+
+  def onBrokerStartup(toSeq: scala.Seq[Int]) = {
+
+  }
+
 
   def clientId = "id_%d-host_%s-port_%d".format(config.brokerId, config.hostName, config.port)
 
@@ -89,6 +176,7 @@ class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
   val controllerContext = new ControllerContext(zkClient, config.zkSessionTimeoutMs)
   val elector = new ZookeeperLeaderElector(controllerContext, ZkUtils.ControllerPath, onControllerFailover,
     config.brokerId)
+  private val replicaStateMachine = new ReplicaStateMachine(this)
 
   def startUp() = {
     elector.startup()
@@ -109,7 +197,9 @@ class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
     if(isRunning) {
       info("Broker %d starting become controller state transition".format(config.brokerId))
       partitionStateMachine.registerListeners()
+      replicaStateMachine.registerListeners()
       initializeControllerContext()
+      replicaStateMachine.startup()
       partitionStateMachine.startup()
       info("Broker %d is ready to serve as the new controller with epoch %d".format(config.brokerId, epoch))
       /* send partition leadership info to all live brokers */

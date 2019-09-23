@@ -32,6 +32,8 @@ class ServerTest extends ZookeeperTestHarness {
     assert(sortedBrokers(1).host == config2.hostName)
     assert(sortedBrokers(1).port == config2.port)
 
-    Thread.sleep(10000)
+    new CreateTopicCommand().createTopic(zkClient, "topic1", 2, 2)
+
+    Thread.sleep(100000)
   }
 }

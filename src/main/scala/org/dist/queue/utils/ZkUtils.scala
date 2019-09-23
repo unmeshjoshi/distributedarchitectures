@@ -55,14 +55,48 @@ object ZkUtils extends Logging {
 
   def getReplicasForPartition(zkClient: ZkClient, topic: String, partition: Int): Seq[Int] = {
     val jsonPartitionMapOpt = readDataMaybeNull(zkClient, getTopicPath(topic))._1
-    Seq.empty[Int]
+    jsonPartitionMapOpt match {
+      case Some(jsonPartitionMap) =>
+        val partitionsOpt = JsonSerDes.deserialize(jsonPartitionMap.getBytes(), classOf[Map[String, Any]]).get("partitions")
+        partitionsOpt match {
+            case Some(replicaMap) => replicaMap.asInstanceOf[Map[String, Seq[Int]]].get(partition.toString) match {
+              case Some(seq) => seq
+              case None => Seq.empty[Int]
+            }
+            case None ⇒ Seq.empty[Int]
+        }
+      case None => Seq.empty[Int]
+    }
   }
 
-  def getReplicaAssignmentForTopics(zkClient: ZkClient, toSeq: scala.Seq[String])= {
+  def getReplicaAssignmentForTopics(zkClient: ZkClient, topics: scala.Seq[String])= {
     val ret = new mutable.HashMap[TopicAndPartition, Seq[Int]]
+    topics.foreach { topic =>
+      val jsonPartitionMapOpt = readDataMaybeNull(zkClient, getTopicPath(topic))._1
+      jsonPartitionMapOpt match {
+        case Some(jsonPartitionMap) => {
+          val partitionsOpt = JsonSerDes.deserialize(jsonPartitionMap.getBytes(), classOf[Map[String, Any]]).get("partitions")
+          partitionsOpt match {
+            case Some(partitions) ⇒
+              for((partition, replicas) <- partitions.asInstanceOf[Map[String, Seq[Int]]]){
+                ret.put(TopicAndPartition(topic, partition.toInt), replicas)
+                debug("Replicas assigned to topic [%s], partition [%s] are [%s]".format(topic, partition, replicas))
+              }
+            case None ⇒
+          }
+        }
+        case None =>
+      }
+    }
     ret
   }
 
+
+  def leaderAndIsrZkData(leaderAndIsr: LeaderAndIsr, controllerEpoch: Int): String = {
+    val isrInfo = Utils.seqToJson(leaderAndIsr.isr.map(_.toString), valueInQuotes = false)
+    Utils.mapToJson(Map("version" -> 1.toString, "leader" -> leaderAndIsr.leader.toString, "leader_epoch" -> leaderAndIsr.leaderEpoch.toString,
+      "controller_epoch" -> controllerEpoch.toString, "isr" -> isrInfo), valueInQuotes = false)
+  }
 
   def getAllTopics(zkClient: ZkClient): Seq[String] = {
     val topics = ZkUtils.getChildrenParentMayNotExist(zkClient, BrokerTopicsPath)
