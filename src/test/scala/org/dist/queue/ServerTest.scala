@@ -31,6 +31,7 @@ class ServerTest extends ZookeeperTestHarness {
     assert(sortedBrokers(1).id == config2.brokerId)
     assert(sortedBrokers(1).host == config2.hostName)
     assert(sortedBrokers(1).port == config2.port)
-  }
 
+    Thread.sleep(10000)
+  }
 }

@@ -5,12 +5,63 @@ import org.I0Itec.zkclient.exception.{ZkMarshallingError, ZkNoNodeException, ZkN
 import org.I0Itec.zkclient.serialize.ZkSerializer
 import org.apache.zookeeper.data.Stat
 import org.dist.kvstore.JsonSerDes
-import org.dist.queue.{Controller, Logging, SystemTime, TopicAndPartition, Utils}
+import org.dist.queue.{Controller, LeaderAndIsr, LeaderIsrAndControllerEpoch, Logging, SystemTime, TopicAndPartition, Utils}
 
-import scala.collection.{Map, Seq, mutable}
+import scala.collection.{Map, Seq, Set, mutable}
 
 object ZkUtils extends Logging {
-  def getReplicaAssignmentForTopics(zkClient: ZkClient, toSeq: scala.Seq[String]): _root_.scala.collection.mutable.Map[_root_.org.dist.queue.TopicAndPartition, _root_.scala.collection.Seq[Int]] = ???
+
+
+  def getLeaderIsrAndEpochForPartition(zkClient: ZkClient, topic: String, partition: Int):Option[LeaderIsrAndControllerEpoch] = {
+    val leaderAndIsrPath = getTopicPartitionLeaderAndIsrPath(topic, partition)
+    val leaderAndIsrInfo = readDataMaybeNull(zkClient, leaderAndIsrPath)
+    val leaderAndIsrOpt = leaderAndIsrInfo._1
+    val stat = leaderAndIsrInfo._2
+    leaderAndIsrOpt match {
+      case Some(leaderAndIsrStr) => parseLeaderAndIsr(leaderAndIsrStr, topic, partition, stat)
+      case None => None
+    }
+  }
+
+  def parseLeaderAndIsr(leaderAndIsrStr: String, topic: String, partition: Int, stat: Stat)
+  : Option[LeaderIsrAndControllerEpoch] = {
+    val leaderIsrAndEpochInfo = JsonSerDes.deserialize(leaderAndIsrStr.getBytes, classOf[Map[String, Any]])
+        val leader = leaderIsrAndEpochInfo.get("leader").get.asInstanceOf[Int]
+        val epoch = leaderIsrAndEpochInfo.get("leader_epoch").get.asInstanceOf[Int]
+        val isr = leaderIsrAndEpochInfo.get("isr").get.asInstanceOf[List[Int]]
+        val controllerEpoch = leaderIsrAndEpochInfo.get("controller_epoch").get.asInstanceOf[Int]
+        val zkPathVersion = stat.getVersion
+        debug("Leader %d, Epoch %d, Isr %s, Zk path version %d for partition [%s,%d]".format(leader, epoch,
+          isr.toString(), zkPathVersion, topic, partition))
+        Some(LeaderIsrAndControllerEpoch(LeaderAndIsr(leader, epoch, isr, zkPathVersion), controllerEpoch))
+  }
+
+  def getTopicPartitionLeaderAndIsrPath(topic: String, partitionId: Int): String ={
+    getTopicPartitionPath(topic, partitionId) + "/" + "state"
+  }
+
+  def getPartitionLeaderAndIsrForTopics(zkClient: ZkClient, topicAndPartitions: Set[TopicAndPartition])
+  : mutable.Map[TopicAndPartition, LeaderIsrAndControllerEpoch] = {
+    val ret = new mutable.HashMap[TopicAndPartition, LeaderIsrAndControllerEpoch]
+    for(topicAndPartition <- topicAndPartitions) {
+      ZkUtils.getLeaderIsrAndEpochForPartition(zkClient, topicAndPartition.topic, topicAndPartition.partition) match {
+        case Some(leaderIsrAndControllerEpoch) => ret.put(topicAndPartition, leaderIsrAndControllerEpoch)
+        case None =>
+      }
+    }
+    ret
+  }
+
+
+  def getReplicasForPartition(zkClient: ZkClient, topic: String, partition: Int): Seq[Int] = {
+    val jsonPartitionMapOpt = readDataMaybeNull(zkClient, getTopicPath(topic))._1
+    Seq.empty[Int]
+  }
+
+  def getReplicaAssignmentForTopics(zkClient: ZkClient, toSeq: scala.Seq[String])= {
+    val ret = new mutable.HashMap[TopicAndPartition, Seq[Int]]
+    ret
+  }
 
 
   def getAllTopics(zkClient: ZkClient): Seq[String] = {

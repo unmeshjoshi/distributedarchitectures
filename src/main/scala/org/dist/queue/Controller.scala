@@ -57,6 +57,7 @@ case class LeaderIsrAndControllerEpoch(val leaderAndIsr: LeaderAndIsr, controlle
 class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 6000,
                         var epoch: Int = Controller.InitialControllerEpoch - 1,
                         var epochZkVersion: Int = Controller.InitialControllerEpochZkVersion - 1,
+                        val controllerLock: Object = new Object,
                         val correlationId: AtomicInteger = new AtomicInteger(0),
                         var shuttingDownBrokerIds: mutable.Set[Int] = mutable.Set.empty,
                         var allTopics: Set[String] = Set.empty,
@@ -80,7 +81,11 @@ class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 600
   def liveOrShuttingDownBrokers = liveBrokersUnderlying
 }
 
-class Controller(config:Config, zkClient:ZkClient) extends Logging {
+class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
+
+  def clientId = "id_%d-host_%s-port_%d".format(config.brokerId, config.hostName, config.port)
+
+
   val controllerContext = new ControllerContext(zkClient, config.zkSessionTimeoutMs)
   val elector = new ZookeeperLeaderElector(controllerContext, ZkUtils.ControllerPath, onControllerFailover,
     config.brokerId)
@@ -93,7 +98,9 @@ class Controller(config:Config, zkClient:ZkClient) extends Logging {
 
   val partitionStateMachine = new PartitionStateMachine(this)
 
-  def sendUpdateMetadataRequest(toSeq: scala.Seq[Int]): Unit = ???
+  def sendUpdateMetadataRequest(toSeq: scala.Seq[Int]): Unit = {
+    info(s"Update metadata request ${toSeq}")
+  }
 
 
   def epoch = controllerContext.epoch
@@ -112,9 +119,15 @@ class Controller(config:Config, zkClient:ZkClient) extends Logging {
       info("Controller has been shut down, aborting startup/failover")
   }
 
-  def updateLeaderAndIsrCache() = ???
+  private def updateLeaderAndIsrCache() {
+    val leaderAndIsrInfo = ZkUtils.getPartitionLeaderAndIsrForTopics(zkClient, controllerContext.partitionReplicaAssignment.keySet)
+    for((topicPartition, leaderIsrAndControllerEpoch) <- leaderAndIsrInfo)
+      controllerContext.partitionLeadershipInfo.put(topicPartition, leaderIsrAndControllerEpoch)
+  }
 
-  def startChannelManager() = ???
+  def startChannelManager() = {
+    info("Starting channel manager")
+  }
 
   private def initializeControllerContext() {
     controllerContext.liveBrokers = ZkUtils.getAllBrokersInCluster(zkClient).toSet
@@ -131,4 +144,45 @@ class Controller(config:Config, zkClient:ZkClient) extends Logging {
     info("Current list of topics in the cluster: %s".format(controllerContext.allTopics))
   }
 
+  /**
+   * This callback is invoked by the partition state machine's topic change listener with the list of failed brokers
+   * as input. It does the following -
+   * 1. Registers partition change listener. This is not required until KAFKA-347
+   * 2. Invokes the new partition callback
+   */
+  def onNewTopicCreation(topics: Set[String], newPartitions: Set[TopicAndPartition]) {
+    info("New topic creation callback for %s".format(newPartitions.mkString(",")))
+    // subscribe to partition changes
+    topics.foreach(topic => partitionStateMachine.registerPartitionChangeListener(topic))
+    onNewPartitionCreation(newPartitions)
+  }
+
+  /**
+   * This callback is invoked by the topic change callback with the list of failed brokers as input.
+   * It does the following -
+   * 1. Move the newly created partitions to the NewPartition state
+   * 2. Move the newly created partitions from NewPartition->OnlinePartition state
+   */
+  def onNewPartitionCreation(newPartitions: Set[TopicAndPartition]) {
+    info("New partition creation callback for %s".format(newPartitions.mkString(",")))
+    partitionStateMachine.handleStateChanges(newPartitions, NewPartition)
+//    replicaStateMachine.handleStateChanges(getAllReplicasForPartition(newPartitions), NewReplica)
+    partitionStateMachine.handleStateChanges(newPartitions, OnlinePartition, offlinePartitionSelector)
+//    replicaStateMachine.handleStateChanges(getAllReplicasForPartition(newPartitions), OnlineReplica)
+  }
+
+  def sendRequest(brokerId : Int, request : RequestOrResponse, callback: (RequestOrResponse) => Unit = null) = {
+
+  }
+
+  val offlinePartitionSelector = new OfflinePartitionLeaderSelector(controllerContext)
+
 }
+
+
+sealed trait ReplicaState { def state: Byte }
+case object NewReplica extends ReplicaState { val state: Byte = 1 }
+case object OnlineReplica extends ReplicaState { val state: Byte = 2 }
+case object OfflineReplica extends ReplicaState { val state: Byte = 3 }
+case object NonExistentReplica extends ReplicaState { val state: Byte = 4 }
+

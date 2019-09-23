@@ -1,22 +1,23 @@
 package org.dist.queue
 
+import org.dist.queue.utils.ZkUtils
 import org.scalatest.FunSuite
 
 class AdminUtilsTest extends ZookeeperTestHarness {
 
   test("should create assign replicas to topic partitions") {
-    val brokerId1 = 0
-    val brokerId2 = 1
-
-    val config1 = Config(brokerId1, TestUtils.hostName(), TestUtils.choosePort(), TestZKUtils.zookeeperConnect)
-    val server1 = new Server(config1)
-    server1.startup()
-
-    val config2 = Config(brokerId2, TestUtils.hostName(), TestUtils.choosePort(), TestZKUtils.zookeeperConnect)
-    val server2 = new Server(config2)
-    server2.startup()
-
     val value: collection.Map[Int, collection.Seq[Int]] = AdminUtils.assignReplicasToBrokers(Seq(0, 1), 1, 1)
     assert(value(0) == List(1))
+  }
+
+  test("should register partition assignments in zookeeper") {
+    val assignments: collection.Map[Int, collection.Seq[Int]] = AdminUtils.assignReplicasToBrokers(Seq(0, 1), 1, 1)
+
+    AdminUtils.createOrUpdateTopicPartitionAssignmentPathInZK("topic1",
+      assignments, zkClient)
+
+    val storedAssignments = ZkUtils.getReplicasForPartition(zkClient, "topic1", 1)
+
+    assert(assignments == storedAssignments)
   }
 }
