@@ -5,11 +5,108 @@ import org.I0Itec.zkclient.exception.{ZkMarshallingError, ZkNoNodeException, ZkN
 import org.I0Itec.zkclient.serialize.ZkSerializer
 import org.apache.zookeeper.data.Stat
 import org.dist.kvstore.JsonSerDes
-import org.dist.queue.{Logging, SystemTime}
+import org.dist.queue.{Controller, Logging, SystemTime, TopicAndPartition, Utils}
 
-import scala.collection.Seq
+import scala.collection.{Map, Seq, mutable}
 
 object ZkUtils extends Logging {
+  def getReplicaAssignmentForTopics(zkClient: ZkClient, toSeq: scala.Seq[String]): _root_.scala.collection.mutable.Map[_root_.org.dist.queue.TopicAndPartition, _root_.scala.collection.Seq[Int]] = ???
+
+
+  def getAllTopics(zkClient: ZkClient): Seq[String] = {
+    val topics = ZkUtils.getChildrenParentMayNotExist(zkClient, BrokerTopicsPath)
+    if(topics == null)
+      Seq.empty[String]
+    else
+      topics
+  }
+
+  /**
+   *  make sure a persistent path exists in ZK. Create the path if not exist.
+   */
+  def makeSurePersistentPathExists(client: ZkClient, path: String) {
+    if (!client.exists(path))
+      client.createPersistent(path, true) // won't throw NoNodeException or NodeExistsException
+  }
+
+  /**
+   * Get JSON partition to replica map from zookeeper.
+   */
+  def replicaAssignmentZkdata(map: Map[String, Seq[Int]]): String = {
+    val jsonReplicaAssignmentMap = Utils.mapWithSeqValuesToJson(map)
+    Utils.mapToJson(Map("version" -> 1.toString, "partitions" -> jsonReplicaAssignmentMap), valueInQuotes = false)
+  }
+  /**
+   * Update the value of a persistent node with the given path and data.
+   * create parrent directory if necessary. Never throw NodeExistException.
+   * Return the updated path zkVersion
+   */
+  def updatePersistentPath(client: ZkClient, path: String, data: String) = {
+    try {
+      client.writeData(path, data)
+    } catch {
+      case e: ZkNoNodeException => {
+        createParentPath(client, path)
+        try {
+          client.createPersistent(path, data)
+        } catch {
+          case e: ZkNodeExistsException =>
+            client.writeData(path, data)
+          case e2: Throwable => throw e2
+        }
+      }
+      case e2: Throwable => throw e2
+    }
+  }
+
+  def createPersistentPath(client: ZkClient, path: String, data: String = ""): Unit = {
+    try {
+      client.createPersistent(path, data)
+    } catch {
+      case e: ZkNoNodeException => {
+        createParentPath(client, path)
+        client.createPersistent(path, data)
+      }
+    }
+  }
+
+  def createSequentialPersistentPath(client: ZkClient, path: String, data: String = ""): String = {
+    client.createPersistentSequential(path, data)
+  }
+
+
+  def getSortedBrokerList(zkClient: ZkClient) = {
+    ZkUtils.getChildren(zkClient, BrokerIdsPath).map(_.toInt).sorted
+  }
+
+
+  def getTopicPath(topic: String): String ={
+    BrokerTopicsPath + "/" + topic
+  }
+
+  def getTopicPartitionsPath(topic: String): String ={
+    getTopicPath(topic) + "/partitions"
+  }
+
+  def getController(zkClient: ZkClient): Int= {
+    readDataMaybeNull(zkClient, ControllerPath)._1 match {
+      case Some(controller) => Controller.parseControllerId(controller)
+      case None => throw new RuntimeException("Controller doesn't exist")
+    }
+  }
+
+  def getTopicPartitionPath(topic: String, partitionId: Int): String ={
+    getTopicPartitionsPath(topic) + "/" + partitionId
+  }
+
+
+  def getChildren(client: ZkClient, path: String): Seq[String] = {
+    import scala.collection.JavaConverters._
+    // triggers implicit conversion from java list to scala Seq
+    client.getChildren(path).asScala
+  }
+
+
   val ConsumersPath = "/consumers"
   val BrokerIdsPath = "/brokers/ids"
   val BrokerTopicsPath = "/brokers/topics"

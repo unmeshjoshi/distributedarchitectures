@@ -2,7 +2,7 @@ package org.dist.queue
 
 import org.dist.queue.utils.ZkUtils
 
-class ControllerTest extends ZookeeperTestHarness {
+class ServerTest extends ZookeeperTestHarness {
 
   test("should register broker to zookeeper on startup") {
     val brokerId1 = 0
