@@ -57,7 +57,24 @@ class ControllerBrokerRequestBatch(controllerContext: ControllerContext, sendReq
   }
 
   def newBatch() = {
+    // raise error if the previous batch is not empty
+    if(leaderAndIsrRequestMap.size > 0)
+      throw new IllegalStateException("Controller to broker state change requests batch is not empty while creating " +
+        "a new one. Some LeaderAndIsr state changes %s might be lost ".format(leaderAndIsrRequestMap.toString()))
+    if(stopReplicaRequestMap.size > 0)
+      throw new IllegalStateException("Controller to broker state change requests batch is not empty while creating a " +
+        "new one. Some StopReplica state changes %s might be lost ".format(stopReplicaRequestMap.toString()))
+    if(updateMetadataRequestMap.size > 0)
+      throw new IllegalStateException("Controller to broker state change requests batch is not empty while creating a " +
+        "new one. Some UpdateMetadata state changes %s might be lost ".format(updateMetadataRequestMap.toString()))
+    if(stopAndDeleteReplicaRequestMap.size > 0)
+      throw new IllegalStateException("Controller to broker state change requests batch is not empty while creating a " +
+        "new one. Some StopReplica with delete state changes %s might be lost ".format(stopAndDeleteReplicaRequestMap.toString()))
 
+    leaderAndIsrRequestMap.clear()
+    stopReplicaRequestMap.clear()
+    updateMetadataRequestMap.clear()
+    stopAndDeleteReplicaRequestMap.clear()
   }
 
 }
