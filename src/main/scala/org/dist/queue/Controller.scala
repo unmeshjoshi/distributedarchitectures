@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.I0Itec.zkclient.{IZkDataListener, ZkClient}
 import org.dist.kvstore.JsonSerDes
 import org.dist.queue.api.RequestOrResponse
+import org.dist.queue.network.SocketServer
 import org.dist.queue.utils.ZkUtils
 import org.dist.queue.utils.ZkUtils.Broker
 
@@ -168,7 +169,7 @@ class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 600
   def liveOrShuttingDownBrokers = liveBrokersUnderlying
 }
 
-class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
+class Controller(val config:Config, val zkClient:ZkClient, val socketServer:SocketServer) extends Logging {
 
   def clientId = "id_%d-host_%s-port_%d".format(config.brokerId, config.hostName, config.port)
 
@@ -266,7 +267,7 @@ class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
 
   def startChannelManager() = {
     info("Starting channel manager")
-    controllerContext.controllerChannelManager = new ControllerChannelManager(controllerContext, config)
+    controllerContext.controllerChannelManager = new ControllerChannelManager(controllerContext, config, socketServer)
     controllerContext.controllerChannelManager.startup()
   }
 
@@ -415,6 +416,7 @@ class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
 
   def sendRequest(brokerId : Int, request : RequestOrResponse, callback: (RequestOrResponse) => Unit = null) = {
     controllerContext.controllerChannelManager.sendRequest(brokerId, request, callback)
+
   }
 
   val offlinePartitionSelector = new OfflinePartitionLeaderSelector(controllerContext)

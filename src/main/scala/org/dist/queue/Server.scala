@@ -31,19 +31,19 @@ class Server(config: Config, time: Time = SystemTime) {
       config.socketReceiveBufferBytes,
       config.socketRequestMaxBytes)
 
-    socketServer.startup()
+
 
     kafkaZooKeeper = new KafkaZooKeeper(config)
     kafkaZooKeeper.startup()
 
-    controller = new Controller(config, kafkaZooKeeper.getZookeeperClient)
+    controller = new Controller(config, kafkaZooKeeper.getZookeeperClient, socketServer)
 
-    apis = new KafkaApis(socketServer.requestChannel, replicaManager, kafkaZooKeeper.getZookeeperClient, config.brokerId, controller)
-
-    requestHandlerPool = new KafkaRequestHandlerPool(config.brokerId, socketServer.requestChannel, apis, config.numIoThreads)
 
     replicaManager = new ReplicaManager(config, time, kafkaZooKeeper.getZookeeperClient, logManager, isShuttingDown)
     replicaManager.startup()
+
+    apis = new KafkaApis(replicaManager, kafkaZooKeeper.getZookeeperClient, config.brokerId, controller)
+    socketServer.startup(apis)
 
     controller.startup()
   }

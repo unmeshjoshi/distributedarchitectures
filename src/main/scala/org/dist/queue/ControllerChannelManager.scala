@@ -2,14 +2,15 @@ package org.dist.queue
 
 import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
 
+import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.api.{LeaderAndIsrResponse, RequestKeys, RequestOrResponse, UpdateMetadataResponse}
-import org.dist.queue.network.{BlockingChannel, Receive}
+import org.dist.queue.network.{BlockingChannel, Receive, SocketServer}
 import org.dist.queue.utils.ZkUtils.Broker
 
 import scala.collection.mutable.HashMap
 
-class ControllerChannelManager(val controllerContext: ControllerContext, val config: Config) extends Logging {
-  private val brokerStateInfo = new HashMap[Int, ControllerBrokerStateInfo]
+class ControllerChannelManager(val controllerContext: ControllerContext, val config: Config, socketServer:SocketServer) extends Logging {
+  private val brokerStateInfo = new HashMap[Int, Broker]
   private val brokerLock = new Object
   this.logIdent = "[Channel manager on controller " + config.brokerId + "]: "
 
@@ -22,29 +23,14 @@ class ControllerChannelManager(val controllerContext: ControllerContext, val con
     brokerLock synchronized {
       if (!brokerStateInfo.contains(broker.id)) {
         addNewBroker(broker)
-        startRequestSendThread(broker.id)
       }
     }
   }
 
   private def addNewBroker(broker: Broker) {
-    val messageQueue = new LinkedBlockingQueue[(RequestOrResponse, (RequestOrResponse) => Unit)](config.controllerMessageQueueSize)
-    debug("Controller %d trying to connect to broker %d".format(config.brokerId, broker.id))
-    val channel = new BlockingChannel(broker.host, broker.port,
-      BlockingChannel.UseDefaultBufferSize,
-      BlockingChannel.UseDefaultBufferSize,
-      config.controllerSocketTimeoutMs)
-    channel.connect()
-    val requestThread = new RequestSendThread(config.brokerId, controllerContext, broker.id, messageQueue, channel)
-    requestThread.setDaemon(false)
-    brokerStateInfo.put(broker.id, new ControllerBrokerStateInfo(channel, broker, messageQueue, requestThread))
+     brokerStateInfo.put(broker.id, broker)
   }
 
-  private def startRequestSendThread(brokerId: Int) {
-    val requestThread = brokerStateInfo(brokerId).requestSendThread
-    if (requestThread.getState == Thread.State.NEW)
-      requestThread.start()
-  }
 
   def removeBroker(brokerId: Int) {
     brokerLock synchronized {
@@ -54,8 +40,6 @@ class ControllerChannelManager(val controllerContext: ControllerContext, val con
 
   private def removeExistingBroker(brokerId: Int) {
     try {
-      brokerStateInfo(brokerId).channel.disconnect()
-      brokerStateInfo(brokerId).requestSendThread.shutdown()
       brokerStateInfo.remove(brokerId)
     } catch {
       case e: Throwable => error("Error while removing broker by the controller", e)
@@ -65,10 +49,11 @@ class ControllerChannelManager(val controllerContext: ControllerContext, val con
 
   def sendRequest(brokerId: Int, request: RequestOrResponse, callback: (RequestOrResponse) => Unit = null) {
     brokerLock synchronized {
-      val stateInfoOpt = brokerStateInfo.get(brokerId)
-      stateInfoOpt match {
-        case Some(stateInfo) =>
-          stateInfo.messageQueue.put((request, callback))
+      val brokerOpt = brokerStateInfo.get(brokerId)
+      brokerOpt match {
+        case Some(broker) =>
+          val inetAddressAndPort = InetAddressAndPort.create(broker.host, broker.port)
+          socketServer.sendTcpOneWay(request, inetAddressAndPort)
         case None =>
           warn("Not sending request %s to broker %d, since it is offline.".format(request, brokerId))
       }
