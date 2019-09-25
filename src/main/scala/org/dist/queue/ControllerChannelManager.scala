@@ -53,7 +53,7 @@ class ControllerChannelManager(val controllerContext: ControllerContext, val con
       brokerOpt match {
         case Some(broker) =>
           val inetAddressAndPort = InetAddressAndPort.create(broker.host, broker.port)
-          socketServer.sendTcpOneWay(request, inetAddressAndPort)
+          socketServer.sendReceiveTcp(request, inetAddressAndPort)
         case None =>
           warn("Not sending request %s to broker %d, since it is offline.".format(request, brokerId))
       }

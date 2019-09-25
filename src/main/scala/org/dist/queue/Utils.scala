@@ -4,8 +4,6 @@ import java.io.{EOFException, File}
 import java.nio.ByteBuffer
 import java.nio.channels.ReadableByteChannel
 
-import org.dist.queue.network.Processor
-
 import scala.collection.mutable.ListBuffer
 import scala.collection.{Map, Seq, mutable}
 

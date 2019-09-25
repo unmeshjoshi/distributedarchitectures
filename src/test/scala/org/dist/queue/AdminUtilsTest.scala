@@ -16,8 +16,8 @@ class AdminUtilsTest extends ZookeeperTestHarness {
     AdminUtils.createOrUpdateTopicPartitionAssignmentPathInZK("topic1",
       assignments, zkClient)
 
-    val storedAssignments = ZkUtils.getReplicasForPartition(zkClient, "topic1", 1)
+    val storedAssignments: collection.Seq[Int] = ZkUtils.getReplicasForPartition(zkClient, "topic1", 0)
 
-    assert(assignments == storedAssignments)
+    assert(assignments(0) == storedAssignments)
   }
 }

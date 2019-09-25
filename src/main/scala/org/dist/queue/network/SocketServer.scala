@@ -56,8 +56,7 @@ class SocketServer(val brokerId: Int,
     info("Shutdown completed")
   }
 
-
-  def sendTcpOneWay(message: RequestOrResponse, to: InetAddressAndPort) = {
+  def sendReceiveTcp(message: RequestOrResponse, to: InetAddressAndPort) = {
     val clientSocket = new Socket(to.address, to.port)
     clientSocket.setSoTimeout(1000)
     try {
@@ -68,7 +67,7 @@ class SocketServer(val brokerId: Int,
       dataStream.writeInt(messageBytes.size)
       dataStream.write(messageBytes)
       outputStream.flush()
-//
+      //
       val bytes = clientSocket.getInputStream.readAllBytes()
       println("received response " + new String(bytes))
 
@@ -83,7 +82,6 @@ class SocketServer(val brokerId: Int,
       clientSocket.close()
     }
   }
-
 }
 
 class TcpListener(localEp: InetAddressAndPort, kafkaApis: KafkaApis, socketServer: SocketServer) extends Thread {
