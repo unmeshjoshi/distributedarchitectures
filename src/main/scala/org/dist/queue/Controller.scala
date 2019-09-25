@@ -177,8 +177,11 @@ class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
   val elector = new ZookeeperLeaderElector(controllerContext, ZkUtils.ControllerPath, onControllerFailover,
     config.brokerId)
   private val replicaStateMachine = new ReplicaStateMachine(this)
+  val brokerRequestBatch = new ControllerBrokerRequestBatch(controllerContext, sendRequest, this.config.brokerId, this.clientId)
+  registerControllerChangedListener()
 
-  def startUp() = {
+
+  def startup() = {
     elector.startup()
   }
 
@@ -186,8 +189,54 @@ class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
 
   val partitionStateMachine = new PartitionStateMachine(this)
 
-  def sendUpdateMetadataRequest(toSeq: scala.Seq[Int]): Unit = {
-    info(s"Update metadata request ${toSeq}")
+  private def registerControllerChangedListener() {
+    zkClient.subscribeDataChanges(ZkUtils.ControllerEpochPath, new ControllerEpochListener(this))
+  }
+
+
+  class ControllerEpochListener(controller: Controller) extends IZkDataListener with Logging {
+    this.logIdent = "[ControllerEpochListener on " + controller.config.brokerId + "]: "
+    val controllerContext = controller.controllerContext
+    readControllerEpochFromZookeeper()
+
+    /**
+     * Invoked when a controller updates the epoch value
+     * @throws Exception On any error.
+     */
+    @throws(classOf[Exception])
+    def handleDataChange(dataPath: String, data: Object) {
+      debug("Controller epoch listener fired with new epoch " + data.toString)
+      controllerContext.controllerLock synchronized {
+        // read the epoch path to get the zk version
+        readControllerEpochFromZookeeper()
+      }
+    }
+
+    /**
+     * @throws Exception
+     *             On any error.
+     */
+    @throws(classOf[Exception])
+    def handleDataDeleted(dataPath: String) {
+    }
+
+    private def readControllerEpochFromZookeeper() {
+      // initialize the controller epoch and zk version by reading from zookeeper
+      if(ZkUtils.pathExists(controllerContext.zkClient, ZkUtils.ControllerEpochPath)) {
+        val epochData = ZkUtils.readData(controllerContext.zkClient, ZkUtils.ControllerEpochPath)
+        controllerContext.epoch = epochData._1.toInt
+        controllerContext.epochZkVersion = epochData._2.getVersion
+        info("Initialized controller epoch to %d and zk version %d".format(controllerContext.epoch, controllerContext.epochZkVersion))
+      }
+    }
+  }
+
+
+  def sendUpdateMetadataRequest(brokers: scala.Seq[Int], partitions: Set[TopicAndPartition] = Set.empty[TopicAndPartition]): Unit = {
+    info(s"Update metadata request ${brokers}")
+    brokerRequestBatch.newBatch()
+    brokerRequestBatch.addUpdateMetadataRequestForBrokers(brokers, partitions)
+    brokerRequestBatch.sendRequestsToBrokers(epoch, controllerContext.correlationId.getAndIncrement)
   }
 
 
@@ -256,9 +305,16 @@ class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
   def onNewPartitionCreation(newPartitions: Set[TopicAndPartition]) {
     info("New partition creation callback for %s".format(newPartitions.mkString(",")))
     partitionStateMachine.handleStateChanges(newPartitions, NewPartition)
-//    replicaStateMachine.handleStateChanges(getAllReplicasForPartition(newPartitions), NewReplica)
+    replicaStateMachine.handleStateChanges(getAllReplicasForPartition(newPartitions), NewReplica)
     partitionStateMachine.handleStateChanges(newPartitions, OnlinePartition, offlinePartitionSelector)
-//    replicaStateMachine.handleStateChanges(getAllReplicasForPartition(newPartitions), OnlineReplica)
+    replicaStateMachine.handleStateChanges(getAllReplicasForPartition(newPartitions), OnlineReplica)
+  }
+
+  private def getAllReplicasForPartition(partitions: Set[TopicAndPartition]): Set[PartitionAndReplica] = {
+    partitions.map { p =>
+      val replicas = controllerContext.partitionReplicaAssignment(p)
+      replicas.map(r => new PartitionAndReplica(p.topic, p.partition, r))
+    }.flatten
   }
 
   def sendRequest(brokerId : Int, request : RequestOrResponse, callback: (RequestOrResponse) => Unit = null) = {

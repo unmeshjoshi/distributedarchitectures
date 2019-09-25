@@ -11,6 +11,10 @@ import scala.collection.{Map, Seq, Set, mutable}
 
 object ZkUtils extends Logging {
 
+  def pathExists(client: ZkClient, path: String): Boolean = {
+    client.exists(path)
+  }
+
 
   def getLeaderIsrAndEpochForPartition(zkClient: ZkClient, topic: String, partition: Int):Option[LeaderIsrAndControllerEpoch] = {
     val leaderAndIsrPath = getTopicPartitionLeaderAndIsrPath(topic, partition)
