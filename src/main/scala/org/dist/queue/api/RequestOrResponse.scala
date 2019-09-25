@@ -1,10 +1,19 @@
 package org.dist.queue.api
 
-import org.dist.queue.PartitionStateInfo
+import java.nio.ByteBuffer
+
+import org.dist.queue.{PartitionStateInfo, TopicAndPartition}
 import org.dist.queue.utils.ZkUtils.Broker
 import java.util
 
+import org.dist.kvstore.JsonSerDes
+
+import scala.collection.JavaConverters._
+import scala.collection.Map
+
 object RequestKeys {
+  def deserializerForKey(requestId: Short)(buffer:ByteBuffer) = ???
+
   val ProduceKey: Short = 0
   val FetchKey: Short = 1
   val OffsetsKey: Short = 2
@@ -15,21 +24,69 @@ object RequestKeys {
   val ControlledShutdownKey: Short = 7
 }
 
-case class RequestOrResponse(val requestId: Short, val messageBody: Any, val correlationId: Int)
+case class RequestOrResponse(val requestId: Short, val messageBodyJson: String, val correlationId: Int) {
+  def serialize(): String = {
+    JsonSerDes.serialize(this)
+  }
+}
 
-object LeaderAndIsrRequest {
+
+object ProducerRequest {
+  val CurrentVersion = 0.shortValue
+}
+
+case class ProducerRequest(versionId: Short = ProducerRequest.CurrentVersion,
+                           val correlationId: Int,
+                           clientId: String,
+                           requiredAcks: Short,
+                           ackTimeoutMs: Int,
+                           data: collection.mutable.Map[TopicAndPartition, Array[Byte]]) {
+  val sizeInBytes = 10
 
 }
 
+object LeaderAndIsrRequest {
+  val CurrentVersion = 0.shortValue
+  val IsInit: Boolean = true
+  val NotInit: Boolean = false
+  val DefaultAckTimeout: Int = 1000
+
+  def apply(partitionStateInfos: Map[(String, Int), PartitionStateInfo],
+            leaders: Set[Broker], controllerId: Int,
+           controllerEpoch: Int, correlationId: Int, clientId: String) = {
+
+    new LeaderAndIsrRequest(LeaderAndIsrRequest.CurrentVersion, correlationId, clientId,
+      controllerId, controllerEpoch, convertToStringKeyMap(partitionStateInfos), leaders)
+  }
+
+
+  def convertToStringKeyMap(partitionStateInfos: Map[(String, Int), PartitionStateInfo]):Map[String, PartitionStateInfo] = {
+    val map = new util.HashMap[String, PartitionStateInfo]()
+    val keys = partitionStateInfos.keySet
+    for(key <- keys) {
+      val strKey = s"${key._1}:${key._2}"
+      map.put(strKey, partitionStateInfos(key))
+    }
+    map.asScala.toMap
+  }
+
+}
+
+
+
 case class LeaderAndIsrRequest(versionId: Short,
+                               val correlationId: Int,
                                clientId: String,
                                controllerId: Int,
                                controllerEpoch: Int,
                                partitionStateInfos: Map[String, PartitionStateInfo], // cant deserialize map with tuple (String, Int) key so adding helper method
                                leaders: Set[Broker]) {
 
+
+
+
   def partitionStateInfoMap = {
-    import scala.collection.JavaConverters._
+
 
     if (partitionStateInfos == null) {
       Map[(String, Int), PartitionStateInfo]()
@@ -43,5 +100,49 @@ case class LeaderAndIsrRequest(versionId: Short,
       }
       map.asScala.toMap
     }
+  }
+}
+
+
+object UpdateMetadataRequest {
+  val CurrentVersion = 0.shortValue
+  val IsInit: Boolean = true
+  val NotInit: Boolean = false
+  val DefaultAckTimeout: Int = 1000
+}
+
+case class UpdateMetadataRequest (versionId: Short,
+                                  val correlationId: Int,
+                                  clientId: String,
+                                  controllerId: Int,
+                                  controllerEpoch: Int,
+                                  partitionStateInfos: Map[TopicAndPartition, PartitionStateInfo],
+                                  aliveBrokers: Set[Broker]) {
+
+  def this(controllerId: Int, controllerEpoch: Int, correlationId: Int, clientId: String,
+           partitionStateInfos: Map[TopicAndPartition, PartitionStateInfo], aliveBrokers: Set[Broker]) = {
+    this(UpdateMetadataRequest.CurrentVersion, correlationId, clientId,
+      controllerId, controllerEpoch, partitionStateInfos, aliveBrokers)
+  }
+}
+
+
+case class LeaderAndIsrResponse(val correlationId: Int,
+                                responseMap: Map[(String, Int), Short],
+                                errorCode: Short = 0)
+
+object LeaderAndIsrResponse {
+  def readFrom(buffer: ByteBuffer): RequestOrResponse = {
+    RequestOrResponse(1, "", 1)
+  }
+}
+
+
+case class UpdateMetadataResponse(val correlationId: Int,
+                                  errorCode: Short = 0)
+
+object UpdateMetadataResponse {
+  def readFrom(buffer: ByteBuffer): RequestOrResponse = {
+    RequestOrResponse(1, "", 1)
   }
 }

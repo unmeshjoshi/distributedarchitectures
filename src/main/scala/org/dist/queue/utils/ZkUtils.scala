@@ -57,6 +57,40 @@ object ZkUtils extends Logging {
   }
 
 
+  def getPartitionAssignmentForTopics(zkClient: ZkClient, topics: Seq[String]): mutable.Map[String, collection.Map[Int, Seq[Int]]] = {
+    var ret = mutable.Map[String, Map[Int, Seq[Int]]]()
+    topics.foreach{ topic =>
+      val jsonPartitionMapOpt = readDataMaybeNull(zkClient, getTopicPath(topic))._1
+      val partitionMap: Map[Int, Seq[Int]] = jsonPartitionMapOpt match {
+        case Some(jsonPartitionMap) =>
+          val partitionsOpt: Option[Any] = JsonSerDes.deserialize(jsonPartitionMap.getBytes(), classOf[Map[String, Any]]).get("partitions")
+          partitionsOpt match {
+            case Some(m) => m.asInstanceOf[Map[String, Any]].get("partitions") match {
+              case Some(replicaMap) =>
+                val m1: Map[String, Seq[Int]] = replicaMap.asInstanceOf[Map[String, Seq[Int]]]
+                import java.util.HashMap
+                import scala.collection.JavaConverters._
+
+                val m2 = new HashMap[Int, Seq[Int]]()
+                val keys = m1.keySet
+                for(key ← keys) {
+                  val value = m1(key)
+                  m2.put(key.toInt, value)
+                }
+                m2.asScala
+              case None => Map[Int, Seq[Int]]()
+            }
+            case None => Map[Int, Seq[Int]]()
+          }
+        case None => Map[Int, Seq[Int]]()
+      }
+      debug("Partition map for /brokers/topics/%s is %s".format(topic, partitionMap))
+      ret.put(topic, partitionMap)
+    }
+    ret
+  }
+
+
   def getReplicasForPartition(zkClient: ZkClient, topic: String, partition: Int): Seq[Int] = {
     val jsonPartitionMapOpt = readDataMaybeNull(zkClient, getTopicPath(topic))._1
     jsonPartitionMapOpt match {

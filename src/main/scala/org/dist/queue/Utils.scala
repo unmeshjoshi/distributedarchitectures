@@ -1,11 +1,80 @@
 package org.dist.queue
 
-import java.io.File
+import java.io.{EOFException, File}
+import java.nio.ByteBuffer
+import java.nio.channels.ReadableByteChannel
+
+import org.dist.queue.network.Processor
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.{Map, Seq, mutable}
 
-object Utils {
+object Utils extends Logging {
+  /**
+   * Create a daemon thread
+   * @param runnable The runnable to execute in the background
+   * @return The unstarted thread
+   */
+  def daemonThread(runnable: Runnable): Thread =
+    newThread(runnable, true)
+
+  /**
+   * Create a daemon thread
+   * @param name The name of the thread
+   * @param runnable The runnable to execute in the background
+   * @return The unstarted thread
+   */
+  def daemonThread(name: String, runnable: Runnable): Thread =
+    newThread(name, runnable, true)
+
+  /**
+   * Read some bytes into the provided buffer, and return the number of bytes read. If the
+   * channel has been closed or we get -1 on the read for any reason, throw an EOFException
+   */
+  def read(channel: ReadableByteChannel, buffer: ByteBuffer): Int = {
+    channel.read(buffer) match {
+      case -1 => throw new EOFException("Received -1 when reading from channel, socket has likely been closed.")
+      case n: Int => n
+    }
+  }
+
+  /**
+   * Create a new thread
+   *
+   * @param name The name of the thread
+   * @param runnable The work for the thread to do
+   * @param daemon Should the thread block JVM shutdown?
+   * @return The unstarted thread
+   */
+  def newThread(name: String, runnable: Runnable, daemon: Boolean): Thread = {
+    val thread = new Thread(runnable, name)
+    thread.setDaemon(daemon)
+    thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+      def uncaughtException(t: Thread, e: Throwable) {
+        error("Uncaught exception in thread '" + t.getName + "':", e)
+      }
+    })
+    thread
+  }
+
+  /**
+   * Create a new thread
+   * @param runnable The work for the thread to do
+   * @param daemon Should the thread block JVM shutdown?
+   * @return The unstarted thread
+   */
+  def newThread(runnable: Runnable, daemon: Boolean): Thread = {
+    val thread = new Thread(runnable)
+    thread.setDaemon(daemon)
+    thread.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+      def uncaughtException(t: Thread, e: Throwable) {
+        error("Uncaught exception in thread '" + t.getName + "':", e)
+      }
+    })
+    thread
+  }
+
+
   /**
    * Format a Seq[String] as JSON array.
    */

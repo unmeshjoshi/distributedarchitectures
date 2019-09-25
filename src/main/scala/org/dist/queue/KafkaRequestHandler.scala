@@ -1,0 +1,77 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.dist.queue
+
+
+import java.util.concurrent.TimeUnit
+
+import org.dist.queue.network.RequestChannel
+
+/**
+ * A thread that answers kafka requests.
+ */
+class KafkaRequestHandler(id: Int, brokerId: Int, val requestChannel: RequestChannel, apis: KafkaApis) extends Runnable with Logging {
+  this.logIdent = "[Kafka Request Handler " + id + " on Broker " + brokerId + "], "
+
+  def run() {
+    while(true) {
+      try {
+        val req = requestChannel.receiveRequest()
+        //FIXME
+//        if(req eq RequestChannel.AllDone) {
+//          debug("Kafka request handler %d on broker %d received shut down command".format(
+//            id, brokerId))
+//          return
+//        }
+        req.dequeueTimeMs = SystemTime.milliseconds
+        trace("Kafka request handler %d on broker %d handling request %s".format(id, brokerId, req))
+        apis.handle(req)
+      } catch {
+        case e: Throwable => error("Exception when handling request", e)
+      }
+    }
+  }
+
+  def shutdown(): Unit = {
+    //FIXME
+//    requestChannel.sendRequest(RequestChannel.AllDone)
+  }
+}
+
+class KafkaRequestHandlerPool(val brokerId: Int,
+                              val requestChannel: RequestChannel,
+                              val apis: KafkaApis,
+                              numThreads: Int) extends Logging {
+  this.logIdent = "[Kafka Request Handler on Broker " + brokerId + "], "
+  val threads = new Array[Thread](numThreads)
+  val runnables = new Array[KafkaRequestHandler](numThreads)
+  for(i <- 0 until numThreads) {
+    runnables(i) = new KafkaRequestHandler(i, brokerId, requestChannel, apis)
+    threads(i) = Utils.daemonThread("kafka-request-handler-" + i, runnables(i))
+    threads(i).start()
+  }
+
+  def shutdown() {
+    info("shutting down")
+    for(handler <- runnables)
+      handler.shutdown
+    for(thread <- threads)
+      thread.join
+    info("shutted down completely")
+  }
+}

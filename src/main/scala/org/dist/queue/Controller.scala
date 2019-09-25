@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.I0Itec.zkclient.{IZkDataListener, ZkClient}
 import org.dist.kvstore.JsonSerDes
+import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.utils.ZkUtils
 import org.dist.queue.utils.ZkUtils.Broker
 
@@ -134,6 +135,7 @@ case class LeaderIsrAndControllerEpoch(val leaderAndIsr: LeaderAndIsr, controlle
 }
 
 class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 6000,
+                        var controllerChannelManager: ControllerChannelManager = null,
                         var epoch: Int = Controller.InitialControllerEpoch - 1,
                         var epochZkVersion: Int = Controller.InitialControllerEpochZkVersion - 1,
                         val controllerLock: Object = new Object,
@@ -141,7 +143,13 @@ class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 600
                         var shuttingDownBrokerIds: mutable.Set[Int] = mutable.Set.empty,
                         var allTopics: Set[String] = Set.empty,
                         var partitionReplicaAssignment: mutable.Map[TopicAndPartition, Seq[Int]] = mutable.Map.empty,
-                        var partitionLeadershipInfo: mutable.Map[TopicAndPartition, LeaderIsrAndControllerEpoch] = mutable.Map.empty) {
+                        var partitionLeadershipInfo: mutable.Map[TopicAndPartition, LeaderIsrAndControllerEpoch] = mutable.Map.empty,
+                        var partitionsBeingReassigned: mutable.Map[TopicAndPartition, ReassignedPartitionsContext] =
+                        new mutable.HashMap,
+                        var partitionsUndergoingPreferredReplicaElection: mutable.Set[TopicAndPartition] =
+                        new mutable.HashSet) {
+
+
 
   private var liveBrokersUnderlying: Set[Broker] = Set.empty
   private var liveBrokerIdsUnderlying: Set[Int] = Set.empty
@@ -161,14 +169,6 @@ class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 600
 }
 
 class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
-  def onBrokerFailure(toSeq: scala.Seq[Int]) = {
-
-  }
-
-  def onBrokerStartup(toSeq: scala.Seq[Int]) = {
-
-  }
-
 
   def clientId = "id_%d-host_%s-port_%d".format(config.brokerId, config.hostName, config.port)
 
@@ -266,6 +266,8 @@ class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
 
   def startChannelManager() = {
     info("Starting channel manager")
+    controllerContext.controllerChannelManager = new ControllerChannelManager(controllerContext, config)
+    controllerContext.controllerChannelManager.startup()
   }
 
   private def initializeControllerContext() {
@@ -310,6 +312,100 @@ class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
     replicaStateMachine.handleStateChanges(getAllReplicasForPartition(newPartitions), OnlineReplica)
   }
 
+  def onPartitionReassignment(topicAndPartition: TopicAndPartition, reassignedPartitionContext: ReassignedPartitionsContext): Unit = {
+    info("on partition reassignment")
+  }
+
+  /**
+   * This callback is invoked by the replica state machine's broker change listener, with the list of newly started
+   * brokers as input. It does the following -
+   * 1. Triggers the OnlinePartition state change for all new/offline partitions
+   * 2. It checks whether there are reassigned replicas assigned to any newly started brokers.  If
+   *    so, it performs the reassignment logic for each topic/partition.
+   *
+   * Note that we don't need to refresh the leader/isr cache for all topic/partitions at this point for two reasons:
+   * 1. The partition state machine, when triggering online state change, will refresh leader and ISR for only those
+   *    partitions currently new or offline (rather than every partition this controller is aware of)
+   * 2. Even if we do refresh the cache, there is no guarantee that by the time the leader and ISR request reaches
+   *    every broker that it is still valid.  Brokers check the leader epoch to determine validity of the request.
+   */
+  def onBrokerStartup(newBrokers: Seq[Int]) {
+    info("New broker startup callback for %s".format(newBrokers.mkString(",")))
+
+    val newBrokersSet = newBrokers.toSet
+    // send update metadata request for all partitions to the newly restarted brokers. In cases of controlled shutdown
+    // leaders will not be elected when a new broker comes up. So at least in the common controlled shutdown case, the
+    // metadata will reach the new brokers faster
+    sendUpdateMetadataRequest(newBrokers.toSeq)
+    // the very first thing to do when a new broker comes up is send it the entire list of partitions that it is
+    // supposed to host. Based on that the broker starts the high watermark threads for the input list of partitions
+    replicaStateMachine.handleStateChanges(getAllReplicasOnBroker(zkClient, controllerContext.allTopics.toSeq, newBrokers), OnlineReplica)
+    // when a new broker comes up, the controller needs to trigger leader election for all new and offline partitions
+    // to see if these brokers can become leaders for some/all of those
+    partitionStateMachine.triggerOnlinePartitionStateChange()
+    // check if reassignment of some partitions need to be restarted
+    val partitionsWithReplicasOnNewBrokers = controllerContext.partitionsBeingReassigned.filter{
+      case (topicAndPartition, reassignmentContext) =>
+        reassignmentContext.newReplicas.exists(newBrokersSet.contains(_))
+    }
+    partitionsWithReplicasOnNewBrokers.foreach(p => onPartitionReassignment(p._1, p._2))
+  }
+
+  /**
+   * This callback is invoked by the replica state machine's broker change listener with the list of failed brokers
+   * as input. It does the following -
+   * 1. Mark partitions with dead leaders as offline
+   * 2. Triggers the OnlinePartition state change for all new/offline partitions
+   * 3. Invokes the OfflineReplica state change on the input list of newly started brokers
+   *
+   * Note that we don't need to refresh the leader/isr cache for all topic/partitions at this point.  This is because
+   * the partition state machine will refresh our cache for us when performing leader election for all new/offline
+   * partitions coming online.
+   */
+  def onBrokerFailure(deadBrokers: Seq[Int]) {
+    info("Broker failure callback for %s".format(deadBrokers.mkString(",")))
+
+    val deadBrokersThatWereShuttingDown =
+      deadBrokers.filter(id => controllerContext.shuttingDownBrokerIds.remove(id))
+    info("Removed %s from list of shutting down brokers.".format(deadBrokersThatWereShuttingDown))
+
+    val deadBrokersSet = deadBrokers.toSet
+    // trigger OfflinePartition state for all partitions whose current leader is one amongst the dead brokers
+    val partitionsWithoutLeader = controllerContext.partitionLeadershipInfo.filter(partitionAndLeader =>
+      deadBrokersSet.contains(partitionAndLeader._2.leaderAndIsr.leader)).keySet
+    partitionStateMachine.handleStateChanges(partitionsWithoutLeader, OfflinePartition)
+    // trigger OnlinePartition state changes for offline or new partitions
+    partitionStateMachine.triggerOnlinePartitionStateChange()
+    // handle dead replicas
+    replicaStateMachine.handleStateChanges(getAllReplicasOnBroker(zkClient, controllerContext.allTopics.toSeq, deadBrokers), OfflineReplica)
+  }
+
+
+  def getAllReplicasOnBroker(zkClient: ZkClient, topics: Seq[String], brokerIds: Seq[Int]): Set[PartitionAndReplica] = {
+    Set.empty[PartitionAndReplica] ++ brokerIds.map { brokerId =>
+      // read all the partitions and their assigned replicas into a map organized by
+      // { replica id -> partition 1, partition 2...
+      val partitionsAssignedToThisBroker = getPartitionsAssignedToBroker(zkClient, topics, brokerId)
+      if(partitionsAssignedToThisBroker.size == 0)
+        info("No state transitions triggered since no partitions are assigned to brokers %s".format(brokerIds.mkString(",")))
+      partitionsAssignedToThisBroker.map(p => new PartitionAndReplica(p._1, p._2, brokerId))
+    }.flatten
+  }
+
+
+  def getPartitionsAssignedToBroker(zkClient: ZkClient, topics: Seq[String], brokerId: Int): Seq[(String, Int)] = {
+    val topicsAndPartitions: mutable.Map[String, Map[Int, Seq[Int]]] = ZkUtils.getPartitionAssignmentForTopics(zkClient, topics)
+    topicsAndPartitions.map { topicAndPartitionMap:(String, Map[Int, Seq[Int]]) =>
+      val topic = topicAndPartitionMap._1
+      val partitionMap = topicAndPartitionMap._2
+      val relevantPartitionsMap = partitionMap.filter( m => m._2.contains(brokerId) )
+      val relevantPartitions = relevantPartitionsMap.map(_._1)
+      for(relevantPartition <- relevantPartitions) yield {
+        (topic, relevantPartition)
+      }
+    }.flatten[(String, Int)].toSeq
+  }
+
   private def getAllReplicasForPartition(partitions: Set[TopicAndPartition]): Set[PartitionAndReplica] = {
     partitions.map { p =>
       val replicas = controllerContext.partitionReplicaAssignment(p)
@@ -318,7 +414,7 @@ class Controller(val config:Config, val zkClient:ZkClient) extends Logging {
   }
 
   def sendRequest(brokerId : Int, request : RequestOrResponse, callback: (RequestOrResponse) => Unit = null) = {
-
+    controllerContext.controllerChannelManager.sendRequest(brokerId, request, callback)
   }
 
   val offlinePartitionSelector = new OfflinePartitionLeaderSelector(controllerContext)

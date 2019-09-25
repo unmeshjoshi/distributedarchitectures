@@ -182,8 +182,10 @@ class ReplicaStateMachine(controller: Controller) extends Logging {
         controllerContext.liveBrokers = curBrokerIds.map(ZkUtils.getBrokerInfo(zkClient, _)).filter(_.isDefined).map(_.get)
         info("Newly added brokers: %s, deleted brokers: %s, all live brokers: %s"
           .format(newBrokerIds.mkString(","), deadBrokerIds.mkString(","), controllerContext.liveBrokerIds.mkString(",")))
-        //        newBrokers.foreach(controllerContext.controllerChannelManager.addBroker(_))
-        //        deadBrokerIds.foreach(controllerContext.controllerChannelManager.removeBroker(_))
+
+        newBrokers.foreach(controllerContext.controllerChannelManager.addBroker(_))
+        deadBrokerIds.foreach(controllerContext.controllerChannelManager.removeBroker(_))
+        
         if (newBrokerIds.size > 0)
           controller.onBrokerStartup(newBrokerIds.toSeq)
         if (deadBrokerIds.size > 0)

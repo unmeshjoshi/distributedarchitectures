@@ -5,7 +5,7 @@ import org.dist.queue.utils.ZkUtils.Broker
 import org.dist.queue.{LeaderAndIsr, LeaderIsrAndControllerEpoch, PartitionStateInfo}
 import org.scalatest.FunSuite
 
-import scala.collection.mutable.Map
+
 
 class LeaderAndIsrRequestTest extends FunSuite {
   private val topic1 = "test1"
@@ -18,9 +18,10 @@ class LeaderAndIsrRequestTest extends FunSuite {
   test("serialize and deserialize leaderandisr request") {
     val leaderAndIsr1 = new LeaderIsrAndControllerEpoch(new LeaderAndIsr(leader1, 1, isr1, 1), 1)
     val leaderAndIsr2 = new LeaderIsrAndControllerEpoch(new LeaderAndIsr(leader2, 1, isr2, 2), 1)
-    val map = Map(("topic1:0", PartitionStateInfo(leaderAndIsr1, isr1.toSet)),
-      ("topic2:0", PartitionStateInfo(leaderAndIsr2, isr2.toSet)))
-    val request = LeaderAndIsrRequest(1, "1", 1, 1, map.toMap, collection.immutable.Set[Broker]())
+    val map: Map[(String, Int), PartitionStateInfo] = Map(("topic1", 0) → PartitionStateInfo(leaderAndIsr1, isr1.toSet),
+      ("topic2", 0) → PartitionStateInfo(leaderAndIsr2, isr2.toSet))
+    val leaders = Set[Broker](Broker(1, "127.0.0.1", 8000))
+    val request = LeaderAndIsrRequest(map, leaders, 1, 0, 1, "client1")
     val str = JsonSerDes.serialize(request)
     val deserializedRequest = JsonSerDes.deserialize(str.getBytes, classOf[LeaderAndIsrRequest])
 

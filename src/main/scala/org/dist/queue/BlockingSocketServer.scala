@@ -7,7 +7,7 @@ import org.dist.kvstore._
 /**
  * For handling requests
  */
-class SocketServer {
+class BlockingSocketServer {
 
 
   def listen(localEp: InetAddressAndPort): Unit = {
@@ -33,7 +33,7 @@ class SocketServer {
     }
   }
 
-  class TcpListener(localEp: InetAddressAndPort, messagingService: SocketServer) extends Thread {
+  class TcpListener(localEp: InetAddressAndPort, messagingService: BlockingSocketServer) extends Thread {
 
     override def run(): Unit = {
       val serverSocket = new ServerSocket()
