@@ -1,10 +1,8 @@
 package org.dist.queue
 
-import java.util.concurrent.{BlockingQueue, LinkedBlockingQueue}
-
 import org.dist.kvstore.InetAddressAndPort
-import org.dist.queue.api.{LeaderAndIsrResponse, RequestKeys, RequestOrResponse, UpdateMetadataResponse}
-import org.dist.queue.network.{BlockingChannel, Receive, SocketServer}
+import org.dist.queue.api.RequestOrResponse
+import org.dist.queue.network.SocketServer
 import org.dist.queue.utils.ZkUtils.Broker
 
 import scala.collection.mutable.HashMap
@@ -61,51 +59,3 @@ class ControllerChannelManager(val controllerContext: ControllerContext, val con
   }
 }
 
-
-case class ControllerBrokerStateInfo(channel: BlockingChannel,
-                                     broker: Broker,
-                                     messageQueue: BlockingQueue[(RequestOrResponse, (RequestOrResponse) => Unit)],
-                                     requestSendThread: RequestSendThread)
-
-class RequestSendThread(val controllerId: Int,
-                        val controllerContext: ControllerContext,
-                        val toBrokerId: Int,
-                        val queue: BlockingQueue[(RequestOrResponse, (RequestOrResponse) => Unit)],
-                        val channel: BlockingChannel)
-  extends ShutdownableThread("Controller-%d-to-broker-%d-send-thread".format(controllerId, toBrokerId)) with Logging {
-  private val lock = new Object()
-
-  override def doWork(): Unit = {
-    val queueItem: (RequestOrResponse, RequestOrResponse ⇒ Unit) = queue.take()
-    val request = queueItem._1
-    val callback = queueItem._2
-
-    var receive: Receive = null
-
-    try {
-      lock synchronized {
-        channel.connect() // establish a socket connection if needed
-        channel.send(request)
-        receive = channel.receive()
-        var response: RequestOrResponse = null
-        request.requestId match {
-          case RequestKeys.LeaderAndIsrKey =>
-            response = LeaderAndIsrResponse.readFrom(receive.buffer)
-          case RequestKeys.UpdateMetadataKey =>
-            response = UpdateMetadataResponse.readFrom(receive.buffer)
-        }
-        trace("Controller %d epoch %d received response correlationId %d for a request sent to broker %d"
-          .format(controllerId, controllerContext.epoch, response.correlationId, toBrokerId))
-
-        if (callback != null) {
-          callback(response)
-        }
-      }
-    } catch {
-      case e: Throwable =>
-        warn("Controller %d fails to send a request to broker %d".format(controllerId, toBrokerId), e)
-        // If there is any socket error (eg, socket timeout), the channel is no longer usable and needs to be recreated.
-        channel.disconnect()
-    }
-  }
-}

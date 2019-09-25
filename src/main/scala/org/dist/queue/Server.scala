@@ -1,15 +1,16 @@
 package org.dist.queue
 
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 
 import org.dist.queue.network.SocketServer
 
 class Server(config: Config, time: Time = SystemTime) {
+  private var shutdownLatch = new CountDownLatch(1)
   var kafkaZooKeeper:KafkaZooKeeper = _
   var controller:Controller = _
   var replicaManager: ReplicaManager = _
   var logManager: LogManager = null
-  var requestHandlerPool: KafkaRequestHandlerPool = null
 
   var isShuttingDown:AtomicBoolean = _
 
@@ -47,4 +48,9 @@ class Server(config: Config, time: Time = SystemTime) {
 
     controller.startup()
   }
+  def shutdown(): Unit = {
+    shutdownLatch.countDown()
+  }
+
+  def awaitShutdown(): Unit = shutdownLatch.await()
 }

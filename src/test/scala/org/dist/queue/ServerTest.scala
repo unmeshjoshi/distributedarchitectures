@@ -34,6 +34,8 @@ class ServerTest extends ZookeeperTestHarness {
 
     new CreateTopicCommand().createTopic(zkClient, "topic1", 2, 2)
 
+    server1.awaitShutdown()
+    server2.awaitShutdown()
 //    Thread.sleep(100000)
   }
 }

@@ -24,12 +24,6 @@ import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.{KafkaApis, Logging}
 
-/**
- * An NIO socket server. The threading model is
- *   1 Acceptor thread that handles new connections
- *   N Processor threads that each have their own selector and read requests from sockets
- *   M Handler threads that handle requests and produce responses back to the processor threads for writing.
- */
 class SocketServer(val brokerId: Int,
                    val host: String,
                    val port: Int,
@@ -67,9 +61,13 @@ class SocketServer(val brokerId: Int,
       dataStream.writeInt(messageBytes.size)
       dataStream.write(messageBytes)
       outputStream.flush()
+      val inputStream = clientSocket.getInputStream
+      val dataInputStream = new DataInputStream(inputStream)
       //
-      val bytes = clientSocket.getInputStream.readAllBytes()
-      println("received response " + new String(bytes))
+      val size = dataInputStream.readInt()
+      val responseBytes = new Array[Byte](size)
+      dataInputStream.read(responseBytes)
+      println("received response " + new String(responseBytes))
 
       outputStream.close()
 
@@ -104,7 +102,9 @@ class TcpListener(localEp: InetAddressAndPort, kafkaApis: KafkaApis, socketServe
       val response = kafkaApis.handle(request)
       val str = JsonSerDes.serialize(response)
       val outptStream = socket.getOutputStream
-      outptStream.write(str.getBytes)
+      val dataOutputStream = new DataOutputStream(outptStream)
+      dataOutputStream.writeInt(str.getBytes().size)
+      dataOutputStream.write(str.getBytes)
       outptStream.flush()
       outptStream.close()
       inputStream.close()

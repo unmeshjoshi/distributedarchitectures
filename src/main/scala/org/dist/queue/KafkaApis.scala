@@ -2,9 +2,7 @@ package org.dist.queue
 
 import org.I0Itec.zkclient.ZkClient
 import org.dist.kvstore.JsonSerDes
-import org.dist.queue.api.{LeaderAndIsrRequest, LeaderAndIsrResponse, RequestKeys, RequestOrResponse, UpdateMetadataRequest, UpdateMetadataResponse}
-import org.dist.queue.network.{BoundedByteBufferSend, RequestChannel}
-import org.dist.queue.network.RequestChannel.Response
+import org.dist.queue.api._
 
 
 class KafkaApis(val replicaManager: ReplicaManager,
@@ -24,8 +22,9 @@ class KafkaApis(val replicaManager: ReplicaManager,
       }
       case RequestKeys.LeaderAndIsrKey ⇒ {
         println(s"Handling LeaderAndIsrRequest ${request.messageBodyJson}" )
-        val message = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[LeaderAndIsrRequest])
-        RequestOrResponse(0, JsonSerDes.serialize(LeaderAndIsrResponse(message.controllerId, Map(), 0)), message.correlationId)
+        val leaderAndIsrRequest: LeaderAndIsrRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[LeaderAndIsrRequest])
+        replicaManager.becomeLeaderOrFollower(leaderAndIsrRequest)
+        RequestOrResponse(0, JsonSerDes.serialize(LeaderAndIsrResponse(leaderAndIsrRequest.controllerId, Map(), 0)), leaderAndIsrRequest.correlationId)
       }
     }
 
