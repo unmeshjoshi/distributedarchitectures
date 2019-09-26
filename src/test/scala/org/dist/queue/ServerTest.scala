@@ -1,5 +1,7 @@
 package org.dist.queue
 
+import org.dist.kvstore.JsonSerDes
+import org.dist.queue.api.{RequestKeys, RequestOrResponse, TopicMetadataRequest}
 import org.dist.queue.utils.ZkUtils
 
 class ServerTest extends ZookeeperTestHarness {
@@ -32,7 +34,13 @@ class ServerTest extends ZookeeperTestHarness {
     assert(sortedBrokers(1).host == config2.hostName)
     assert(sortedBrokers(1).port == config2.port)
 
-    new CreateTopicCommand().createTopic(zkClient, "topic1", 2, 2)
+    CreateTopicCommand.createTopic(zkClient, "topic1", 2, 2)
+
+
+    val str = JsonSerDes.serialize(TopicMetadataRequest(RequestKeys.MetadataKey, 1, "client1", Seq("topic1")))
+    val medataRequest = RequestOrResponse(RequestKeys.MetadataKey, str, 1)
+
+    
 
     server1.awaitShutdown()
     server2.awaitShutdown()

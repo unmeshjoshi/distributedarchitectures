@@ -2,7 +2,7 @@ package org.dist.queue.api
 
 import java.nio.ByteBuffer
 
-import org.dist.queue.{PartitionStateInfo, TopicAndPartition}
+import org.dist.queue.{ErrorMapping, PartitionStateInfo, TopicAndPartition}
 import org.dist.queue.utils.ZkUtils.Broker
 import java.util
 
@@ -41,9 +41,28 @@ case class ProducerRequest(versionId: Short = ProducerRequest.CurrentVersion,
                            requiredAcks: Short,
                            ackTimeoutMs: Int,
                            data: collection.mutable.Map[TopicAndPartition, Array[Byte]]) {
-  val sizeInBytes = 10
+
 
 }
+
+case class TopicMetadataRequest(val versionId: Short,
+                                val correlationId: Int,
+                                val clientId: String,
+                                val topics: Seq[String])
+
+case class TopicMetadataResponse(topicsMetadata: Seq[TopicMetadata],
+                                 val correlationId: Int) {
+
+}
+
+case class TopicMetadata(topic: String, partitionsMetadata: Seq[PartitionMetadata], errorCode: Short = ErrorMapping.NoError)
+
+case class PartitionMetadata(partitionId: Int,
+                             val leader: Option[Broker],
+                             replicas: Seq[Broker],
+                             isr: Seq[Broker] = Seq.empty,
+                             errorCode: Short = ErrorMapping.NoError)
+
 
 object LeaderAndIsrRequest {
   val CurrentVersion = 0.shortValue

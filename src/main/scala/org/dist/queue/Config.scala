@@ -10,6 +10,12 @@ case class Config(brokerId: Int,
                   zkConnectionTimeoutMs: Int = 6000,
                   controllerMessageQueueSize:Int = 10,
                   val controllerSocketTimeoutMs: Int = 10) {
+  val defaultReplicationFactor = 1
+
+  val numPartitions = 1
+
+  val autoCreateTopicsEnable: Boolean = false
+
   val numIoThreads: Int = 8
 
 
