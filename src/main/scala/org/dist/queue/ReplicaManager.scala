@@ -116,7 +116,7 @@ class ReplicaManager(val config: Config,
         responseMap.put(topicAndPartition, errorCode)
       }
     }
-    (responseMap, 0)
+    (responseMap, ErrorMapping.NoError)
   }
 
   def startup() = {
