@@ -108,7 +108,6 @@ class ReplicaManager(val config: Config,
             error(errorMsg, e)
             errorCode = ErrorMapping.UnknownCode
         }
-        info("Handled leader and isr request %s".format(leaderAndISRRequest))
         // we initialize highwatermark thread after the first leaderisrrequest. This ensures that all the partitions
         // have been completely populated before starting the checkpointing there by avoiding weird race conditions
 //        if (!hwThreadInitialized) {

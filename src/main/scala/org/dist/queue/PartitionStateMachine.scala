@@ -55,8 +55,6 @@ class ControllerBrokerRequestBatch(controllerContext: ControllerContext, sendReq
 
 
   def sendRequestsToBrokers(controllerEpoch: Int, correlationId: Int): Unit = {
-    info(s"sending leaderandisr to broker ${leaderAndIsrRequestMap}")
-    info(s"sending update metadata request to brokers ${updateMetadataRequestMap}")
     //send leaderandisr requests
     //send update metadata requests
     //send stop replica requests

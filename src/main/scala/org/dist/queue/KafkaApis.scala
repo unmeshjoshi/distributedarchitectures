@@ -20,7 +20,6 @@ class KafkaApis(val replicaManager: ReplicaManager,
   private val partitionMetadataLock = new Object
 
   def handle(req: RequestOrResponse): RequestOrResponse = {
-    info(s"processing ${req} ************************************************ ")
     val request: RequestOrResponse = req
     request.requestId match {
       case RequestKeys.UpdateMetadataKey ⇒ {

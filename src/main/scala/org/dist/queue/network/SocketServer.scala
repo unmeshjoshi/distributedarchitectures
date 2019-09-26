@@ -55,12 +55,16 @@ class SocketServer(val brokerId: Int,
     clientSocket.setSoTimeout(1000)
     try {
       val serializedMessage = JsonSerDes.serialize(message)
+
       val outputStream = clientSocket.getOutputStream()
-      val messageBytes = serializedMessage.getBytes
       val dataStream = new DataOutputStream(outputStream)
+
+      val messageBytes = serializedMessage.getBytes
       dataStream.writeInt(messageBytes.size)
       dataStream.write(messageBytes)
       outputStream.flush()
+
+
       val inputStream = clientSocket.getInputStream
       val dataInputStream = new DataInputStream(inputStream)
       //
@@ -93,14 +97,16 @@ class TcpListener(localEp: InetAddressAndPort, kafkaApis: KafkaApis, socketServe
       socket.setSoTimeout(1000)
       val inputStream = socket.getInputStream()
       println(s"Connecting from ${socket.getInetAddress}, ${socket.getPort}" )
+
       val dataInputStream = new DataInputStream(inputStream)
       val size = dataInputStream.readInt()
       val messageBytes = new Array[Byte](size)
       inputStream.read(messageBytes)
       val request = JsonSerDes.deserialize(messageBytes, classOf[RequestOrResponse])
-      println(s"handling ${request}")
+
       val response = kafkaApis.handle(request)
       val str = JsonSerDes.serialize(response)
+
       val outptStream = socket.getOutputStream
       val dataOutputStream = new DataOutputStream(outptStream)
       dataOutputStream.writeInt(str.getBytes().size)
