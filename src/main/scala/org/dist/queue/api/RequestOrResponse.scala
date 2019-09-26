@@ -109,6 +109,24 @@ object UpdateMetadataRequest {
   val IsInit: Boolean = true
   val NotInit: Boolean = false
   val DefaultAckTimeout: Int = 1000
+
+  def apply(controllerId: Int, controllerEpoch: Int, correlationId: Int, clientId: String,
+           partitionStateInfos: Map[TopicAndPartition, PartitionStateInfo], aliveBrokers: Set[Broker]) = {
+    new UpdateMetadataRequest(UpdateMetadataRequest.CurrentVersion, correlationId, clientId,
+      controllerId, controllerEpoch, convertToStringKeyMap(partitionStateInfos), aliveBrokers)
+  }
+
+  def convertToStringKeyMap(partitionStateInfos: Map[TopicAndPartition, PartitionStateInfo]):Map[String, PartitionStateInfo] = {
+    val map = new util.HashMap[String, PartitionStateInfo]()
+    val keys = partitionStateInfos.keySet
+    for(key <- keys) {
+      val strKey = s"${key.topic}:${key.partition}"
+      map.put(strKey, partitionStateInfos(key))
+    }
+    map.asScala.toMap
+  }
+
+
 }
 
 case class UpdateMetadataRequest (versionId: Short,
@@ -116,13 +134,23 @@ case class UpdateMetadataRequest (versionId: Short,
                                   clientId: String,
                                   controllerId: Int,
                                   controllerEpoch: Int,
-                                  partitionStateInfos: Map[TopicAndPartition, PartitionStateInfo],
+                                  partitionStateInfos: Map[String, PartitionStateInfo],
                                   aliveBrokers: Set[Broker]) {
 
-  def this(controllerId: Int, controllerEpoch: Int, correlationId: Int, clientId: String,
-           partitionStateInfos: Map[TopicAndPartition, PartitionStateInfo], aliveBrokers: Set[Broker]) = {
-    this(UpdateMetadataRequest.CurrentVersion, correlationId, clientId,
-      controllerId, controllerEpoch, partitionStateInfos, aliveBrokers)
+  def partitionStateInfoMap = {
+    if (partitionStateInfos == null) {
+      Map[TopicAndPartition, PartitionStateInfo]()
+    } else {
+      val map = new util.HashMap[TopicAndPartition, PartitionStateInfo]()
+      val set = partitionStateInfos.keySet
+      for (key ← set) {
+        val splits: Array[String] = key.split(":")
+        val topicPartition = TopicAndPartition(splits(0), splits(1).toInt)
+        map.put(topicPartition, partitionStateInfos(key))
+      }
+      map.asScala.toMap
+    }
+
   }
 }
 

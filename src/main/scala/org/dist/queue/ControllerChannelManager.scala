@@ -11,6 +11,8 @@ class ControllerChannelManager(val controllerContext: ControllerContext, val con
   private val brokerStateInfo = new HashMap[Int, Broker]
   private val brokerLock = new Object
   this.logIdent = "[Channel manager on controller " + config.brokerId + "]: "
+  controllerContext.liveBrokers.foreach(addNewBroker(_)) //this is important as the controller, which is the first broker, will not be added to broker info otherwise
+
 
   def startup() = {
 

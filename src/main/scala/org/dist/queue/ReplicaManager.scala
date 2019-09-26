@@ -33,6 +33,8 @@ class ReplicaManager(val config: Config,
     trace(("Broker %d received LeaderAndIsr request correlationId %d from controller %d epoch %d " +
       "starting the become-leader transition for partition [%s,%d]")
       .format(localBrokerId, correlationId, controllerId, epoch, topic, partitionId))
+
+
     val partition = getOrCreatePartition(topic, partitionId, partitionStateInfo.replicationFactor)
     if (partition.makeLeader(controllerId, topic, partitionId, leaderIsrAndControllerEpoch, correlationId)) {
       // also add this partition to the list of partitions for which the leader is the current broker

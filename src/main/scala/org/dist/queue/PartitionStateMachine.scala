@@ -80,7 +80,7 @@ class ControllerBrokerRequestBatch(controllerContext: ControllerContext, sendReq
     updateMetadataRequestMap.foreach { m =>
       val broker = m._1
       val partitionStateInfos = m._2.toMap
-      val updateMetadataRequest = new UpdateMetadataRequest(controllerId, controllerEpoch, correlationId, clientId,
+      val updateMetadataRequest = UpdateMetadataRequest(controllerId, controllerEpoch, correlationId, clientId,
         partitionStateInfos, controllerContext.liveOrShuttingDownBrokers)
       partitionStateInfos.foreach(p => trace(("Controller %d epoch %d sending UpdateMetadata request with " +
         "correlationId %d to broker %d for partition %s").format(controllerId, controllerEpoch, correlationId, broker, p._1)))
