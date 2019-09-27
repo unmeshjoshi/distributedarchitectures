@@ -3,9 +3,12 @@ package org.dist.kvstore
 import java.net.{InetSocketAddress, ServerSocket, Socket}
 import java.util
 
+import org.slf4j.LoggerFactory
+
 import scala.collection.JavaConverters._
 
 class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingService: MessagingService) extends Thread {
+  private[kvstore] val logger = LoggerFactory.getLogger(classOf[TcpListener])
 
   override def run(): Unit = {
     val serverSocket = new ServerSocket()
@@ -19,7 +22,7 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
 
       val message = JsonSerDes.deserialize(messageBytes, classOf[Message])
 
-      println(s"Got message ${message}")
+      logger.debug(s"Got message ${message}")
 
       if(message.header.verb == Verb.GOSSIP_DIGEST_SYN) {
         new GossipDigestSynHandler(gossiper, messagingService).handleMessage(message)

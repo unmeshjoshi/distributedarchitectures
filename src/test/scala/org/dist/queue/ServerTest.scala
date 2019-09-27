@@ -40,7 +40,7 @@ class ServerTest extends ZookeeperTestHarness {
     val str = JsonSerDes.serialize(TopicMetadataRequest(RequestKeys.MetadataKey, 1, "client1", Seq("topic1")))
     val medataRequest = RequestOrResponse(RequestKeys.MetadataKey, str, 1)
 
-    
+
 
     server1.awaitShutdown()
     server2.awaitShutdown()

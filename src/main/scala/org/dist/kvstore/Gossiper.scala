@@ -3,7 +3,7 @@ package org.dist.kvstore
 import java.util
 import java.util.concurrent.locks.ReentrantLock
 import java.util.concurrent.{ConcurrentHashMap, ScheduledThreadPoolExecutor, TimeUnit}
-import java.util.{Collections, Random}
+import java.util.{ArrayList, Collections, List, Random}
 
 import org.slf4j.LoggerFactory
 
@@ -11,6 +11,16 @@ import scala.collection.JavaConverters._
 import scala.util.control.Breaks
 import scala.util.control.Breaks.breakable
 
+trait IEndPointStateChangeSubscriber {
+  /**
+   * Use to inform interested parties about the change in the state
+   * for specified endpoint
+   *
+   * @param endpoint endpoint for which the state change occured.
+   * @param epState  state that actually changed for the above endpoint.
+   */
+  def onChange(endpoint: InetAddressAndPort, epState: EndPointState): Unit
+}
 
 class Gossiper(private[kvstore] val generationNbr: Int,
                private[kvstore] val localEndPoint: InetAddressAndPort,
@@ -24,6 +34,8 @@ class Gossiper(private[kvstore] val generationNbr: Int,
   private[kvstore] val logger = LoggerFactory.getLogger(classOf[Gossiper])
   private[kvstore] val seeds = config.nonLocalSeeds(localEndPoint)
   private[kvstore] val endpointStatemap = new ConcurrentHashMap[InetAddressAndPort, EndPointState]
+  private val subscribers = new util.ArrayList[IEndPointStateChangeSubscriber]
+
   private val taskLock = new ReentrantLock
   private val random: Random = new Random
 
@@ -48,6 +60,10 @@ class Gossiper(private[kvstore] val generationNbr: Int,
       endpointStatemap.put(localEndPoint, localState)
     }
     messagingService.init(this)
+  }
+
+  def register (subscriber: IEndPointStateChangeSubscriber): Unit = {
+    subscribers.add (subscriber)
   }
 
   def start() = {
@@ -94,11 +110,14 @@ class Gossiper(private[kvstore] val generationNbr: Int,
   def resusitate(addr: InetAddressAndPort, localState: EndPointState) {
     logger.debug("Attempting to resusitate " + addr)
     isAlive(addr, localState, true)
-    logger.info("EndPoint " + addr + " is now UP")
+    logger.debug("EndPoint " + addr + " is now UP")
   }
 
   def doNotifications(ep: InetAddressAndPort, epState: EndPointState): Unit = {
-    println(s"notifications for ${ep} ${epState}")
+    logger.info(s"notifications for ${ep} ${epState}")
+    for(subscriber ← subscribers.asScala) {
+      subscriber.onChange(ep, epState)
+    }
   }
 
   private[kvstore] def applyHeartBeatStateLocally(addr: InetAddressAndPort, localState: EndPointState, remoteState: EndPointState): Unit = {
@@ -120,11 +139,11 @@ class Gossiper(private[kvstore] val generationNbr: Int,
   }
 
   private def handleNewJoin(ep: InetAddressAndPort, epState: EndPointState): Unit = {
-    println("Node " + ep + " has now joined.")
+    logger.info("Node " + ep + " has now joined.")
     /* Mark this endpoint as "live" */
     endpointStatemap.put(ep, epState)
     isAlive(ep, epState, true)
-    println(s"Enpoint State Map for ${localEndPoint} is ${endpointStatemap}")
+    logger.info(s"Enpoint State Map for ${localEndPoint} is ${endpointStatemap}")
     /* Notify interested parties about endpoint state change */ doNotifications(ep, epState)
   }
 
@@ -308,7 +327,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
       val index = if (size == 1) 0
       else random.nextInt(size)
       val to = liveEndPoints.get(index)
-      println("Sending a GossipDigestSynMessage to " + to + " ..." + "from " + message.header.from)
+      logger.trace("Sending a GossipDigestSynMessage to " + to + " ..." + "from " + message.header.from)
       messagingService.sendTcpOneWay(message, to)
       seeds.contains(to)
     }
