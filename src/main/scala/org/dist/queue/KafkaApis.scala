@@ -42,6 +42,10 @@ class KafkaApis(val replicaManager: ReplicaManager,
         val topicMetadataResponse = handleTopicMetadataRequest(topicMetadataRequest)
         RequestOrResponse(RequestKeys.MetadataKey, JsonSerDes.serialize(topicMetadataResponse), topicMetadataRequest.correlationId)
       }
+      case RequestKeys.ProduceKey ⇒ {
+        val produceRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[ProducerRequest])
+        RequestOrResponse(RequestKeys.ProduceKey, "", produceRequest.correlationId)
+      }
     }
   }
 

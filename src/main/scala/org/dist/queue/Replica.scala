@@ -2,7 +2,7 @@ package org.dist.queue
 
 import java.util.concurrent.atomic.AtomicLong
 
-class Replica(val brokerId: Int,
+case class Replica(val brokerId: Int,
               val partition: Partition,
               time: Time = SystemTime,
               initialHighWatermarkValue: Long = 0L,
@@ -59,29 +59,5 @@ class Replica(val brokerId: Int,
     else
       throw new KafkaException("Unable to get highwatermark for replica %d partition [%s,%d] since it's not local"
         .format(brokerId, topic, partitionId))
-  }
-
-  override def equals(that: Any): Boolean = {
-    if(!(that.isInstanceOf[Replica]))
-      return false
-    val other = that.asInstanceOf[Replica]
-    if(topic.equals(other.topic) && brokerId == other.brokerId && partition.equals(other.partition))
-      return true
-    false
-  }
-
-  override def hashCode(): Int = {
-    31 + topic.hashCode() + 17*brokerId + partition.hashCode()
-  }
-
-
-  override def toString(): String = {
-    val replicaString = new StringBuilder
-    replicaString.append("ReplicaId: " + brokerId)
-    replicaString.append("; Topic: " + topic)
-    replicaString.append("; Partition: " + partition.partitionId)
-    replicaString.append("; isLocal: " + isLocal)
-    if(isLocal) replicaString.append("; Highwatermark: " + highWatermark)
-    replicaString.toString()
   }
 }

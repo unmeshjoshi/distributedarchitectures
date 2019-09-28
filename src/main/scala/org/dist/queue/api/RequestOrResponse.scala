@@ -2,7 +2,7 @@ package org.dist.queue.api
 
 import java.nio.ByteBuffer
 
-import org.dist.queue.{ErrorMapping, PartitionStateInfo, TopicAndPartition}
+import org.dist.queue.{ByteBufferMessageSet, ErrorMapping, PartitionStateInfo, TopicAndPartition}
 import org.dist.queue.utils.ZkUtils.Broker
 import java.util
 
@@ -40,7 +40,7 @@ case class ProducerRequest(versionId: Short = ProducerRequest.CurrentVersion,
                            clientId: String,
                            requiredAcks: Short,
                            ackTimeoutMs: Int,
-                           data: collection.mutable.Map[TopicAndPartition, Array[Byte]]) {
+                           data: collection.mutable.Map[TopicAndPartition, ByteBufferMessageSet]) {
 
 
 }
