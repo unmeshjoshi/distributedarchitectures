@@ -6,7 +6,7 @@ import org.dist.queue.api._
 import org.dist.queue.utils.ZkUtils
 import org.dist.queue.utils.ZkUtils.Broker
 
-import scala.collection.mutable
+import scala.collection.{Map, mutable}
 
 
 class KafkaApis(val replicaManager: ReplicaManager,
@@ -47,6 +47,47 @@ class KafkaApis(val replicaManager: ReplicaManager,
         RequestOrResponse(RequestKeys.ProduceKey, "", produceRequest.correlationId)
       }
     }
+  }
+
+  def appendToLocalLog(producerRequest: ProducerRequest) = {
+    val partitionAndData: Map[TopicAndPartition, MessageSet] = producerRequest.dataAsMap
+    val func = (tuple: (TopicAndPartition, MessageSet)) ⇒ {
+      try {
+        val topicAndPartition = tuple._1
+        val messages = tuple._2
+
+        val partitionOpt = replicaManager.getPartition(topicAndPartition.topic, topicAndPartition.partition)
+        val (start, end) =
+          partitionOpt match {
+            case Some(partition) => partition.appendMessagesToLeader(messages.asInstanceOf[ByteBufferMessageSet])
+            case None => throw new UnknownTopicOrPartitionException("Partition %s doesn't exist on %d"
+              .format(topicAndPartition, brokerId))
+
+          }
+        trace("%d bytes written to log %s-%d beginning at offset %d and ending at offset %d"
+          .format(messages.size, topicAndPartition.topic, topicAndPartition.partition, start, end))
+        ProduceResult(topicAndPartition, start, end)
+      } catch {
+        case e: Exception ⇒ throw new RuntimeException(e)
+      }
+    }
+
+    partitionAndData.map(func)
+  }
+
+
+  case class ProduceResult(key: TopicAndPartition, start: Long, end: Long, error: Option[Throwable] = None) {
+    def this(key: TopicAndPartition, throwable: Throwable) =
+      this(key, -1L, -1L, Some(throwable))
+
+    def errorCode = error match {
+      case None => ErrorMapping.NoError
+      case Some(error) => ErrorMapping.UnknownCode
+    }
+  }
+
+  def handleProducerRequest(request:ProducerRequest) = {
+    val localProduceResults = appendToLocalLog(request)
   }
 
   /**

@@ -1,14 +1,46 @@
 package org.dist.queue
 
-import java.io.{EOFException, File}
+import java.io.{EOFException, File, FileInputStream, RandomAccessFile}
 import java.nio.ByteBuffer
-import java.nio.channels.ReadableByteChannel
+import java.nio.channels.{FileChannel, ReadableByteChannel}
+import java.util.concurrent.locks.Lock
 import java.util.zip.CRC32
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.{Map, Seq, mutable}
 
 object Utils extends Logging {
+
+  /**
+   * Wrap the given function in a java.lang.Runnable that logs any errors encountered
+   * @param fun A function
+   * @return A Runnable that just executes the function
+   */
+  def loggedRunnable(fun: () => Unit, name: String): Runnable =
+    new Runnable() {
+      def run() = {
+        Thread.currentThread().setName(name)
+        try {
+          fun()
+        }
+        catch {
+          case t: Throwable =>
+            // log any error and the stack trace
+            error("error in loggedRunnable", t)
+        }
+      }
+    }
+
+  /**
+   * Open a channel for the given file
+   */
+  def openChannel(file: File, mutable: Boolean): FileChannel = {
+    if(mutable)
+      new RandomAccessFile(file, "rw").getChannel()
+    else
+      new FileInputStream(file).getChannel()
+  }
+
   def writeUnsignedInt(buffer: ByteBuffer, index: Int, value: Long): Unit =
     buffer.putInt(index, (value & 0xffffffffL).asInstanceOf[Int])
 
@@ -175,6 +207,18 @@ object Utils extends Logging {
       file.delete()
     } else {
       file.delete()
+    }
+  }
+
+  /**
+   * Execute the given function inside the lock
+   */
+  def inLock[T](lock: Lock)(fun: => T): T = {
+    lock.lock()
+    try {
+      return fun
+    } finally {
+      lock.unlock()
     }
   }
 }

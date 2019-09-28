@@ -3,6 +3,7 @@ package org.dist.queue
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 
+import org.dist.queue.log.LogManager
 import org.dist.queue.network.SocketServer
 
 class Server(config: Config, time: Time = SystemTime) {
@@ -11,6 +12,7 @@ class Server(config: Config, time: Time = SystemTime) {
   var controller:Controller = _
   var replicaManager: ReplicaManager = _
   var logManager: LogManager = null
+  var kafkaScheduler:KafkaScheduler = null
 
   var isShuttingDown:AtomicBoolean = _
 
@@ -19,8 +21,10 @@ class Server(config: Config, time: Time = SystemTime) {
 
   def startup(): Unit = {
     isShuttingDown = new AtomicBoolean(false)
-    
-    logManager = new LogManager(config, time)
+    kafkaScheduler = new KafkaScheduler(1)
+    kafkaScheduler.startup()
+
+    logManager = new LogManager(config,kafkaScheduler, time)
     logManager.startup()
 
     socketServer = new SocketServer(config.brokerId,

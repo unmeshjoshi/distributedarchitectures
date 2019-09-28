@@ -10,6 +10,13 @@ import org.dist.queue.{ByteBufferMessageSet, ErrorMapping, PartitionStateInfo, T
 import scala.collection.JavaConverters._
 import scala.collection.Map
 
+
+object Request {
+  val OrdinaryConsumerId: Int = -1
+  val DebuggingConsumerId: Int = -2
+}
+
+
 object RequestKeys {
   def deserializerForKey(requestId: Short)(buffer:ByteBuffer) = ???
 

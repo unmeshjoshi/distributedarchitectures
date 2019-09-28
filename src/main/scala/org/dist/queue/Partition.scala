@@ -9,6 +9,49 @@ class Partition(val topic: String,
                 var replicationFactor: Int,
                 time: Time,
                 val replicaManager: ReplicaManager) extends Logging {
+  def appendMessagesToLeader(messages: ByteBufferMessageSet): (Long, Long) = {
+    leaderIsrUpdateLock synchronized {
+      val leaderReplicaOpt = leaderReplicaIfLocal()
+      leaderReplicaOpt match {
+        case Some(leaderReplica) =>
+          val log = leaderReplica.log.get
+          val (start, end) = log.append(messages, assignOffsets = true)
+          // we may need to increment high watermark since ISR could be down to 1
+          maybeIncrementLeaderHW(leaderReplica)
+          (start, end)
+        case None =>
+          throw new NotLeaderForPartitionException("Leader not local for partition [%s,%d] on broker %d"
+            .format(topic, partitionId, localBrokerId))
+      }
+    }
+  }
+
+  def leaderReplicaIfLocal(): Option[Replica] = {
+    leaderIsrUpdateLock synchronized {
+      leaderReplicaIdOpt match {
+        case Some(leaderReplicaId) =>
+          if (leaderReplicaId == localBrokerId)
+            getReplica(localBrokerId)
+          else
+            None
+        case None => None
+      }
+    }
+  }
+
+  private def maybeIncrementLeaderHW(leaderReplica: Replica) {
+    val allLogEndOffsets: Set[Long] = inSyncReplicas.map(_.logEndOffset)
+    val newHighWatermark = allLogEndOffsets.min
+    val oldHighWatermark = leaderReplica.highWatermark
+    if(newHighWatermark > oldHighWatermark) {
+      leaderReplica.highWatermark = newHighWatermark
+      debug("Highwatermark for partition [%s,%d] updated to %d".format(topic, partitionId, newHighWatermark))
+    }
+    else
+      debug("Old hw for partition [%s,%d] is %d. New hw is %d. All leo's are %s"
+        .format(topic, partitionId, oldHighWatermark, newHighWatermark, allLogEndOffsets.mkString(",")))
+  }
+
 
   /**
    *  If the leaderEpoch of the incoming request is higher than locally cached epoch, make the local replica the follower in the following steps.

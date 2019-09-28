@@ -2,6 +2,8 @@ package org.dist.queue
 
 import java.util.concurrent.atomic.AtomicLong
 
+import org.dist.queue.log.Log
+
 case class Replica(val brokerId: Int,
               val partition: Partition,
               time: Time = SystemTime,

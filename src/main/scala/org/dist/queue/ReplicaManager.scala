@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import org.I0Itec.zkclient.ZkClient
 import org.dist.queue.api.LeaderAndIsrRequest
+import org.dist.queue.log.LogManager
 import org.dist.queue.utils.ZkUtils
 import org.dist.queue.utils.ZkUtils.Broker
 
@@ -19,6 +20,15 @@ class ReplicaManager(val config: Config,
                      val zkClient: ZkClient,
                      val logManager: LogManager,
                      val isShuttingDown: AtomicBoolean ) extends Logging {
+
+  def getPartition(topic: String, partitionId: Int): Option[Partition] = {
+    val partition = allPartitions.get((topic, partitionId))
+    if (partition == null)
+      None
+    else
+      Some(partition)
+  }
+
   val replicaFetcherManager = new ReplicaFetcherManager
 
   var controllerEpoch: Int = Controller.InitialControllerEpoch - 1
