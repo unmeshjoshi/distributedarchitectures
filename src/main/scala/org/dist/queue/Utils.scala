@@ -3,13 +3,37 @@ package org.dist.queue
 import java.io.{EOFException, File}
 import java.nio.ByteBuffer
 import java.nio.channels.ReadableByteChannel
+import java.util.zip.CRC32
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.{Map, Seq, mutable}
 
 object Utils extends Logging {
+  def writeUnsignedInt(buffer: ByteBuffer, index: Int, value: Long): Unit =
+    buffer.putInt(index, (value & 0xffffffffL).asInstanceOf[Int])
+
+
+  def crc32(bytes: Array[Byte], offset: Int, size: Int): Long = {
+    val crc = new CRC32()
+    crc.update(bytes, offset, size)
+    crc.getValue()
+  }
+
+  def readUnsignedInt(buffer: ByteBuffer, index: Int): Long =
+    buffer.getInt(index) & 0xffffffffL
+
+  /**
+   * Write the given long value as a 4 byte unsigned integer. Overflow is ignored.
+   * @param buffer The buffer to write to
+   * @param value The value to write
+   */
+  def writetUnsignedInt(buffer: ByteBuffer, value: Long): Unit =
+    buffer.putInt((value & 0xffffffffL).asInstanceOf[Int])
+
+
   /**
    * Create a daemon thread
+   *
    * @param runnable The runnable to execute in the background
    * @return The unstarted thread
    */

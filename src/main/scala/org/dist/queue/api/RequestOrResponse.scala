@@ -1,12 +1,11 @@
 package org.dist.queue.api
 
 import java.nio.ByteBuffer
-
-import org.dist.queue.{ByteBufferMessageSet, ErrorMapping, PartitionStateInfo, TopicAndPartition}
-import org.dist.queue.utils.ZkUtils.Broker
 import java.util
 
 import org.dist.kvstore.JsonSerDes
+import org.dist.queue.utils.ZkUtils.Broker
+import org.dist.queue.{ByteBufferMessageSet, ErrorMapping, PartitionStateInfo, TopicAndPartition}
 
 import scala.collection.JavaConverters._
 import scala.collection.Map
@@ -33,14 +32,49 @@ case class RequestOrResponse(val requestId: Short, val messageBodyJson: String, 
 
 object ProducerRequest {
   val CurrentVersion = 0.shortValue
+
+  def apply(correlationId: Int,
+            clientId: String,
+            requiredAcks: Short,
+            ackTimeoutMs: Int,
+            data: collection.mutable.Map[TopicAndPartition, ByteBufferMessageSet]) = {
+
+    new ProducerRequest(ProducerRequest.CurrentVersion, correlationId, clientId, requiredAcks, ackTimeoutMs, convertToStringKeyMap(data))
+  }
+
+  def convertToStringKeyMap(data: Map[TopicAndPartition, ByteBufferMessageSet]):collection.mutable.Map[String, ByteBufferMessageSet] = {
+    val map = new util.HashMap[String, ByteBufferMessageSet]()
+    val keys = data.keySet
+    for(key <- keys) {
+      val strKey = s"${key.topic}:${key.partition}"
+      map.put(strKey, data(key))
+    }
+    map.asScala
+  }
 }
 
 case class ProducerRequest(versionId: Short = ProducerRequest.CurrentVersion,
-                           val correlationId: Int,
+                           correlationId: Int,
                            clientId: String,
                            requiredAcks: Short,
                            ackTimeoutMs: Int,
-                           data: collection.mutable.Map[TopicAndPartition, ByteBufferMessageSet]) {
+                           data: collection.mutable.Map[String, ByteBufferMessageSet]) {
+  def dataAsMap = {
+
+
+    if (data == null) {
+      Map[TopicAndPartition, ByteBufferMessageSet]()
+    } else {
+      val map = new util.HashMap[TopicAndPartition, ByteBufferMessageSet]()
+      val set = data.keySet
+      for (key ← set) {
+        val splits: Array[String] = key.split(":")
+        val tuple = TopicAndPartition(splits(0), splits(1).toInt)
+        map.put(tuple, data(key))
+      }
+      map.asScala.toMap
+    }
+  }
 
 
 }
