@@ -32,6 +32,14 @@ object TestUtils {
    */
   def choosePort(): Int = choosePorts(1).head
 
+  def tempDirWithName(name:String): File = {
+    val ioDir = System.getProperty("java.io.tmpdir")
+    val f = new File(ioDir, "kafka-" + name)
+    f.mkdirs()
+//    f.deleteOnExit()
+    f
+  }
+
   def tempDir(): File = {
     val ioDir = System.getProperty("java.io.tmpdir")
     val f = new File(ioDir, "kafka-" + random.nextInt(1000000))

@@ -12,7 +12,15 @@ import scala.collection.{Map, Seq, mutable}
 object Utils extends Logging {
 
   /**
+   * Get the absolute value of the given number. If the number is Int.MinValue return 0.
+   * This is different from java.lang.Math.abs or scala.math.abs in that they return Int.MinValue (!).
+   */
+  def abs(n: Int) = n & 0x7fffffff
+
+
+  /**
    * Wrap the given function in a java.lang.Runnable that logs any errors encountered
+   *
    * @param fun A function
    * @return A Runnable that just executes the function
    */

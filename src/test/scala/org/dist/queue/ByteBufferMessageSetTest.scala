@@ -5,7 +5,7 @@ import org.scalatest.FunSuite
 class ByteBufferMessageSetTest extends FunSuite {
 
   def createMessageSet(messages: Seq[Message], compressed: CompressionCodec = NoCompressionCodec): ByteBufferMessageSet =
-    new ByteBufferMessageSet(new ByteBufferMessageSet(compressed, messages: _*).buffer)
+    new ByteBufferMessageSet(new ByteBufferMessageSet(compressed, messages.toSeq).buffer)
 
   val msgSeq: Seq[Message] = Seq(new Message("key1".getBytes(), "hello".getBytes()), new Message("key2".getBytes(), "there".getBytes()))
 

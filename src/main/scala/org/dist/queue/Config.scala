@@ -12,6 +12,9 @@ case class Config(brokerId: Int,
                   controllerMessageQueueSize:Int = 10,
                   val controllerSocketTimeoutMs: Int = 10
                   ) {
+
+  val compressionCodec = NoCompressionCodec
+
   val messageMaxBytes: Int = 1000000
 
   val defaultReplicationFactor = 1

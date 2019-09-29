@@ -2,16 +2,32 @@ package org.dist.queue
 
 import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.api.TopicMetadata
+import org.dist.queue.utils.ZkUtils.Broker
 
 import scala.collection.mutable.HashMap
 
 
 class BrokerPartitionInfo(config:Config,
                           bootStrapBroker:InetAddressAndPort,
-                          topicPartitionInfo: HashMap[String, TopicMetadata])
-  extends Logging {
+                          topicPartitionInfo: HashMap[String, TopicMetadata]) extends Logging {
 
-  /**
+  private val brokers = new collection.mutable.HashMap[Int, Broker]()
+
+  def updateProducer(topicMetadata: Seq[TopicMetadata]) =  {
+    topicMetadata.foreach(tmd => {
+      tmd.partitionsMetadata.foreach(pmd => {
+        if (pmd.leader.isDefined)
+          brokers.put(pmd.leader.get.id, pmd.leader.get)
+      })
+    })
+  }
+
+  def getBroker(brokerId:Int) = {
+    brokers.get(brokerId)
+  }
+
+
+    /**
    * Return a sequence of (brokerId, numPartitions).
    * @param topic the topic for which this information is to be returned
    * @return a sequence of (brokerId, numPartitions). Returns a zero-length
@@ -59,11 +75,13 @@ class BrokerPartitionInfo(config:Config,
    * @param topics the topics for which the metadata is to be fetched
    */
   def updateInfo(topics: Set[String], correlationId: Int, topicsMetadata:Seq[TopicMetadata]) {
+    updateProducer(topicsMetadata)
     // throw partition specific exception
     topicsMetadata.foreach(tmd =>{
       trace("Metadata for topic %s is %s".format(tmd.topic, tmd))
       if(tmd.errorCode == ErrorMapping.NoError) {
         topicPartitionInfo.put(tmd.topic, tmd)
+
       } else
         warn("Error while fetching metadata [%s] for topic [%s]: %s ".format(tmd, tmd.topic, ErrorMapping.UnknownCode))
       tmd.partitionsMetadata.foreach(pmd =>{
@@ -74,7 +92,6 @@ class BrokerPartitionInfo(config:Config,
       })
     })
   }
-
 }
 
 case class PartitionAndLeader(topic: String, partitionId: Int, leaderBrokerIdOpt: Option[Int])
