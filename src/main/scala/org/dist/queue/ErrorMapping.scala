@@ -1,5 +1,7 @@
 package org.dist.queue
 
+import org.dist.queue.log.InvalidMessageException
+
 object ErrorMapping {
   val UnknownCode : Short = -1
   val NoError : Short = 0

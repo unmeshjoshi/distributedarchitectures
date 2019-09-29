@@ -34,16 +34,18 @@ class KafkaApis(val replicaManager: ReplicaManager,
         println(s"Handling LeaderAndIsrRequest ${request.messageBodyJson}" )
         val leaderAndIsrRequest: LeaderAndIsrRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[LeaderAndIsrRequest])
         val tuple: (collection.Map[(String, Int), Short], Short) = replicaManager.becomeLeaderOrFollower(leaderAndIsrRequest)
-        val response = LeaderAndIsrResponse(leaderAndIsrRequest.controllerId, tuple._1, tuple._2)
+        val response = LeaderAndIsrResponse(leaderAndIsrRequest.controllerId, tuple._1.toMap, tuple._2)
         RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(response), leaderAndIsrRequest.correlationId)
       }
       case RequestKeys.MetadataKey ⇒ {
+        println(s"Handling MetadataRequest ${request.messageBodyJson}" )
         val topicMetadataRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[TopicMetadataRequest])
         val topicMetadataResponse = handleTopicMetadataRequest(topicMetadataRequest)
         RequestOrResponse(RequestKeys.MetadataKey, JsonSerDes.serialize(topicMetadataResponse), topicMetadataRequest.correlationId)
       }
       case RequestKeys.ProduceKey ⇒ {
         val produceRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[ProducerRequest])
+        val unit = handleProducerRequest(produceRequest)
         RequestOrResponse(RequestKeys.ProduceKey, "", produceRequest.correlationId)
       }
     }
@@ -86,8 +88,76 @@ class KafkaApis(val replicaManager: ReplicaManager,
     }
   }
 
-  def handleProducerRequest(request:ProducerRequest) = {
-    val localProduceResults = appendToLocalLog(request)
+  private [queue] case class RequestKey(topic: String, partition: Int) {
+
+    def this(topicAndPartition: TopicAndPartition) = this(topicAndPartition.topic, topicAndPartition.partition)
+
+    def topicAndPartition = TopicAndPartition(topic, partition)
+
+    def keyLabel = "%s-%d".format(topic, partition)
+  }
+
+  def handleProducerRequest(produceRequest:ProducerRequest):ProducerResponse = {
+    val sTime = SystemTime.milliseconds
+    val localProduceResults = appendToLocalLog(produceRequest)
+    debug("Produce to local log in %d ms".format(SystemTime.milliseconds - sTime))
+
+    val numPartitionsInError = localProduceResults.count(_.error.isDefined)
+//    produceRequest.dataAsMap.foreach((partitionAndData =>
+//      maybeUnblockDelayedFetchRequests(partitionAndData._1.topic, partitionAndData._1.partition, partitionAndData._2.sizeInBytes))
+
+    val allPartitionHaveReplicationFactorOne =
+      !produceRequest.dataAsMap.keySet.exists(
+        m => replicaManager.getReplicationFactorForPartition(m.topic, m.partition) != 1)
+    if(produceRequest.requiredAcks == 0) {
+      // no operation needed if producer request.required.acks = 0; however, if there is any exception in handling the request, since
+      // no response is expected by the producer the handler will send a close connection response to the socket server
+      // to close the socket so that the producer client will know that some exception has happened and will refresh its metadata
+      if (numPartitionsInError != 0) {
+        info(("Send the close connection response due to error handling produce request " +
+          "[clientId = %s, correlationId = %s, topicAndPartition = %s] with Ack=0")
+          .format(produceRequest.clientId, produceRequest.correlationId, produceRequest.topicPartitionMessageSizeMap.keySet.mkString(",")))
+//        requestChannel.closeConnection(request.processor, request)
+      } else {
+//        requestChannel.noOperation(request.processor, request)
+      }
+      ProducerResponse(produceRequest.correlationId, Map[TopicAndPartition, ProducerResponseStatus]().toMap)
+
+    } else if (produceRequest.requiredAcks == 1 ||
+      produceRequest.numPartitions <= 0 ||
+      allPartitionHaveReplicationFactorOne ||
+      numPartitionsInError == produceRequest.numPartitions) {
+      val statuses = localProduceResults.map(r => r.key -> ProducerResponseStatus(r.errorCode, r.start)).toMap
+      ProducerResponse(produceRequest.correlationId, statuses)
+
+    } else {
+      // create a list of (topic, partition) pairs to use as keys for this delayed request
+      val producerRequestKeys = produceRequest.dataAsMap.keys.map(
+        topicAndPartition => new RequestKey(topicAndPartition)).toSeq
+      val statuses = localProduceResults.map(r => r.key -> ProducerResponseStatus(r.errorCode, r.end + 1)).toMap
+//      val delayedProduce = new DelayedProduce(producerRequestKeys,
+//        produceRequest,
+//        statuses,
+//        produceRequest,
+//        produceRequest.ackTimeoutMs.toLong)
+//      producerRequestPurgatory.watch(delayedProduce)
+
+      /*
+       * Replica fetch requests may have arrived (and potentially satisfied)
+       * delayedProduce requests while they were being added to the purgatory.
+       * Here, we explicitly check if any of them can be satisfied.
+       */
+//      var satisfiedProduceRequests = new mutable.ArrayBuffer[DelayedProduce]
+//      producerRequestKeys.foreach(key =>
+//        satisfiedProduceRequests ++=
+//          producerRequestPurgatory.update(key, key))
+//      debug(satisfiedProduceRequests.size +
+//        " producer requests unblocked during produce to local log.")
+//      satisfiedProduceRequests.foreach(_.respond())
+      // we do not need the data anymore
+      produceRequest.emptyData()
+      ProducerResponse(produceRequest.correlationId, Map[TopicAndPartition, ProducerResponseStatus]().toMap)
+    }
   }
 
   /**
@@ -170,7 +240,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
           topicsMetadata += topicMetadata
       }
     }
-    trace("Sending topic metadata %s for correlation id %d to client %s".format(topicsMetadata.mkString(","), metadataRequest.correlationId, metadataRequest.clientId))
+    info("Sending topic metadata %s for correlation id %d to client %s".format(topicsMetadata.mkString(","), metadataRequest.correlationId, metadataRequest.clientId))
     TopicMetadataResponse(topicsMetadata.toSeq, metadataRequest.correlationId)
   }
 

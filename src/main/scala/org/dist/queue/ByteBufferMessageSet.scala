@@ -126,13 +126,14 @@ case class StringMessageSet(messages:List[String]) //as of now sending just stri
 class ByteBufferMessageSet( val buffer: ByteBuffer) extends MessageSet with Logging {
   private var shallowValidByteCount = -1
 
-  def this(compressionCodec: CompressionCodec, messages: Message*) {
-    this(ByteBufferMessageSet.create(new AtomicLong(0), compressionCodec, messages:_*))
-  }
-
   def this(compressionCodec: CompressionCodec, offsetCounter: AtomicLong, messages: Seq[Message]) {
     this(ByteBufferMessageSet.create(offsetCounter, compressionCodec, messages:_*))
   }
+
+  def this(compressionCodec: CompressionCodec, messages: Seq[Message]) {
+    this(ByteBufferMessageSet.create(new AtomicLong(0), compressionCodec, messages:_*))
+  }
+
 
 
   private def shallowValidBytes: Int = {

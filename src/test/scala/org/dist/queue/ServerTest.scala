@@ -1,6 +1,6 @@
 package org.dist.queue
 
-import org.dist.kvstore.JsonSerDes
+import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.api.{RequestKeys, RequestOrResponse, TopicMetadataRequest}
 import org.dist.queue.utils.ZkUtils
 
@@ -9,6 +9,7 @@ class ServerTest extends ZookeeperTestHarness {
   test("should register broker to zookeeper on startup") {
     val brokerId1 = 0
     val brokerId2 = 1
+    val brokerId3 = 2
 
 
 
@@ -20,11 +21,15 @@ class ServerTest extends ZookeeperTestHarness {
     val server2 = new Server(config2)
     server2.startup()
 
+    val config3 = Config(brokerId3, TestUtils.hostName(), TestUtils.choosePort(), TestZKUtils.zookeeperConnect, List(TestUtils.tempDir().getAbsolutePath))
+    val server3 = new Server(config3)
+    server3.startup()
+
     val zkClient = KafkaZookeeperClient.getZookeeperClient(config1)
 
     val brokers: collection.Seq[ZkUtils.Broker] = ZkUtils.getAllBrokersInCluster(zkClient)
 
-    assert(2 == brokers.size)
+    assert(3 == brokers.size)
 
     val sortedBrokers = brokers.sortWith((b1, b2) ⇒ b1.id < b2.id)
 
@@ -42,7 +47,12 @@ class ServerTest extends ZookeeperTestHarness {
     val str = JsonSerDes.serialize(TopicMetadataRequest(RequestKeys.MetadataKey, 1, "client1", Seq("topic1")))
     val medataRequest = RequestOrResponse(RequestKeys.MetadataKey, str, 1)
 
+    println("waiting till metadata is propagated")
+    Thread.sleep(5000)
 
+    val bootstrapBroker = InetAddressAndPort.create(config1.hostName, config1.port)
+    val producer = new Producer(bootstrapBroker, config1)
+    producer.send(KeyedMessage("topic1", "key1", "test message"))
 
     server1.awaitShutdown()
     server2.awaitShutdown()

@@ -72,7 +72,7 @@ class ControllerBrokerRequestBatch(controllerContext: ControllerContext, sendReq
           "for partition [%s,%d]").format(controllerId, controllerEpoch, typeOfRequest, correlationId, broker,
           p._1._1, p._1._2))
       }
-      sendRequest(broker, RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(leaderAndIsrRequest), 1), null)
+      sendRequest(broker, RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(leaderAndIsrRequest), correlationId), null)
     }
     leaderAndIsrRequestMap.clear()
     updateMetadataRequestMap.foreach { m =>
@@ -82,7 +82,7 @@ class ControllerBrokerRequestBatch(controllerContext: ControllerContext, sendReq
         partitionStateInfos, controllerContext.liveOrShuttingDownBrokers)
       partitionStateInfos.foreach(p => trace(("Controller %d epoch %d sending UpdateMetadata request with " +
         "correlationId %d to broker %d for partition %s").format(controllerId, controllerEpoch, correlationId, broker, p._1)))
-      sendRequest(broker, RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest),1), null)
+      sendRequest(broker, RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest),correlationId), null)
     }
     updateMetadataRequestMap.clear()
   }

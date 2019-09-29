@@ -71,7 +71,10 @@ class SocketServer(val brokerId: Int,
       val size = dataInputStream.readInt()
       val responseBytes = new Array[Byte](size)
       dataInputStream.read(responseBytes)
-      println("received response " + new String(responseBytes))
+
+      val response = JsonSerDes.deserialize(messageBytes, classOf[RequestOrResponse])
+
+      println("received response " + response)
 
       outputStream.close()
 
@@ -109,8 +112,9 @@ class TcpListener(localEp: InetAddressAndPort, kafkaApis: KafkaApis, socketServe
 
       val outptStream = socket.getOutputStream
       val dataOutputStream = new DataOutputStream(outptStream)
-      dataOutputStream.writeInt(str.getBytes().size)
-      dataOutputStream.write(str.getBytes)
+      val bytes = str.getBytes()
+      dataOutputStream.writeInt(bytes.size)
+      dataOutputStream.write(bytes)
       outptStream.flush()
       outptStream.close()
       inputStream.close()

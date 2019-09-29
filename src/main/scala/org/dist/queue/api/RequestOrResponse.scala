@@ -8,7 +8,7 @@ import org.dist.queue.utils.ZkUtils.Broker
 import org.dist.queue.{ByteBufferMessageSet, ErrorMapping, PartitionStateInfo, TopicAndPartition}
 
 import scala.collection.JavaConverters._
-import scala.collection.Map
+import scala.collection.mutable
 
 
 object Request {
@@ -44,12 +44,12 @@ object ProducerRequest {
             clientId: String,
             requiredAcks: Short,
             ackTimeoutMs: Int,
-            data: collection.mutable.Map[TopicAndPartition, ByteBufferMessageSet]) = {
+            data: Map[TopicAndPartition, ByteBufferMessageSet]) = {
 
-    new ProducerRequest(ProducerRequest.CurrentVersion, correlationId, clientId, requiredAcks, ackTimeoutMs, convertToStringKeyMap(data))
+    new ProducerRequest(ProducerRequest.CurrentVersion, correlationId, clientId, requiredAcks, ackTimeoutMs, convertToStringKeyMap(data.toMap))
   }
 
-  def convertToStringKeyMap(data: Map[TopicAndPartition, ByteBufferMessageSet]):collection.mutable.Map[String, ByteBufferMessageSet] = {
+  def convertToStringKeyMap(data: Map[TopicAndPartition, ByteBufferMessageSet]):mutable.Map[String, ByteBufferMessageSet] = {
     val map = new util.HashMap[String, ByteBufferMessageSet]()
     val keys = data.keySet
     for(key <- keys) {
@@ -60,12 +60,37 @@ object ProducerRequest {
   }
 }
 
+case class ProducerResponseStatus(error: Short, offset: Long)
+
+case class ProducerResponse(val correlationId: Int,
+                            status: Map[TopicAndPartition, ProducerResponseStatus])
+
 case class ProducerRequest(versionId: Short = ProducerRequest.CurrentVersion,
                            correlationId: Int,
                            clientId: String,
                            requiredAcks: Short,
                            ackTimeoutMs: Int,
-                           data: collection.mutable.Map[String, ByteBufferMessageSet]) {
+                           data: mutable.Map[String, ByteBufferMessageSet]) {
+
+
+  /**
+   * Partitions the data into a map of maps (one for each topic).
+   */
+  private def dataGroupedByTopic = dataAsMap.groupBy(_._1.topic)
+  private def mapFunc = (r:(TopicAndPartition, ByteBufferMessageSet)) ⇒ {
+    r._1 -> r._2.sizeInBytes
+  }
+  def topicPartitionMessageSizeMap = dataAsMap.map(mapFunc).toMap
+
+
+  def numPartitions = data.size
+
+
+  def emptyData(){
+    //FIXME: Fix this
+    //data.clear
+  }
+
   def dataAsMap = {
 
 
@@ -90,6 +115,12 @@ case class TopicMetadataRequest(val versionId: Short,
                                 val correlationId: Int,
                                 val clientId: String,
                                 val topics: Seq[String])
+
+object TopicMetadataRequest {
+  val CurrentVersion = 0.shortValue
+  val DefaultClientId = ""
+
+}
 
 case class TopicMetadataResponse(topicsMetadata: Seq[TopicMetadata],
                                  val correlationId: Int) {

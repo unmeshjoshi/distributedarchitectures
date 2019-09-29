@@ -21,6 +21,21 @@ class ReplicaManager(val config: Config,
                      val logManager: LogManager,
                      val isShuttingDown: AtomicBoolean ) extends Logging {
 
+  /**
+   * This function is only used in two places: in Partition.updateISR() and KafkaApis.handleProducerRequest().
+   * In the former case, the partition should have been created, in the latter case, return -1 will put the request into purgatory
+   */
+  def getReplicationFactorForPartition(topic: String, partitionId: Int) = {
+    val partitionOpt = getPartition(topic, partitionId)
+    partitionOpt match {
+      case Some(partition) =>
+        partition.replicationFactor
+      case None =>
+        -1
+    }
+  }
+
+
   def getPartition(topic: String, partitionId: Int): Option[Partition] = {
     val partition = allPartitions.get((topic, partitionId))
     if (partition == null)
