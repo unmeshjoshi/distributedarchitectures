@@ -21,6 +21,39 @@ class ReplicaManager(val config: Config,
                      val logManager: LogManager,
                      val isShuttingDown: AtomicBoolean ) extends Logging {
 
+
+  def getReplica(topic: String, partitionId: Int, replicaId: Int = config.brokerId): Option[Replica] =  {
+    val partitionOpt = getPartition(topic, partitionId)
+    partitionOpt match {
+      case None => None
+      case Some(partition) => partition.getReplica(replicaId)
+    }
+  }
+
+  def getReplicaOrException(topic: String, partition: Int): Replica = {
+    val replicaOpt = getReplica(topic, partition)
+    if(replicaOpt.isDefined)
+      return replicaOpt.get
+    else
+      throw new ReplicaNotAvailableException("Replica %d is not available for partition [%s,%d]".format(config.brokerId, topic, partition))
+  }
+
+  def getLeaderReplicaIfLocal(topic: String, partitionId: Int): Replica =  {
+    val partitionOpt = getPartition(topic, partitionId)
+    partitionOpt match {
+      case None =>
+        throw new UnknownTopicOrPartitionException("Partition [%s,%d] doesn't exist on %d".format(topic, partitionId, config.brokerId))
+      case Some(partition) =>
+        partition.leaderReplicaIfLocal match {
+          case Some(leaderReplica) => leaderReplica
+          case None =>
+            throw new NotLeaderForPartitionException("Leader not local for partition [%s,%d] on broker %d"
+              .format(topic, partitionId, config.brokerId))
+        }
+    }
+  }
+
+
   /**
    * This function is only used in two places: in Partition.updateISR() and KafkaApis.handleProducerRequest().
    * In the former case, the partition should have been created, in the latter case, return -1 will put the request into purgatory
@@ -81,7 +114,7 @@ class ReplicaManager(val config: Config,
 
 
   private def makeFollower(controllerId: Int, epoch: Int, topic: String, partitionId: Int,
-                           partitionStateInfo: PartitionStateInfo, leaders: Set[Broker], correlationId: Int) {
+                           partitionStateInfo: PartitionStateInfo, leaders: Set[Broker], correlationId: Int) = {
     val leaderIsrAndControllerEpoch = partitionStateInfo.leaderIsrAndControllerEpoch
     trace(("Broker %d received LeaderAndIsr request correlationId %d from controller %d epoch %d " +
       "starting the become-follower transition for partition [%s,%d]")

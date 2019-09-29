@@ -82,6 +82,32 @@ class Log(val dir: File,
           time: Time = SystemTime,
           brokerId: Int = 0)  extends Logging {
 
+  /**
+   * Read a message set from the log.
+   * startOffset - The logical offset to begin reading at
+   * maxLength - The maximum number of bytes to read
+   * maxOffset - The first offset not included in the read
+   */
+  def read(startOffset: Long, maxLength: Int, maxOffset: Option[Long] = None): MessageSet = {
+    trace("Reading %d bytes from offset %d in log %s of length %d bytes".format(maxLength, startOffset, name, size))
+    val view = segments.view
+
+    // check if the offset is valid and in range
+    val first = view.head.start
+    val next = nextOffset.get
+    if(startOffset == next)
+      return MessageSet.Empty
+    else if(startOffset > next || startOffset < first)
+      throw new OffsetOutOfRangeException("Request for offset %d but we only have log segments in the range %d to %d.".format(startOffset, first, next))
+
+    // Do the read on the segment with a base offset less than the target offset
+    // TODO: to handle sparse offsets, we need to skip to the next segment if this read doesn't find anything
+    Log.findRange(view, startOffset, view.length) match {
+      case None => throw new OffsetOutOfRangeException("Offset is earlier than the earliest offset")
+      case Some(segment) => segment.read(startOffset, maxLength, maxOffset)
+    }
+  }
+
   def close() {
     debug("Closing log " + name)
     lock synchronized {

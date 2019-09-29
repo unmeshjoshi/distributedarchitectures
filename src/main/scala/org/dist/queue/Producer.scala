@@ -15,7 +15,11 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
   val correlationId = new AtomicInteger(0)
   val clientId = "client1"
   val socketClient = new SocketClient
-  val brokerPartitionInfo = new BrokerPartitionInfo(config, bootstrapBroker, new HashMap[String, TopicMetadata]())
+
+  val brokerPartitionInfo = new BrokerPartitionInfo(config,
+    bootstrapBroker,
+    new HashMap[String, TopicMetadata]())
+
   private val sendPartitionPerTopicCache = HashMap.empty[String, Int]
 
 
@@ -165,7 +169,7 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
     val maybeSet: Option[ByteBufferMessageSet] = data.get("topic1:0")
     val value = maybeSet.get
     printKeyValue(value)
-    assert(producerRequest == req)
+//    assert(producerRequest == req)
   }
 
   private def serializeMessage(keyedMessage: KeyedMessage[String, String]) = {

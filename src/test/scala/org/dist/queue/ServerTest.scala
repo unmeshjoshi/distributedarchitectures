@@ -13,15 +13,15 @@ class ServerTest extends ZookeeperTestHarness {
 
 
 
-    val config1 = Config(brokerId1, TestUtils.hostName(), TestUtils.choosePort(), TestZKUtils.zookeeperConnect, List(TestUtils.tempDirWithName("broker1").getAbsolutePath))
+    val config1 = Config(brokerId1, TestUtils.hostName(), TestUtils.choosePort(), TestZKUtils.zookeeperConnect, List(TestUtils.tempDir().getAbsolutePath))
     val server1 = new Server(config1)
     server1.startup()
 
-    val config2 = Config(brokerId2, TestUtils.hostName(), TestUtils.choosePort(), TestZKUtils.zookeeperConnect, List(TestUtils.tempDirWithName("broker2").getAbsolutePath))
+    val config2 = Config(brokerId2, TestUtils.hostName(), TestUtils.choosePort(), TestZKUtils.zookeeperConnect, List(TestUtils.tempDir().getAbsolutePath))
     val server2 = new Server(config2)
     server2.startup()
 
-    val config3 = Config(brokerId3, TestUtils.hostName(), TestUtils.choosePort(), TestZKUtils.zookeeperConnect, List(TestUtils.tempDirWithName("broker3").getAbsolutePath))
+    val config3 = Config(brokerId3, TestUtils.hostName(), TestUtils.choosePort(), TestZKUtils.zookeeperConnect, List(TestUtils.tempDir().getAbsolutePath))
     val server3 = new Server(config3)
     server3.startup()
 
@@ -53,6 +53,8 @@ class ServerTest extends ZookeeperTestHarness {
     val bootstrapBroker = InetAddressAndPort.create(config1.hostName, config1.port)
     val producer = new Producer(bootstrapBroker, config1, new DefaultPartitioner[String]())
     producer.send(KeyedMessage("topic1", "key1", "test message"))
+    producer.send(KeyedMessage("topic1", "key2", "test message2"))
+    producer.send(KeyedMessage("topic1", "key3", "test message3"))
 
     server1.awaitShutdown()
     server2.awaitShutdown()

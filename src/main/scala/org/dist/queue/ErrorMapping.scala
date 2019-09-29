@@ -3,6 +3,8 @@ package org.dist.queue
 import org.dist.queue.log.InvalidMessageException
 
 object ErrorMapping {
+  def codeFor(value: Class[Throwable]): Short = UnknownCode
+
   val UnknownCode : Short = -1
   val NoError : Short = 0
   val OffsetOutOfRangeCode : Short = 1

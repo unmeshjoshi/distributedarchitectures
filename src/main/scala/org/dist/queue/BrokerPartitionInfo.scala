@@ -27,7 +27,7 @@ class BrokerPartitionInfo(config:Config,
   }
 
 
-    /**
+  /**
    * Return a sequence of (brokerId, numPartitions).
    * @param topic the topic for which this information is to be returned
    * @return a sequence of (brokerId, numPartitions). Returns a zero-length
@@ -43,7 +43,7 @@ class BrokerPartitionInfo(config:Config,
         case None =>
           // refresh the topic metadata cache
           //FIXME: Implement following method to update topic metadata
-//          updateInfo(Set(topic), correlationId)
+          //          updateInfo(Set(topic), correlationId)
           val topicMetadata = topicPartitionInfo.get(topic)
           topicMetadata match {
             case Some(m) => m
@@ -95,4 +95,5 @@ class BrokerPartitionInfo(config:Config,
 }
 
 case class PartitionAndLeader(topic: String, partitionId: Int, leaderBrokerIdOpt: Option[Int])
+
 
