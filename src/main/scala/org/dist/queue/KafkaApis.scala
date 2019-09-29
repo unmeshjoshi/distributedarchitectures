@@ -28,10 +28,31 @@ class KafkaApis(val replicaManager: ReplicaManager,
       fetchRequest.numPartitions <= 0) {
       debug("Returning fetch response %s for fetch request with correlation id %d to client %s"
         .format(dataRead.values.map(_.error).mkString(","), fetchRequest.correlationId, fetchRequest.clientId))
-      new FetchResponse(fetchRequest.correlationId, dataRead)
+      val map = dataRead.toMap
+      val keys = map.keySet
+
+      import java.util
+      import scala.collection.JavaConverters._
+
+      val topicPartitionMessages = new util.HashMap[TopicAndPartition, List[KeyedMessage[String, String]]]
+      for(key ← keys) {
+        val data: FetchResponsePartitionData = map(key)
+        val keyedMessages = data.messages.map(messageAndOffset ⇒ {
+          val payload = messageAndOffset.message.payload
+          val payloadBytes = new Array[Byte](payload.limit)
+          payload.get(payloadBytes)
+
+          val messageKey = messageAndOffset.message.key
+          val keyBytes = new Array[Byte](messageKey.limit)
+          messageKey.get(keyBytes)
+          KeyedMessage(key.topic, new String(keyBytes, "UTF-8"), new String(payloadBytes, "UTF-8"))
+        }).toList
+        topicPartitionMessages.put(key, keyedMessages.toList)
+      }
+      FetchResponse(fetchRequest.correlationId, topicPartitionMessages.asScala.toMap)
 
     } else {
-      new FetchResponse(fetchRequest.correlationId, Map[TopicAndPartition, FetchResponsePartitionData]())
+      FetchResponse(fetchRequest.correlationId, Map[TopicAndPartition, List[KeyedMessage[String, String]]]().toMap)
     }
   }
 
@@ -71,39 +92,44 @@ class KafkaApis(val replicaManager: ReplicaManager,
    */
   private def readMessageSets(fetchRequest: FetchRequest):Map[TopicAndPartition, FetchResponsePartitionData] = {
     val isFetchFromFollower = fetchRequest.isFromFollower
-    fetchRequest.requestInfo.map
-    {
-      case (TopicAndPartition(topic, partition), PartitionFetchInfo(offset, fetchSize)) =>
-        val partitionData: FetchResponsePartitionData =
-          try {
-            val (messages, highWatermark) = readMessageSet(topic, partition, offset, fetchSize, fetchRequest.replicaId)
+    val func = (tuple: (TopicAndPartition, PartitionFetchInfo)) => {
+    val topic = tuple._1.topic
+    val partition = tuple._1.partition
+    val offset = tuple._2.offset
+    val fetchSize = tuple._2.fetchSize
 
-            if (!isFetchFromFollower) {
-              new FetchResponsePartitionData(ErrorMapping.NoError, highWatermark, messages)
-            } else {
-              debug("Leader %d for partition [%s,%d] received fetch request from follower %d"
-                .format(brokerId, topic, partition, fetchRequest.replicaId))
-              new FetchResponsePartitionData(ErrorMapping.NoError, highWatermark, messages)
-            }
-          } catch {
-            // NOTE: Failed fetch requests is not incremented for UnknownTopicOrPartitionException and NotLeaderForPartitionException
-            // since failed fetch requests metric is supposed to indicate failure of a broker in handling a fetch request
-            // for a partition it is the leader for
-            case utpe: UnknownTopicOrPartitionException =>
-              warn("Fetch request with correlation id %d from client %s on partition [%s,%d] failed due to %s".format(
-                fetchRequest.correlationId, fetchRequest.clientId, topic, partition, utpe.getMessage))
-              new FetchResponsePartitionData(ErrorMapping.codeFor(utpe.getClass.asInstanceOf[Class[Throwable]]), -1L, MessageSet.Empty)
-            case nle: NotLeaderForPartitionException =>
-              warn("Fetch request with correlation id %d from client %s on partition [%s,%d] failed due to %s".format(
-                fetchRequest.correlationId, fetchRequest.clientId, topic, partition, nle.getMessage))
-              new FetchResponsePartitionData(ErrorMapping.codeFor(nle.getClass.asInstanceOf[Class[Throwable]]), -1L, MessageSet.Empty)
-            case t: Throwable =>
-             error("Error when processing fetch request for partition [%s,%d] offset %d from %s with correlation id %d"
-                .format(topic, partition, offset, if (isFetchFromFollower) "follower" else "consumer", fetchRequest.correlationId), t)
-              new FetchResponsePartitionData(ErrorMapping.codeFor(t.getClass.asInstanceOf[Class[Throwable]]), -1L, MessageSet.Empty)
-          }
-        (TopicAndPartition(topic, partition), partitionData)
-    }
+    val partitionData: FetchResponsePartitionData =
+      try {
+
+        val (messages, highWatermark) = readMessageSet(topic, partition, offset, fetchSize, fetchRequest.replicaId)
+
+        if (!isFetchFromFollower) {
+          new FetchResponsePartitionData(ErrorMapping.NoError, highWatermark, messages)
+        } else {
+          debug("Leader %d for partition [%s,%d] received fetch request from follower %d"
+            .format(brokerId, topic, partition, fetchRequest.replicaId))
+          new FetchResponsePartitionData(ErrorMapping.NoError, highWatermark, messages)
+        }
+      } catch {
+        // NOTE: Failed fetch requests is not incremented for UnknownTopicOrPartitionException and NotLeaderForPartitionException
+        // since failed fetch requests metric is supposed to indicate failure of a broker in handling a fetch request
+        // for a partition it is the leader for
+        case utpe: UnknownTopicOrPartitionException =>
+          warn("Fetch request with correlation id %d from client %s on partition [%s,%d] failed due to %s".format(
+            fetchRequest.correlationId, fetchRequest.clientId, topic, partition, utpe.getMessage))
+          new FetchResponsePartitionData(ErrorMapping.codeFor(utpe.getClass.asInstanceOf[Class[Throwable]]), -1L, MessageSet.Empty)
+        case nle: NotLeaderForPartitionException =>
+          warn("Fetch request with correlation id %d from client %s on partition [%s,%d] failed due to %s".format(
+            fetchRequest.correlationId, fetchRequest.clientId, topic, partition, nle.getMessage))
+          new FetchResponsePartitionData(ErrorMapping.codeFor(nle.getClass.asInstanceOf[Class[Throwable]]), -1L, MessageSet.Empty)
+        case t: Throwable =>
+          error("Error when processing fetch request for partition [%s,%d] offset %d from %s with correlation id %d"
+            .format(topic, partition, offset, if (isFetchFromFollower) "follower" else "consumer", fetchRequest.correlationId), t)
+          new FetchResponsePartitionData(ErrorMapping.codeFor(t.getClass.asInstanceOf[Class[Throwable]]), -1L, MessageSet.Empty)
+      }
+    (TopicAndPartition(topic, partition), partitionData)
+  }
+    fetchRequest.requestInfoAsMap.map(func)
   }
 
   def handle(req: RequestOrResponse): RequestOrResponse = {
@@ -139,6 +165,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
         println(s"Handling FetchRequest ${request.messageBodyJson}")
         val fetchRequest: FetchRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[FetchRequest])
         val fetchResponse = handleFetchRequest(fetchRequest)
+
         RequestOrResponse(RequestKeys.FetchKey, JsonSerDes.serialize(fetchResponse), fetchRequest.correlationId)
       }
     }

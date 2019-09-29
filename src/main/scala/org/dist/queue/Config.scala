@@ -13,6 +13,8 @@ case class Config(brokerId: Int,
                   val controllerSocketTimeoutMs: Int = 10
                   ) {
 
+  val FetchSize = 1024 * 1024
+
   val compressionCodec = NoCompressionCodec
 
   val messageMaxBytes: Int = 1000000

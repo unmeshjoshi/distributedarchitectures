@@ -56,6 +56,12 @@ class ServerTest extends ZookeeperTestHarness {
     producer.send(KeyedMessage("topic1", "key2", "test message2"))
     producer.send(KeyedMessage("topic1", "key3", "test message3"))
 
+    val messages = new Consumer(bootstrapBroker, config1).read("topic1", 0)
+    messages.foreach(keyedMessage⇒{
+      println(s"${keyedMessage.topic} => ${keyedMessage.message}")
+    })
+
+
     server1.awaitShutdown()
     server2.awaitShutdown()
 //    Thread.sleep(100000)

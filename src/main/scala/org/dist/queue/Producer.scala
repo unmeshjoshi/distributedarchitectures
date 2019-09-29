@@ -13,7 +13,7 @@ import scala.util.Random
 
 class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val partitioner: Partitioner[String]) extends Logging {
   val correlationId = new AtomicInteger(0)
-  val clientId = "client1"
+  val clientId = "Producer"
   val socketClient = new SocketClient
 
   val brokerPartitionInfo = new BrokerPartitionInfo(config,
@@ -102,7 +102,7 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
     failedTopicPartitions
   }
 
-  def dispatchSeriaizedData(messageList: List[KeyedMessage[String, Message]]) = {
+  def dispatchSerializedData(messageList: List[KeyedMessage[String, Message]]) = {
     val partitionedDataOpt = partitionAndCollate(messageList)
     partitionedDataOpt match {
       case Some(partitionedData) =>
@@ -138,10 +138,10 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
     val serializedMessage: KeyedMessage[String, Message] = serializeMessage(keyedMessage)
 
     val messageList = List(serializedMessage)
-    val topicMetadata = fetchTopicMetadata(Set(serializedMessage.topic))
+    val topicMetadata = new ClientUtils().fetchTopicMetadata(Set(serializedMessage.topic), correlationIdForReq, clientId, bootstrapBroker)
     brokerPartitionInfo.updateInfo(Set(keyedMessage.topic), correlationIdForReq, topicMetadata)
 
-    dispatchSeriaizedData(messageList)
+    dispatchSerializedData(messageList)
 
 
 
@@ -216,13 +216,6 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
 
 
 
-  def fetchTopicMetadata(topics: Set[String]) = {
-    val correlationIdForRequest = correlationId.getAndIncrement()
-    val topicMetadataRequest = new TopicMetadataRequest(TopicMetadataRequest.CurrentVersion, correlationIdForRequest, clientId, topics.toSeq)
-    val response = socketClient.sendReceiveTcp(new RequestOrResponse(RequestKeys.MetadataKey, JsonSerDes.serialize(topicMetadataRequest), correlationIdForRequest), bootstrapBroker)
-    val topicMetadataResponse = JsonSerDes.deserialize(response.messageBodyJson.getBytes(), classOf[TopicMetadataResponse])
-    topicMetadataResponse.topicsMetadata
-  }
 
 
   private def getPartitionListForTopic(m: KeyedMessage[String,Message]): Seq[PartitionAndLeader] = {

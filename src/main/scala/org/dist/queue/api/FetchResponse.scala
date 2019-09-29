@@ -1,7 +1,11 @@
 package org.dist.queue.api
 
-import org.dist.queue.{ErrorMapping, MessageSet, TopicAndPartition}
-import scala.collection.Map
+import java.util
+
+import org.dist.queue.{ErrorMapping, KeyedMessage, MessageSet, TopicAndPartition}
+
+import scala.collection.immutable.Map
+import scala.collection.JavaConverters._
 
 object FetchResponsePartitionData {
   val headerSize =
@@ -22,11 +26,39 @@ object FetchResponse {
   val headerSize =
     4 + /* correlationId */
       4 /* topic count */
+
+  def apply(correlationId: Int,
+                          data: Map[TopicAndPartition, List[KeyedMessage[String, String]]]) = {
+
+    new FetchResponse(FetchRequest.CurrentVersion, correlationId, convertToStringKeyMap(data))
+  }
+
+  def convertToStringKeyMap(data: Map[TopicAndPartition, List[KeyedMessage[String, String]]]):Map[String, List[KeyedMessage[String, String]]] = {
+    val map = new util.HashMap[String, List[KeyedMessage[String, String]]]()
+    for(key <- data.keySet) {
+      val strKey = s"${key.topic}:${key.partition}"
+      map.put(strKey, data(key))
+    }
+    map.asScala.toMap
+  }
 }
 
-case class FetchResponse(correlationId: Int,
-                         data: Map[TopicAndPartition, FetchResponsePartitionData])  {
+case class FetchResponse(versionId:Int, correlationId: Int,
+                         data: Map[String, List[KeyedMessage[String, String]]])  {
 
 
-
+  def dataAsMap = {
+    if (data == null) {
+      Map[TopicAndPartition, List[KeyedMessage[String, String]]]()
+    } else {
+      val map = new util.HashMap[TopicAndPartition, List[KeyedMessage[String, String]]]()
+      val set = data.keySet
+      for (key ← set) {
+        val splits: Array[String] = key.split(":")
+        val tuple = TopicAndPartition(splits(0), splits(1).toInt)
+        map.put(tuple, data(key))
+      }
+      map.asScala.toMap
+    }
+  }
 }
