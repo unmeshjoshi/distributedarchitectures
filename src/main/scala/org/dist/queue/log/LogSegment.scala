@@ -62,6 +62,7 @@ class LogSegment(val messageSet: FileMessageSet,
       }
       // append the messages
       messageSet.append(messages)
+
       updateFirstAppendTime()
       this.bytesSinceLastIndexEntry += messages.sizeInBytes
     }

@@ -140,35 +140,9 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
     val messageList = List(serializedMessage)
     val topicMetadata = new ClientUtils().fetchTopicMetadata(Set(serializedMessage.topic), correlationIdForReq, clientId, bootstrapBroker)
     brokerPartitionInfo.updateInfo(Set(keyedMessage.topic), correlationIdForReq, topicMetadata)
-
     dispatchSerializedData(messageList)
 
-
-
-    val value1: scala.Seq[Message] = messageList.map(km ⇒ km.message)
-    val messageSet = new ByteBufferMessageSet(NoCompressionCodec, value1)
-    val messagesSetPerTopic = new collection.mutable.HashMap[TopicAndPartition, ByteBufferMessageSet] ()
-    messagesSetPerTopic.put(TopicAndPartition("topic1", 0), messageSet)
-    val producerRequest = ProducerRequest(1,
-      "clientid1",
-      10, 10, messagesSetPerTopic.toMap)
-    val map1 = producerRequest.data
-    val set = map1("topic1:0")
-    printKeyValue(set)
-
-
-
-
-    val request = RequestOrResponse(1, JsonSerDes.serialize(producerRequest), producerRequest.correlationId)
-    val requestBytes = JsonSerDes.serialize(request)
-
-    val reqOrRes = JsonSerDes.deserialize(requestBytes.getBytes, classOf[RequestOrResponse])
-    val req = JsonSerDes.deserialize(reqOrRes.messageBodyJson.getBytes, classOf[ProducerRequest])
-
-    val data = req.data
-    val maybeSet: Option[ByteBufferMessageSet] = data.get("topic1:0")
-    val value = maybeSet.get
-    printKeyValue(value)
+//    printKeyValue(value)
 //    assert(producerRequest == req)
   }
 

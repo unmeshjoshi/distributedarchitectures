@@ -4,7 +4,7 @@ import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.api.{RequestKeys, RequestOrResponse, TopicMetadataRequest}
 import org.dist.queue.utils.ZkUtils
 
-class ServerTest extends ZookeeperTestHarness {
+class ProducerConsumerTest extends ZookeeperTestHarness {
 
   test("should register broker to zookeeper on startup") {
     val brokerId1 = 0
@@ -47,8 +47,9 @@ class ServerTest extends ZookeeperTestHarness {
     val str = JsonSerDes.serialize(TopicMetadataRequest(RequestKeys.MetadataKey, 1, "client1", Seq("topic1")))
     val medataRequest = RequestOrResponse(RequestKeys.MetadataKey, str, 1)
 
-    println("waiting till metadata is propagated")
-    Thread.sleep(5000)
+    println()
+    println("************* waiting till metadata is propagated *********")
+    Thread.sleep(2000)
 
     val bootstrapBroker = InetAddressAndPort.create(config1.hostName, config1.port)
     val producer = new Producer(bootstrapBroker, config1, new DefaultPartitioner[String]())
@@ -56,11 +57,13 @@ class ServerTest extends ZookeeperTestHarness {
     producer.send(KeyedMessage("topic1", "key2", "test message2"))
     producer.send(KeyedMessage("topic1", "key3", "test message3"))
 
-    val messages = new Consumer(bootstrapBroker, config1).read("topic1", 0)
-    messages.foreach(keyedMessage⇒{
-      println(s"${keyedMessage.topic} => ${keyedMessage.message}")
-    })
+    Thread.sleep(5000) //FIXME: Need to figure out why we need to do this
 
+    val messages = new Consumer(bootstrapBroker, config1).read("topic1", 0)
+    println("***************************** Received messages on topic1 ***************************")
+    messages.foreach(keyedMessage⇒{
+      println(s"${keyedMessage.key} => ${keyedMessage.message}")
+    })
 
     server1.awaitShutdown()
     server2.awaitShutdown()
