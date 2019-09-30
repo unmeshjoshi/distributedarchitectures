@@ -159,6 +159,9 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
         val partitionIndex = getPartition(keyedMessage.topic, keyedMessage.key, partitionAndLeader)
         val brokerPartition = partitionAndLeader(partitionIndex)
         val leaderBrokerId = brokerPartition.leaderBrokerIdOpt.getOrElse(-1)
+
+        info(s"Writing to Partition ${partitionIndex} for ${keyedMessage.key} and leader ${leaderBrokerId} ")
+
         var dataPerBroker: HashMap[TopicAndPartition, Seq[KeyedMessage[String, Message]]] = null
         ret.get(leaderBrokerId) match {
           case Some(element) =>

@@ -57,16 +57,19 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     producer.send(KeyedMessage("topic1", "key2", "test message2"))
     producer.send(KeyedMessage("topic1", "key3", "test message3"))
 
-    Thread.sleep(5000) //FIXME: Need to figure out why we need to do this
-
-    val messages = new Consumer(bootstrapBroker, config1).read("topic1", 0)
-    println("***************************** Received messages on topic1 ***************************")
-    messages.foreach(keyedMessage⇒{
-      println(s"${keyedMessage.key} => ${keyedMessage.message}")
-    })
+    consumeMessagesFrom(config1, bootstrapBroker, "topic1", 0)
+    consumeMessagesFrom(config1, bootstrapBroker, "topic1", 1)
 
     server1.awaitShutdown()
     server2.awaitShutdown()
 //    Thread.sleep(100000)
+  }
+
+  private def consumeMessagesFrom(config1: Config, bootstrapBroker: InetAddressAndPort, topic: String, partitionId: Int) = {
+    val messages = new Consumer(bootstrapBroker, config1).read(topic, partitionId)
+    println(s"***************************** Received messages on ${topic} parition ${partitionId} ***************************")
+    messages.foreach(keyedMessage ⇒ {
+      println(s"${keyedMessage.key} => ${keyedMessage.message}")
+    })
   }
 }
