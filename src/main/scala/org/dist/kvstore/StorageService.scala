@@ -1,11 +1,38 @@
 package org.dist.kvstore
 
 import java.math.BigInteger
+import java.util
+import java.util.Map
 import java.util.concurrent.ScheduledThreadPoolExecutor
+
+import org.dist.kvstore.locator.{IReplicaPlacementStrategy, RackUnawareStrategy}
 
 class StorageService(listenAddress: InetAddressAndPort, config: DatabaseConfiguration) extends IEndPointStateChangeSubscriber {
 
   private val tokenMetadata = new TokenMetadata()
+  /* We use this interface to determine where replicas need to be placed */
+  private var nodePicker: IReplicaPlacementStrategy = new RackUnawareStrategy(tokenMetadata)
+
+  private val partitioner = new RandomPartitioner
+  /**
+   * This method returns the N endpoints that are responsible for storing the
+   * specified key i.e for replication.
+   *
+   * param @ key - key for which we need to find the endpoint return value -
+   * the endpoint responsible for this key
+   */
+  def getNStorageEndPointMap(key: String): Array[InetAddressAndPort] = {
+    val token: BigInteger = hash(key)
+    nodePicker.getStorageEndPoints(token)
+  }
+
+  /**
+   * This is a facade for the hashing
+   * function used by the system for
+   * partitioning.
+   */
+  def hash(key: String): BigInteger = partitioner.hash(key)
+
 
   def start() = {
     val storageMetadata = new DbManager(config.getSystemDir()).start(listenAddress)

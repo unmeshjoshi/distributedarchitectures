@@ -27,4 +27,12 @@ class TokenMetadata {
 
     } finally lock.writeLock.unlock()
   }
+
+  def cloneTokenInetAddressAndPortMap = {
+    tokenToInetAddressAndPortMap
+  }
+
+  def cloneTokenEndPointMap = {
+    tokenToInetAddressAndPortMap
+  }
 }

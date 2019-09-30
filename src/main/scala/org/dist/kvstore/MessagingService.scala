@@ -32,11 +32,18 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
 
       } else if (message.header.verb == Verb.GOSSIP_DIGEST_ACK2) {
         new GossipDigestAck2Handler(gossiper, messagingService).handleMessage(message)
+
+      } else if (message.header.verb == Verb.ROW_MUTATION) {
+        new RowMutationHandler(messagingService)
       }
-
-
       inputStream.close()
       socket.close()
+    }
+  }
+
+  class RowMutationHandler(messagingService: MessagingService) {
+    def handleMessage(rowMutationMessage:Message) = {
+      val rowMutation = JsonSerDes.deserialize(rowMutationMessage.payloadJson.getBytes, classOf[RowMutation])
     }
   }
 
@@ -99,6 +106,10 @@ class MessagingService() {
     new TcpListener(localEp, gossiper, this).start()
   }
 
+  def listenForClientRequests(clientReqEp:InetAddressAndPort) = {
+    
+  }
+
   def sendTcpOneWay(message: Message, to: InetAddressAndPort) = {
     val clientSocket = new Socket(to.address, to.port)
     clientSocket.setSoTimeout(1000)
@@ -123,3 +134,4 @@ class MessagingService() {
   }
 
 }
+
