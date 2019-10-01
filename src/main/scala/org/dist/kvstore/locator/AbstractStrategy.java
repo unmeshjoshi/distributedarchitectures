@@ -34,7 +34,7 @@ public abstract class AbstractStrategy implements IReplicaPlacementStrategy
     protected InetAddressAndPort getNextAvailableEndPoints(InetAddressAndPort startPoint, List<InetAddressAndPort> topN, List<InetAddressAndPort> liveNodes)
     {
         InetAddressAndPort endpoint = null;
-        Map<BigInteger, InetAddressAndPort> tokenToInetAddressAndPortMap = tokenMetadata_.cloneTokenInetAddressAndPortMap();
+        Map<BigInteger, InetAddressAndPort> tokenToInetAddressAndPortMap = tokenMetadata_.cloneTokenEndPointMap();
         List<BigInteger> tokens = new ArrayList<BigInteger>(tokenToInetAddressAndPortMap.keySet());
         Collections.sort(tokens);
         BigInteger token = tokenMetadata_.getToken(startPoint);

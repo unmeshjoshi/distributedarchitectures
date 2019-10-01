@@ -28,11 +28,7 @@ class TokenMetadata {
     } finally lock.writeLock.unlock()
   }
 
-  def cloneTokenInetAddressAndPortMap = {
-    tokenToInetAddressAndPortMap
-  }
-
   def cloneTokenEndPointMap = {
-    tokenToInetAddressAndPortMap
+    tokenToInetAddressAndPortMap.clone().asInstanceOf[util.HashMap[BigInteger, InetAddressAndPort]]
   }
 }

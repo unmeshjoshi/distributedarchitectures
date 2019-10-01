@@ -26,15 +26,15 @@ class SocketClient {
       val inputStream = clientSocket.getInputStream
       val dataInputStream = new DataInputStream(inputStream)
       //
-      val size = dataInputStream.readInt()
-      val responseBytes = new Array[Byte](size)
-      dataInputStream.read(responseBytes)
-
-      val response = JsonSerDes.deserialize(responseBytes, classOf[Message])
-
-      println("received response " + response)
-      outputStream.close()
-      response
+//      val size = dataInputStream.readInt()
+//      val responseBytes = new Array[Byte](size)
+//      dataInputStream.read(responseBytes)
+//
+//      val response = JsonSerDes.deserialize(responseBytes, classOf[Message])
+//
+//      println("received response " + response)
+//      outputStream.close()
+//      response
 
 
     } catch {

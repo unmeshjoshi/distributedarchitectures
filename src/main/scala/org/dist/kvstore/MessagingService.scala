@@ -7,7 +7,7 @@ import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
-class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingService: MessagingService) extends Thread {
+class TcpListener(localEp: InetAddressAndPort, storageService: StorageService, gossiper: Gossiper, messagingService: MessagingService) extends Thread {
   private[kvstore] val logger = LoggerFactory.getLogger(classOf[TcpListener])
 
   override def run(): Unit = {
@@ -34,16 +34,17 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
         new GossipDigestAck2Handler(gossiper, messagingService).handleMessage(message)
 
       } else if (message.header.verb == Verb.ROW_MUTATION) {
-        new RowMutationHandler(messagingService)
+        new RowMutationHandler(storageService, messagingService).handleMessage(message)
       }
       inputStream.close()
       socket.close()
     }
   }
 
-  class RowMutationHandler(messagingService: MessagingService) {
+  class RowMutationHandler(storageService: StorageService, messagingService: MessagingService) {
     def handleMessage(rowMutationMessage:Message) = {
       val rowMutation = JsonSerDes.deserialize(rowMutationMessage.payloadJson.getBytes, classOf[RowMutation])
+      storageService.apply(rowMutation)
     }
   }
 
@@ -94,7 +95,7 @@ class TcpListener(localEp: InetAddressAndPort, gossiper: Gossiper, messagingServ
   }
 }
 
-class MessagingService() {
+class MessagingService(storageService: StorageService) {
   var gossiper:Gossiper = _
 
   def init(gossiper:Gossiper): Unit = {
@@ -103,7 +104,7 @@ class MessagingService() {
 
   def listen(localEp: InetAddressAndPort): Unit = {
     assert(gossiper != null)
-    new TcpListener(localEp, gossiper, this).start()
+    new TcpListener(localEp, storageService, gossiper, this).start()
   }
 
   def listenForClientRequests(clientReqEp:InetAddressAndPort) = {

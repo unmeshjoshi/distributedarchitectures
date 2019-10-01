@@ -5,7 +5,9 @@ import java.util
 import org.mockito.Mockito
 import org.scalatest.FunSuite
 
-class TestMessagingService extends MessagingService {
+class TestMessagingService(storageService:StorageService) extends MessagingService(storageService) {
+  def this() = this(null)
+
   var message:Message = _
   var toAddress:util.List[InetAddressAndPort] = new util.ArrayList[InetAddressAndPort]()
 

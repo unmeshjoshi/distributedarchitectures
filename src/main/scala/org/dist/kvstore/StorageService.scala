@@ -7,7 +7,18 @@ import java.util.concurrent.ScheduledThreadPoolExecutor
 
 import org.dist.kvstore.locator.{IReplicaPlacementStrategy, RackUnawareStrategy}
 
-class StorageService(listenAddress: InetAddressAndPort, config: DatabaseConfiguration) extends IEndPointStateChangeSubscriber {
+class StorageService(clientListenAddress:InetAddressAndPort, controlListenAddress: InetAddressAndPort, config: DatabaseConfiguration) extends IEndPointStateChangeSubscriber {
+  val tables = new util.HashMap[String, Map[String, String]]()
+  def apply(rowMutation: RowMutation) = {
+    var kv: util.Map[String, String] = tables.get(rowMutation.table)
+    if (kv == null) {
+      kv = new util.HashMap[String, String]
+      tables.put(rowMutation.table, kv)
+    }
+    val value = kv.get(rowMutation.key)
+    kv.put(rowMutation.key, rowMutation.value)
+  }
+
 
   private val tokenMetadata = new TokenMetadata()
   /* We use this interface to determine where replicas need to be placed */
@@ -35,21 +46,23 @@ class StorageService(listenAddress: InetAddressAndPort, config: DatabaseConfigur
 
 
   def start() = {
-    val storageMetadata = new DbManager(config.getSystemDir()).start(listenAddress)
+    val storageMetadata = new DbManager(config.getSystemDir()).start(controlListenAddress)
     val generationNbr = storageMetadata.generation //need to stored and read for supporting crash failures
-    val messagingService = new MessagingService
-
+    val messagingService = new MessagingService(this)
+    val storageProxy = new StorageProxy(clientListenAddress, this)
 
     val executor = new ScheduledThreadPoolExecutor(1)
-    val gossiper = new Gossiper(generationNbr, listenAddress, config, executor, messagingService)
+    val gossiper = new Gossiper(generationNbr, controlListenAddress, config, executor, messagingService)
 
-    messagingService.listen(listenAddress) //listen after gossiper is created as there is circular dependency on gossiper from messagingservice
+    messagingService.listen(controlListenAddress) //listen after gossiper is created as there is circular dependency on gossiper from messagingservice
     gossiper.register(this)
     gossiper.start()
+    storageProxy.start()
+
     /* Make sure this token gets gossiped around. */
     val tokenForSelf = newToken()
     gossiper.addApplicationState(ApplicationState.TOKENS, tokenForSelf.toString)
-    tokenMetadata.update(tokenForSelf, listenAddress)
+    tokenMetadata.update(tokenForSelf, controlListenAddress)
   }
 
   def newToken() = {
