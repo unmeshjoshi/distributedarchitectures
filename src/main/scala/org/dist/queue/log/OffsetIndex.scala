@@ -23,11 +23,10 @@ import java.nio.channels._
 import java.util.concurrent.atomic._
 import java.util.concurrent.locks._
 
-import org.dist.queue.Logging
+import org.dist.queue.common.Logging
+import org.dist.queue.utils.Utils._
 
 import scala.math._
-import org.dist.queue.Utils
-import org.dist.queue.Utils._
 
 /**
  * An index that maps offsets to physical file locations for a particular log segment. This index may be sparse:
@@ -87,7 +86,7 @@ class OffsetIndex(val file: File, val baseOffset: Long, val maxIndexSize: Int = 
           idx.position(roundToExactMultiple(idx.limit, 8))
         idx
       } finally {
-        Utils.swallow(raf.close())
+        swallow(raf.close())
       }
     }
 
@@ -285,7 +284,7 @@ class OffsetIndex(val file: File, val baseOffset: Long, val maxIndexSize: Int = 
         this.maxEntries = this.mmap.limit() / 8
         this.mmap.position(position)
       } finally {
-        Utils.swallow(raf.close())
+        swallow(raf.close())
       }
     }
   }

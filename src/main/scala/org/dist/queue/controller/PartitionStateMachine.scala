@@ -6,8 +6,8 @@ import org.I0Itec.zkclient.exception.ZkNodeExistsException
 import org.I0Itec.zkclient.{IZkChildListener, IZkDataListener}
 import org.dist.kvstore.JsonSerDes
 import org.dist.queue.api.{LeaderAndIsrRequest, RequestKeys, RequestOrResponse, UpdateMetadataRequest}
+import org.dist.queue.common.{Logging, StateChangeFailedException, TopicAndPartition}
 import org.dist.queue.utils.ZkUtils
-import org.dist.queue.{Logging, StateChangeFailedException, TopicAndPartition, controller}
 
 import scala.collection.JavaConverters._
 import scala.collection.{Seq, Set, mutable}
@@ -43,7 +43,7 @@ class ControllerBrokerRequestBatch(controllerContext: ControllerContext, sendReq
       leaderIsrAndControllerEpochOpt match {
         case Some(leaderIsrAndControllerEpoch) =>
           val replicas = controllerContext.partitionReplicaAssignment(partition).toSet
-          val partitionStateInfo = controller.PartitionStateInfo(leaderIsrAndControllerEpoch, replicas)
+          val partitionStateInfo = PartitionStateInfo(leaderIsrAndControllerEpoch, replicas)
           brokerIds.foreach { brokerId =>
             updateMetadataRequestMap.getOrElseUpdate(brokerId, new mutable.HashMap[TopicAndPartition, PartitionStateInfo])
             updateMetadataRequestMap(brokerId).put(partition, partitionStateInfo)

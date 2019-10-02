@@ -30,7 +30,7 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer
 import com.fasterxml.jackson.databind.ser.std.StdSerializer
 import com.fasterxml.jackson.databind.{DeserializationContext, SerializerProvider}
 import org.dist.queue
-import org.dist.queue._
+import org.dist.queue.common.{IteratorTemplate, Logging}
 
 object ByteBufferMessageSet {
 

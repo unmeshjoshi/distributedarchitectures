@@ -2,8 +2,9 @@ package org.dist.queue.client.common
 
 import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.api.TopicMetadata
+import org.dist.queue.common.{ErrorMapping, KafkaException, Logging}
+import org.dist.queue.server.Config
 import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.queue._
 
 import scala.collection.mutable.HashMap
 

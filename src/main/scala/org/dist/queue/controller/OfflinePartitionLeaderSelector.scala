@@ -1,6 +1,6 @@
 package org.dist.queue.controller
 
-import org.dist.queue.{Logging, TopicAndPartition}
+import org.dist.queue.common.{Logging, TopicAndPartition}
 
 
 class OfflinePartitionLeaderSelector(controllerContext: ControllerContext) extends PartitionLeaderSelector with Logging {

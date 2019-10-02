@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.dist.queue
-
-import java.lang.IllegalStateException
+package org.dist.queue.common
 
 class State
 object DONE extends State

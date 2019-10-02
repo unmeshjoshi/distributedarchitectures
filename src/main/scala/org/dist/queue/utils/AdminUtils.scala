@@ -4,7 +4,7 @@ import java.util.Random
 
 import org.I0Itec.zkclient.ZkClient
 import org.I0Itec.zkclient.exception.ZkNodeExistsException
-import org.dist.queue.Logging
+import org.dist.queue.common.Logging
 
 import scala.collection.{Map, Seq, mutable}
 

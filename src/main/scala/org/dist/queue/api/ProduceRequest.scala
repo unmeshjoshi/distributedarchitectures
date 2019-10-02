@@ -2,11 +2,11 @@ package org.dist.queue.api
 
 import java.util
 
-import org.dist.queue.TopicAndPartition
+import org.dist.queue.common.TopicAndPartition
 import org.dist.queue.message.ByteBufferMessageSet
 
-import scala.collection.mutable
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 
 object ProduceRequest {
   val CurrentVersion = 0.shortValue

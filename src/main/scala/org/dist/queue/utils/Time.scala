@@ -1,4 +1,4 @@
-package org.dist.queue
+package org.dist.queue.utils
 
 /**
  * A mockable interface for time functions

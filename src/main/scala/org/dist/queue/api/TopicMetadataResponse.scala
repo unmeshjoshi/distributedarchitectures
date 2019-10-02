@@ -1,6 +1,6 @@
 package org.dist.queue.api
 
-import org.dist.queue.ErrorMapping
+import org.dist.queue.common.ErrorMapping
 import org.dist.queue.utils.ZkUtils.Broker
 
 case class TopicMetadataResponse(topicsMetadata: Seq[TopicMetadata],

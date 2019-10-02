@@ -25,8 +25,9 @@ import java.util.concurrent.atomic._
 
 import com.yammer.metrics.Metrics
 import com.yammer.metrics.core.MetricName
+import org.dist.queue.common.{IteratorTemplate, KafkaException, Logging}
 import org.dist.queue.message.{ByteBufferMessageSet, Message, MessageAndOffset, MessageSet}
-import org.dist.queue.{IteratorTemplate, KafkaException, Logging, Utils}
+import org.dist.queue.utils.Utils
 
 
 /**

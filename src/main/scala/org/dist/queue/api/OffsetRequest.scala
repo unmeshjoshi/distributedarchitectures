@@ -17,7 +17,7 @@
 
 package org.dist.queue.api
 
-import org.dist.queue.TopicAndPartition
+import org.dist.queue.common.TopicAndPartition
 
 object OffsetRequest {
   val CurrentVersion = 0.shortValue

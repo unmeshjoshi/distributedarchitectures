@@ -2,8 +2,8 @@ package org.dist.queue.api
 
 import java.util
 
-import org.dist.queue.TopicAndPartition
 import org.dist.queue.client.consumer.ConsumerConfig
+import org.dist.queue.common.TopicAndPartition
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map

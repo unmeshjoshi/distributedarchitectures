@@ -1,6 +1,6 @@
 package org.dist.queue.client.producer
 
-import org.dist.queue.Utils
+import org.dist.queue.utils.Utils
 
 class DefaultPartitioner[T] extends Partitioner[T] {
   private val random = new java.util.Random

@@ -2,10 +2,10 @@ package org.dist.queue.log
 
 import java.util.concurrent.atomic._
 
-import org.dist.queue.KafkaException
+import org.dist.queue.common.KafkaException
 
-import reflect._
 import scala.math._
+import scala.reflect._
 
 private[log] object SegmentList {
   val MaxAttempts: Int = 20

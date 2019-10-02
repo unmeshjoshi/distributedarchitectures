@@ -5,8 +5,9 @@ import org.dist.queue.admin.CreateTopicCommand
 import org.dist.queue.api.{RequestKeys, RequestOrResponse, TopicMetadataRequest}
 import org.dist.queue.client.consumer.Consumer
 import org.dist.queue.client.producer.{DefaultPartitioner, Producer}
+import org.dist.queue.common.KafkaZookeeperClient
 import org.dist.queue.message.KeyedMessage
-import org.dist.queue.server.Server
+import org.dist.queue.server.{Config, Server}
 import org.dist.queue.utils.ZkUtils
 
 class ProducerConsumerTest extends ZookeeperTestHarness {

@@ -1,4 +1,4 @@
-package org.dist.queue
+package org.dist.queue.common
 
 case class NotLeaderForPartitionException(str: String) extends RuntimeException(str) {
 

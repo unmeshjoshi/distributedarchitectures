@@ -2,10 +2,11 @@ package org.dist.queue.log
 
 import java.io.File
 
+import org.dist.queue.common.Logging
 import org.dist.queue.message.{ByteBufferMessageSet, MessageSet}
+import org.dist.queue.utils.{SystemTime, Time, Utils}
 
 import scala.math._
-import org.dist.queue.{Logging, SystemTime, Time, Utils}
 
 /**
  * A segment of the log. Each segment has two components: a log and an index. The log is a FileMessageSet containing

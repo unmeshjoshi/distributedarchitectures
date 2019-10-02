@@ -2,7 +2,7 @@ package org.dist.queue.message
 
 import java.nio._
 
-import org.dist.queue.Utils
+import org.dist.queue.utils.Utils
 
 import scala.math._
 /**

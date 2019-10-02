@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.dist.queue
+package org.dist.queue.common
 
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean

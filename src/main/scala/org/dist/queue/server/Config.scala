@@ -1,4 +1,4 @@
-package org.dist.queue
+package org.dist.queue.server
 
 import org.dist.queue.message.NoCompressionCodec
 
@@ -90,4 +90,3 @@ case class Config(brokerId: Int,
 
 
 }
-

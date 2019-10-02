@@ -2,11 +2,11 @@ package org.dist.queue.api
 
 import java.util
 
+import org.dist.queue.common.{ErrorMapping, TopicAndPartition}
 import org.dist.queue.message.{KeyedMessage, MessageSet}
-import org.dist.queue.{ErrorMapping, TopicAndPartition}
 
-import scala.collection.immutable.Map
 import scala.collection.JavaConverters._
+import scala.collection.immutable.Map
 
 object FetchResponsePartitionData {
   val headerSize =

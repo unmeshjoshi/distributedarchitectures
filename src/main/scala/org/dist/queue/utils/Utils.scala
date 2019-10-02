@@ -1,10 +1,12 @@
-package org.dist.queue
+package org.dist.queue.utils
 
 import java.io.{EOFException, File, FileInputStream, RandomAccessFile}
 import java.nio.ByteBuffer
 import java.nio.channels.{FileChannel, ReadableByteChannel}
 import java.util.concurrent.locks.Lock
 import java.util.zip.CRC32
+
+import org.dist.queue.common.Logging
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.{Map, Seq, mutable}

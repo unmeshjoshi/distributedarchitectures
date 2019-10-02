@@ -3,6 +3,7 @@ package org.dist.queue
 import java.net.InetSocketAddress
 
 import org.apache.zookeeper.server.{NIOServerCnxn, NIOServerCnxnFactory, ZooKeeperServer}
+import org.dist.queue.utils.Utils
 
 
 class EmbeddedZookeeper(val connectString: String) {

@@ -5,12 +5,12 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.I0Itec.zkclient.{IZkDataListener, ZkClient}
 import org.dist.kvstore.JsonSerDes
-import org.dist.queue._
 import org.dist.queue.api.RequestOrResponse
+import org.dist.queue.common.{Logging, TopicAndPartition}
 import org.dist.queue.network.SocketServer
-import org.dist.queue.server.ZookeeperLeaderElector
-import org.dist.queue.utils.ZkUtils
+import org.dist.queue.server.{Config, ZookeeperLeaderElector}
 import org.dist.queue.utils.ZkUtils.Broker
+import org.dist.queue.utils.{Utils, ZkUtils}
 
 import scala.collection.immutable.Set
 import scala.collection.{Map, Seq, mutable}

@@ -1,10 +1,10 @@
-package org.dist.queue
+package org.dist.queue.common
 
 import java.util.concurrent.atomic.AtomicReference
 
 import org.I0Itec.zkclient.ZkClient
+import org.dist.queue.server.Config
 import org.dist.queue.utils.ZKStringSerializer
-
 
 object KafkaZookeeperClient {
   private val INSTANCE = new AtomicReference[ZkClient](null)

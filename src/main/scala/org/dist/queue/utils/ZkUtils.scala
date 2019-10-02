@@ -5,8 +5,8 @@ import org.I0Itec.zkclient.exception.{ZkMarshallingError, ZkNoNodeException, ZkN
 import org.I0Itec.zkclient.serialize.ZkSerializer
 import org.apache.zookeeper.data.Stat
 import org.dist.kvstore.JsonSerDes
+import org.dist.queue.common.{Logging, TopicAndPartition}
 import org.dist.queue.controller.{Controller, LeaderAndIsr, LeaderIsrAndControllerEpoch}
-import org.dist.queue.{Logging, SystemTime, TopicAndPartition, Utils}
 
 import scala.collection.{Map, Seq, Set, mutable}
 
@@ -70,6 +70,7 @@ object ZkUtils extends Logging {
               case Some(replicaMap) =>
                 val m1: Map[String, Seq[Int]] = replicaMap.asInstanceOf[Map[String, Seq[Int]]]
                 import java.util.HashMap
+
                 import scala.collection.JavaConverters._
 
                 val m2 = new HashMap[Int, Seq[Int]]()

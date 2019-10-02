@@ -1,7 +1,9 @@
-package org.dist.queue
+package org.dist.queue.common
 
-import java.util.concurrent.{ScheduledThreadPoolExecutor, ThreadFactory, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{ScheduledThreadPoolExecutor, ThreadFactory, TimeUnit}
+
+import org.dist.queue.utils.Utils
 
 import scala.collection.mutable.HashMap
 

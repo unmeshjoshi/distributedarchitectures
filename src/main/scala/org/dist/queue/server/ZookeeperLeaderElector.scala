@@ -2,10 +2,10 @@ package org.dist.queue.server
 
 import org.I0Itec.zkclient.IZkDataListener
 import org.I0Itec.zkclient.exception.ZkNodeExistsException
+import org.dist.queue.common.Logging
 import org.dist.queue.controller.{Controller, ControllerContext}
-import org.dist.queue.utils.ZkUtils
 import org.dist.queue.utils.ZkUtils._
-import org.dist.queue.{Logging, SystemTime, Utils}
+import org.dist.queue.utils.{SystemTime, Utils, ZkUtils}
 
 
 class ZookeeperLeaderElector(controllerContext: ControllerContext, electionPath: String, onBecomingLeader: () => Unit,

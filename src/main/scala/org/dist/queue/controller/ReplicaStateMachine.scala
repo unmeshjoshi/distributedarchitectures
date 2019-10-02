@@ -4,8 +4,8 @@ import java.util
 import java.util.concurrent.atomic.AtomicBoolean
 
 import org.I0Itec.zkclient.IZkChildListener
+import org.dist.queue.common.{Logging, StateChangeFailedException, TopicAndPartition}
 import org.dist.queue.utils.ZkUtils
-import org.dist.queue.{Logging, StateChangeFailedException, TopicAndPartition}
 
 import scala.collection.{Seq, Set, mutable}
 

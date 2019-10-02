@@ -2,9 +2,9 @@ package org.dist.queue.api
 
 import java.util
 
-import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.queue.TopicAndPartition
+import org.dist.queue.common.TopicAndPartition
 import org.dist.queue.controller.PartitionStateInfo
+import org.dist.queue.utils.ZkUtils.Broker
 
 import scala.collection.JavaConverters._
 

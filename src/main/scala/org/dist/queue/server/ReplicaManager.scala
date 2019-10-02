@@ -3,13 +3,13 @@ package org.dist.queue.server
 import java.util.concurrent.atomic.AtomicBoolean
 
 import org.I0Itec.zkclient.ZkClient
-import org.dist.queue._
 import org.dist.queue.api.LeaderAndIsrRequest
 import org.dist.queue.cluster.{Partition, Replica}
+import org.dist.queue.common._
 import org.dist.queue.controller.{Controller, PartitionStateInfo}
 import org.dist.queue.log.LogManager
-import org.dist.queue.utils.ZkUtils
 import org.dist.queue.utils.ZkUtils.Broker
+import org.dist.queue.utils.{Time, ZkUtils}
 
 import scala.collection.{Set, mutable}
 

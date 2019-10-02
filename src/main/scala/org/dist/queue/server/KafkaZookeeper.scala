@@ -2,8 +2,8 @@ package org.dist.queue.server
 
 import org.I0Itec.zkclient.{IZkStateListener, ZkClient}
 import org.apache.zookeeper.Watcher.Event.KeeperState
+import org.dist.queue.common.{KafkaZookeeperClient, Logging}
 import org.dist.queue.utils.ZkUtils
-import org.dist.queue.{Config, KafkaZookeeperClient, Logging}
 
 /**
  * Handles registering broker with zookeeper in the following path:

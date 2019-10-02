@@ -1,6 +1,7 @@
-package org.dist.queue
+package org.dist.queue.common
 
 import org.apache.log4j.Logger
+import org.dist.queue.utils.Utils
 
 trait Logging {
   val loggerName = this.getClass.getName

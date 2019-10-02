@@ -1,6 +1,4 @@
-package org.dist.queue
-
-import org.dist.queue.log.InvalidMessageException
+package org.dist.queue.common
 
 object ErrorMapping {
   def codeFor(value: Class[Throwable]): Short = UnknownCode

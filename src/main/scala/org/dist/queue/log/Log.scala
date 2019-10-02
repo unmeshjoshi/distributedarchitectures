@@ -6,9 +6,10 @@ import java.util
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
 import java.util.{ArrayList, Collections, Comparator}
 
-import org.dist.queue._
 import org.dist.queue.api.OffsetRequest
-import org.dist.queue.message.{ByteBufferMessageSet, CompressionCodec, MessageSet, MessageSizeTooLargeException, NoCompressionCodec}
+import org.dist.queue.common.{InvalidMessageSizeException, KafkaException, KafkaStorageException, Logging}
+import org.dist.queue.message._
+import org.dist.queue.utils.{SystemTime, Time, Utils}
 
 import scala.math.ceil
 
@@ -70,7 +71,7 @@ object Log {
     else Nil
 }
 
-import Log._
+import org.dist.queue.log.Log._
 
 class Log(val dir: File,
           val maxLogFileSize: Int,

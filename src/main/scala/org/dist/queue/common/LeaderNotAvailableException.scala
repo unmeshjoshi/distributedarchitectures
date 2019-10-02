@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.dist.queue
+package org.dist.queue.common
 
 /**
  * Thrown when a request is made for partition, but no leader exists for that partition

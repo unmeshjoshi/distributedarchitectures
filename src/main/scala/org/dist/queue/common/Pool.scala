@@ -15,13 +15,10 @@
  * limitations under the License.
  */
 
-package org.dist.queue
+package org.dist.queue.common
 
-
-import java.util.concurrent._
-
-import scala.collection.mutable
 import java.util
+import java.util.concurrent._
 
 class Pool[K,V](valueFactory: Option[(K) => V] = None) extends Iterable[(K, V)] {
 

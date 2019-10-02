@@ -2,9 +2,10 @@ package org.dist.queue.controller
 
 import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.api.RequestOrResponse
+import org.dist.queue.common.Logging
 import org.dist.queue.network.SocketServer
+import org.dist.queue.server.Config
 import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.queue.{Config, Logging}
 
 import scala.collection.mutable.HashMap
 

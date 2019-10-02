@@ -5,9 +5,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.api._
 import org.dist.queue.client.common.{BrokerPartitionInfo, ClientUtils, PartitionAndLeader}
-import org.dist.queue.network.SocketClient
-import org.dist.queue._
+import org.dist.queue.common.{Logging, TopicAndPartition}
 import org.dist.queue.message.KeyedMessage
+import org.dist.queue.network.SocketClient
+import org.dist.queue.server.Config
 
 import scala.collection.mutable.HashMap
 

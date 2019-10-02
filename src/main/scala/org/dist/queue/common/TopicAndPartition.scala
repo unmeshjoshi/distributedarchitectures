@@ -1,4 +1,4 @@
-package org.dist.queue
+package org.dist.queue.common
 
 case class TopicAndPartition(topic: String, partition: Int) {
 
@@ -8,5 +8,3 @@ case class TopicAndPartition(topic: String, partition: Int) {
 
   override def toString = "[%s,%d]".format(topic, partition)
 }
-
-

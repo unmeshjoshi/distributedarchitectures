@@ -2,11 +2,12 @@ package org.dist.queue.log
 
 import java.io.{File, IOException}
 
-import org.dist.queue._
+import org.dist.queue.common._
+import org.dist.queue.log.Log._
+import org.dist.queue.server.Config
+import org.dist.queue.utils.{Time, Utils}
 
 import scala.collection.{Iterable, Seq}
-
-import Log._
 
 private[queue] class LogManager(val config: Config,
                                 scheduler: KafkaScheduler,

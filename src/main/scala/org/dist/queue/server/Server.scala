@@ -3,10 +3,11 @@ package org.dist.queue.server
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 
+import org.dist.queue.common.KafkaScheduler
 import org.dist.queue.controller.Controller
 import org.dist.queue.log.LogManager
 import org.dist.queue.network.SocketServer
-import org.dist.queue.{Config, KafkaScheduler, SystemTime, Time}
+import org.dist.queue.utils.{SystemTime, Time}
 
 class Server(config: Config, time: Time = SystemTime) {
   private var shutdownLatch = new CountDownLatch(1)
