@@ -8,6 +8,7 @@ import java.util.{ArrayList, Collections, Comparator}
 
 import org.dist.queue._
 import org.dist.queue.api.OffsetRequest
+import org.dist.queue.message.{ByteBufferMessageSet, CompressionCodec, MessageSet, MessageSizeTooLargeException, NoCompressionCodec}
 
 import scala.math.ceil
 

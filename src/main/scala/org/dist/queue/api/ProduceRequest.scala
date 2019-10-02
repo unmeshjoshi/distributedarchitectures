@@ -2,7 +2,8 @@ package org.dist.queue.api
 
 import java.util
 
-import org.dist.queue.{ByteBufferMessageSet, TopicAndPartition}
+import org.dist.queue.TopicAndPartition
+import org.dist.queue.message.ByteBufferMessageSet
 
 import scala.collection.mutable
 import scala.collection.JavaConverters._

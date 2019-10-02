@@ -3,7 +3,9 @@ package org.dist.queue.api
 import java.util
 
 import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.queue.{PartitionStateInfo, TopicAndPartition}
+import org.dist.queue.TopicAndPartition
+import org.dist.queue.controller.PartitionStateInfo
+
 import scala.collection.JavaConverters._
 
 object UpdateMetadataRequest {

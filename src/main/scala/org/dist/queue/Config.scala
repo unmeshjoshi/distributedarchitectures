@@ -1,5 +1,7 @@
 package org.dist.queue
 
+import org.dist.queue.message.NoCompressionCodec
+
 import scala.collection.Map
 
 case class Config(brokerId: Int,

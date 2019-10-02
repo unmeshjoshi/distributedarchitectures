@@ -1,5 +1,6 @@
 package org.dist.queue
 
+import org.dist.queue.message.{ByteBufferMessageSet, CompressionCodec, DefaultCompressionCodec, Message, NoCompressionCodec}
 import org.scalatest.FunSuite
 
 class ByteBufferMessageSetTest extends FunSuite {

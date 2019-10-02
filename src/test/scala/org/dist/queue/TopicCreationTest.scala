@@ -1,5 +1,7 @@
 package org.dist.queue
 
+import org.dist.queue.server.Server
+
 class TopicCreationTest extends ZookeeperTestHarness {
   test("should register topic and assign partitions") {
     val brokerId1 = 0

@@ -1,8 +1,8 @@
 package org.dist.queue.api
 
 import org.dist.kvstore.JsonSerDes
+import org.dist.queue.controller.{LeaderAndIsr, LeaderIsrAndControllerEpoch, PartitionStateInfo}
 import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.queue.{LeaderAndIsr, LeaderIsrAndControllerEpoch, PartitionStateInfo}
 import org.scalatest.FunSuite
 
 

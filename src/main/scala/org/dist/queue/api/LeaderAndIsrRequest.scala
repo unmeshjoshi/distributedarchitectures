@@ -2,8 +2,9 @@ package org.dist.queue.api
 
 import java.util
 
-import org.dist.queue.PartitionStateInfo
+import org.dist.queue.controller.PartitionStateInfo
 import org.dist.queue.utils.ZkUtils.Broker
+
 import scala.collection.JavaConverters._
 
 object LeaderAndIsrRequest {

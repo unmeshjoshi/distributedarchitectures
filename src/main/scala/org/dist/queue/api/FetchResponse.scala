@@ -2,7 +2,8 @@ package org.dist.queue.api
 
 import java.util
 
-import org.dist.queue.{ErrorMapping, KeyedMessage, MessageSet, TopicAndPartition}
+import org.dist.queue.message.{KeyedMessage, MessageSet}
+import org.dist.queue.{ErrorMapping, TopicAndPartition}
 
 import scala.collection.immutable.Map
 import scala.collection.JavaConverters._

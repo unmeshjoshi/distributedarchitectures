@@ -1,6 +1,6 @@
 package org.dist.queue
 
-import org.dist.queue.utils.ZkUtils
+import org.dist.queue.utils.{AdminUtils, ZkUtils}
 import org.scalatest.FunSuite
 
 class AdminUtilsTest extends ZookeeperTestHarness {

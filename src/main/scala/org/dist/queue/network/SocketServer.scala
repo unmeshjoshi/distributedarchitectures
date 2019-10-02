@@ -22,7 +22,8 @@ import java.net._
 
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.api.RequestOrResponse
-import org.dist.queue.{KafkaApis, Logging}
+import org.dist.queue.Logging
+import org.dist.queue.server.KafkaApis
 import org.dist.util.SocketIO
 
 class SocketServer(val brokerId: Int,
