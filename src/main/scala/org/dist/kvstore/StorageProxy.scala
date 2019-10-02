@@ -4,6 +4,7 @@ import java.io.DataInputStream
 import java.net.{InetSocketAddress, ServerSocket, Socket}
 import java.util
 
+import org.dist.util.SocketIO
 import org.slf4j.LoggerFactory
 
 class StorageProxy(clientRequestIp: InetAddressAndPort, storageService: StorageService) {
@@ -16,21 +17,7 @@ class StorageProxy(clientRequestIp: InetAddressAndPort, storageService: StorageS
 
   def sendTcpOneWay(message: Message, to: InetAddressAndPort) = {
     val clientSocket = new Socket(to.address, to.port)
-    clientSocket.setSoTimeout(1000)
-    try {
-      val serializedMessage = JsonSerDes.serialize(message)
-      val outputStream = clientSocket.getOutputStream()
-      outputStream.write(serializedMessage.getBytes)
-      outputStream.flush()
-      outputStream.close()
-
-    } catch {
-
-      case e:Exception => e.printStackTrace()
-
-    } finally {
-      clientSocket.close()
-    }
+    new SocketIO[Message](clientSocket, classOf[Message]).write(message)
   }
 }
 
@@ -44,15 +31,7 @@ class TcpClientRequestListner(localEp: InetAddressAndPort, storageService:Storag
     println(s"Listening for client connections on ${localEp}")
     while (true) {
       val socket = serverSocket.accept()
-      socket.setSoTimeout(1000)
-      val inputStream = socket.getInputStream()
-      val dataInputStream = new DataInputStream(inputStream)
-      //
-      val size = dataInputStream.readInt()
-      val messageBytes = new Array[Byte](size)
-      dataInputStream.read(messageBytes)
-
-      val message = JsonSerDes.deserialize(messageBytes, classOf[Message])
+      val message = new SocketIO[Message](socket, classOf[Message]).read()
 
       logger.debug(s"Got client message ${message}")
 
@@ -60,8 +39,6 @@ class TcpClientRequestListner(localEp: InetAddressAndPort, storageService:Storag
         new RowMutationHandler(storageService).handleMessage(message)
       }
 
-      inputStream.close()
-      socket.close()
     }
   }
 

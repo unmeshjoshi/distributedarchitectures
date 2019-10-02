@@ -1,48 +1,15 @@
 package org.dist.queue.network
 
-import java.io.{DataInputStream, DataOutputStream}
 import java.net.Socket
 
-import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
+import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.api.RequestOrResponse
+import org.dist.util.SocketIO
 
 class SocketClient {
 
   def sendReceiveTcp(message: RequestOrResponse, to: InetAddressAndPort) = {
     val clientSocket = new Socket(to.address, to.port)
-    clientSocket.setSoTimeout(1000)
-    try {
-      val serializedMessage = JsonSerDes.serialize(message)
-
-      val outputStream = clientSocket.getOutputStream()
-      val dataStream = new DataOutputStream(outputStream)
-
-      val messageBytes = serializedMessage.getBytes
-      dataStream.writeInt(messageBytes.size)
-      dataStream.write(messageBytes)
-      outputStream.flush()
-
-
-      val inputStream = clientSocket.getInputStream
-      val dataInputStream = new DataInputStream(inputStream)
-      //
-      val size = dataInputStream.readInt()
-      val responseBytes = new Array[Byte](size)
-      dataInputStream.read(responseBytes)
-
-      val response = JsonSerDes.deserialize(responseBytes, classOf[RequestOrResponse])
-
-      println("received response " + response)
-      outputStream.close()
-      response
-
-
-    } catch {
-
-      case e: Exception => throw new RuntimeException(e)
-
-    } finally {
-      clientSocket.close()
-    }
+    new SocketIO[RequestOrResponse](clientSocket, classOf[RequestOrResponse]).requestResponse(message)
   }
 }

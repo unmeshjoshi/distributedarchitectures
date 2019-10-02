@@ -23,6 +23,7 @@ import java.net._
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.{KafkaApis, Logging}
+import org.dist.util.SocketIO
 
 class SocketServer(val brokerId: Int,
                    val host: String,
@@ -52,40 +53,7 @@ class SocketServer(val brokerId: Int,
 
   def sendReceiveTcp(message: RequestOrResponse, to: InetAddressAndPort) = {
     val clientSocket = new Socket(to.address, to.port)
-    clientSocket.setSoTimeout(1000)
-    try {
-      val serializedMessage = JsonSerDes.serialize(message)
-
-      val outputStream = clientSocket.getOutputStream()
-      val dataStream = new DataOutputStream(outputStream)
-
-      val messageBytes = serializedMessage.getBytes
-      dataStream.writeInt(messageBytes.size)
-      dataStream.write(messageBytes)
-      outputStream.flush()
-
-
-      val inputStream = clientSocket.getInputStream
-      val dataInputStream = new DataInputStream(inputStream)
-      //
-      val size = dataInputStream.readInt()
-      val responseBytes = new Array[Byte](size)
-      dataInputStream.read(responseBytes)
-
-      val response = JsonSerDes.deserialize(messageBytes, classOf[RequestOrResponse])
-
-      println("received response " + response)
-
-      outputStream.close()
-
-
-    } catch {
-
-      case e: Exception => e.printStackTrace()
-
-    } finally {
-      clientSocket.close()
-    }
+    new SocketIO[RequestOrResponse](clientSocket, classOf[RequestOrResponse]).requestResponse(message)
   }
 }
 

@@ -6,7 +6,7 @@ import org.dist.queue.utils.ZkUtils
 
 class ProducerConsumerTest extends ZookeeperTestHarness {
 
-  test("should register broker to zookeeper on startup") {
+  test("should produce and consume messages from different partitions") {
     val brokerId1 = 0
     val brokerId2 = 1
     val brokerId3 = 2
@@ -48,6 +48,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val medataRequest = RequestOrResponse(RequestKeys.MetadataKey, str, 1)
 
     println()
+    //FIXME find a better way
     println("************* waiting till metadata is propagated *********")
     Thread.sleep(2000)
 
@@ -57,19 +58,16 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     producer.send(KeyedMessage("topic1", "key2", "test message2"))
     producer.send(KeyedMessage("topic1", "key3", "test message3"))
 
-    consumeMessagesFrom(config1, bootstrapBroker, "topic1", 0)
-    consumeMessagesFrom(config1, bootstrapBroker, "topic1", 1)
+    val p0Messages = consumeMessagesFrom(config1, bootstrapBroker, "topic1", 0)
+    val p1messages = consumeMessagesFrom(config1, bootstrapBroker, "topic1", 1)
 
-    server1.awaitShutdown()
-    server2.awaitShutdown()
-//    Thread.sleep(100000)
+    val allMessages = p0Messages ++ p1messages
+    assert(allMessages.size == 3)
+
+    assert(allMessages == List(KeyedMessage("topic1", "key1", "test message"), KeyedMessage("topic1", "key2", "test message2"), KeyedMessage("topic1", "key3", "test message3")))
   }
 
   private def consumeMessagesFrom(config1: Config, bootstrapBroker: InetAddressAndPort, topic: String, partitionId: Int) = {
-    val messages = new Consumer(bootstrapBroker, config1).read(topic, partitionId)
-    println(s"***************************** Received messages on ${topic} parition ${partitionId} ***************************")
-    messages.foreach(keyedMessage ⇒ {
-      println(s"${keyedMessage.key} => ${keyedMessage.message}")
-    })
+    new Consumer(bootstrapBroker, config1).read(topic, partitionId)
   }
 }

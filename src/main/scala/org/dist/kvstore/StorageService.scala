@@ -5,9 +5,13 @@ import java.util
 import java.util.Map
 import java.util.concurrent.ScheduledThreadPoolExecutor
 
-import org.dist.kvstore.locator.{IReplicaPlacementStrategy, RackUnawareStrategy}
+import org.apache.log4j.Logger
+import org.dist.kvstore.locator.{AbstractStrategy, IReplicaPlacementStrategy, RackUnawareStrategy}
 
-class StorageService(clientListenAddress:InetAddressAndPort, controlListenAddress: InetAddressAndPort, config: DatabaseConfiguration) extends IEndPointStateChangeSubscriber {
+class StorageService(clientListenAddress:InetAddressAndPort, controlListenAddress: InetAddressAndPort, config: DatabaseConfiguration) extends IEndPointStateChangeSubscriber  {
+
+  private val logger = Logger.getLogger(classOf[StorageService])
+
   val tables = new util.HashMap[String, Map[String, String]]()
   def apply(rowMutation: RowMutation) = {
     var kv: util.Map[String, String] = tables.get(rowMutation.table)
@@ -17,6 +21,8 @@ class StorageService(clientListenAddress:InetAddressAndPort, controlListenAddres
     }
     val value = kv.get(rowMutation.key)
     kv.put(rowMutation.key, rowMutation.value)
+
+    logger.info(s"Stored value ${rowMutation.key}->${rowMutation.value} to ${rowMutation.table} at ${controlListenAddress}")
   }
 
 

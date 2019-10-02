@@ -3,6 +3,7 @@ package org.dist.kvstore
 import java.net.{InetSocketAddress, ServerSocket, Socket}
 import java.util
 
+import org.dist.util.SocketIO
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -13,15 +14,12 @@ class TcpListener(localEp: InetAddressAndPort, storageService: StorageService, g
   override def run(): Unit = {
     val serverSocket = new ServerSocket()
     serverSocket.bind(new InetSocketAddress(localEp.address, localEp.port))
-    println(s"Listening on ${localEp}")
+
+    logger.info(s"Listening on ${localEp}")
+
     while (true) {
       val socket = serverSocket.accept()
-      socket.setSoTimeout(1000)
-      val inputStream = socket.getInputStream()
-      val messageBytes = inputStream.readAllBytes()
-
-      val message = JsonSerDes.deserialize(messageBytes, classOf[Message])
-
+      val message = new SocketIO[Message](socket, classOf[Message]).read()
       logger.debug(s"Got message ${message}")
 
       if(message.header.verb == Verb.GOSSIP_DIGEST_SYN) {
@@ -36,8 +34,6 @@ class TcpListener(localEp: InetAddressAndPort, storageService: StorageService, g
       } else if (message.header.verb == Verb.ROW_MUTATION) {
         new RowMutationHandler(storageService, messagingService).handleMessage(message)
       }
-      inputStream.close()
-      socket.close()
     }
   }
 
@@ -107,32 +103,13 @@ class MessagingService(storageService: StorageService) {
     new TcpListener(localEp, storageService, gossiper, this).start()
   }
 
-  def listenForClientRequests(clientReqEp:InetAddressAndPort) = {
-    
-  }
-
   def sendTcpOneWay(message: Message, to: InetAddressAndPort) = {
     val clientSocket = new Socket(to.address, to.port)
-    clientSocket.setSoTimeout(1000)
-    try {
-      val serializedMessage = JsonSerDes.serialize(message)
-      val outputStream = clientSocket.getOutputStream()
-      outputStream.write(serializedMessage.getBytes)
-      outputStream.flush()
-      outputStream.close()
-
-    } catch {
-
-      case e:Exception => e.printStackTrace()
-
-    } finally {
-      clientSocket.close()
-    }
+    new SocketIO[Message](clientSocket, classOf[Message]).write(message)
   }
 
   def sendUdpOneWay(message: Message, to: InetAddressAndPort) = {
     //for control messages like gossip use udp.
   }
-
 }
 
