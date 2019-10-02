@@ -4,7 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.Config
-import org.dist.queue.api.{ProducerRequest, RequestKeys, RequestOrResponse, TopicMetadataRequest, TopicMetadataResponse}
+import org.dist.queue.api.{ProduceRequest, RequestKeys, RequestOrResponse, TopicMetadataRequest, TopicMetadataResponse}
 
 import scala.collection.Set
 

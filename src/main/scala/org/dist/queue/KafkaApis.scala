@@ -157,7 +157,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
       }
       case RequestKeys.ProduceKey ⇒ {
         println(s"Handling ProduceRequest ${request.messageBodyJson}" )
-        val produceRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[ProducerRequest])
+        val produceRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[ProduceRequest])
         val produceResponse = handleProducerRequest(produceRequest)
         RequestOrResponse(RequestKeys.ProduceKey, JsonSerDes.serialize(produceResponse), produceRequest.correlationId)
       }
@@ -171,7 +171,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
     }
   }
 
-  def appendToLocalLog(producerRequest: ProducerRequest) = {
+  def appendToLocalLog(producerRequest: ProduceRequest) = {
     val partitionAndData: Map[TopicAndPartition, MessageSet] = producerRequest.dataAsMap
     val func = (tuple: (TopicAndPartition, MessageSet)) ⇒ {
       try {
@@ -217,7 +217,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
     def keyLabel = "%s-%d".format(topic, partition)
   }
 
-  def handleProducerRequest(produceRequest:ProducerRequest):ProducerResponse = {
+  def handleProducerRequest(produceRequest:ProduceRequest):ProducerResponse = {
     val sTime = SystemTime.milliseconds
     val localProduceResults = appendToLocalLog(produceRequest)
     debug("Produce to local log in %d ms".format(SystemTime.milliseconds - sTime))

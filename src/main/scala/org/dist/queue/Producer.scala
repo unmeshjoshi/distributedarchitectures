@@ -92,7 +92,7 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
 
     val correlationIdForRequest = correlationId.getAndIncrement()
     val requiredAcks:Short = 1
-    val producerRequest = ProducerRequest(correlationIdForRequest,
+    val producerRequest = ProduceRequest(correlationIdForRequest,
       "client1", requiredAcks, config.controllerSocketTimeoutMs, messagesPerTopic.toMap)
 
     val requestMessage = new RequestOrResponse(RequestKeys.ProduceKey, JsonSerDes.serialize(producerRequest), correlationIdForRequest)
