@@ -1,5 +1,6 @@
 package org.dist.queue
 
+import org.I0Itec.zkclient.ZkClient
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.admin.CreateTopicCommand
 import org.dist.queue.api.{RequestKeys, RequestOrResponse, TopicMetadataRequest}
@@ -17,8 +18,6 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val brokerId2 = 1
     val brokerId3 = 2
 
-
-
     val config1 = Config(brokerId1, TestUtils.hostName(), TestUtils.choosePort(), TestZKUtils.zookeeperConnect, List(TestUtils.tempDir().getAbsolutePath))
     val server1 = new Server(config1)
     server1.startup()
@@ -31,7 +30,41 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val server3 = new Server(config3)
     server3.startup()
 
-    val zkClient = KafkaZookeeperClient.getZookeeperClient(config1)
+    assertBrokersRegisteredWithZookeeper(config1, config2, config3)
+
+
+    val topic = "topic1"
+
+    CreateTopicCommand.createTopic(zkClient, topic, 2, 2)
+
+
+    waitForTopicMetadataToPropogate()
+
+    val bootstrapBroker = InetAddressAndPort.create(config1.hostName, config1.port)
+
+    val messages = List(KeyedMessage(topic, "key1", "test message"),
+                        KeyedMessage(topic, "key2", "test message1"),
+                        KeyedMessage(topic, "key3", "test message2"))
+
+    produceMessages(bootstrapBroker, config1, messages)
+
+    val p0Messages = consumeMessagesFrom(config1, bootstrapBroker, topic, 0)
+    val p1messages = consumeMessagesFrom(config1, bootstrapBroker, topic, 1)
+
+    val allConsumedMessages = p0Messages ++ p1messages
+    assert(allConsumedMessages.size == 3)
+
+    assert(allConsumedMessages == messages)
+  }
+
+  private def produceMessages(bootstrapBroker:InetAddressAndPort, config1: Config, message1: Seq[KeyedMessage[String, String]]) = {
+    val producer = new Producer(bootstrapBroker, config1, new DefaultPartitioner[String]())
+    message1.foreach(message ⇒ {
+      producer.send(message)
+    })
+  }
+
+  private def assertBrokersRegisteredWithZookeeper(config1: Config, config2: Config, config3: Config) = {
 
     val brokers: collection.Seq[ZkUtils.Broker] = ZkUtils.getAllBrokersInCluster(zkClient)
 
@@ -47,30 +80,17 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     assert(sortedBrokers(1).host == config2.hostName)
     assert(sortedBrokers(1).port == config2.port)
 
-    CreateTopicCommand.createTopic(zkClient, "topic1", 2, 2)
+    assert(sortedBrokers(2).id == config3.brokerId)
+    assert(sortedBrokers(2).host == config3.hostName)
+    assert(sortedBrokers(2).port == config3.port)
+    zkClient
+  }
 
-
-    val str = JsonSerDes.serialize(TopicMetadataRequest(RequestKeys.MetadataKey, 1, "client1", Seq("topic1")))
-    val medataRequest = RequestOrResponse(RequestKeys.MetadataKey, str, 1)
-
+  private def waitForTopicMetadataToPropogate() = {
     println()
     //FIXME find a better way
     println("************* waiting till metadata is propagated *********")
     Thread.sleep(2000)
-
-    val bootstrapBroker = InetAddressAndPort.create(config1.hostName, config1.port)
-    val producer = new Producer(bootstrapBroker, config1, new DefaultPartitioner[String]())
-    producer.send(KeyedMessage("topic1", "key1", "test message"))
-    producer.send(KeyedMessage("topic1", "key2", "test message2"))
-    producer.send(KeyedMessage("topic1", "key3", "test message3"))
-
-    val p0Messages = consumeMessagesFrom(config1, bootstrapBroker, "topic1", 0)
-    val p1messages = consumeMessagesFrom(config1, bootstrapBroker, "topic1", 1)
-
-    val allMessages = p0Messages ++ p1messages
-    assert(allMessages.size == 3)
-
-    assert(allMessages == List(KeyedMessage("topic1", "key1", "test message"), KeyedMessage("topic1", "key2", "test message2"), KeyedMessage("topic1", "key3", "test message3")))
   }
 
   private def consumeMessagesFrom(config1: Config, bootstrapBroker: InetAddressAndPort, topic: String, partitionId: Int) = {

@@ -17,7 +17,7 @@ class KafkaZooKeeper(config: Config) extends Logging {
   def startup() {
     /* start client */
     info("connecting to ZK: " + config.zkConnect)
-    zkClient = KafkaZookeeperClient.getZookeeperClient(config)
+    zkClient = KafkaZookeeperClient.getZookeeperClient(config, _.zkConnect)
     zkClient.subscribeStateChanges(new SessionExpireListener)
     registerBrokerInZk()
   }
