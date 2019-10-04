@@ -9,9 +9,17 @@ import org.dist.queue.message.KeyedMessage
 import org.dist.queue.server.{Config, Server}
 import org.dist.queue.utils.ZkUtils
 
-import scala.collection.mutable
-
 class ProducerConsumerTest extends ZookeeperTestHarness {
+
+  def leaderForAllPartitions(topic:String, numPartitions:Int, servers: List[Server]): Boolean = {
+    val conditions = servers.map(server ⇒ {
+      val topicPartitions = server.apis.leaderCache.keySet.filter(_.topic == topic)
+      topicPartitions.size == numPartitions
+
+    })
+    conditions.filter(_ == false).size == 0
+  }
+
   test("should produce and consume messages from different partitions") {
     val brokerId1 = 0
     val brokerId2 = 1
@@ -35,13 +43,22 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val topic = "topic1"
 
     //Create internal topic explicitly. THis can be created internally in Kafka on first request.
-    CreateTopicCommand.createTopic(zkClient, Topic.GROUP_METADATA_TOPIC_NAME, 3, 3)
+    val groupMetadataNumPartitions = Topic.groupMetadataTopicPartitionCount
+    CreateTopicCommand.createTopic(zkClient, Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, 3)
+
+    TestUtils.waitUntilTrue(()⇒{
+      leaderForAllPartitions(Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, List(server1,server2, server3))
+
+    }, "Waiting till metadata for group metadata topic is propagated to all servers", 2000)
 
     val numPartitions = 3
     CreateTopicCommand.createTopic(zkClient, topic, numPartitions, 2)
 
 
-    waitForTopicMetadataToPropogate()
+    TestUtils.waitUntilTrue(()⇒{
+      leaderForAllPartitions(topic, numPartitions, List(server1,server2, server3))
+
+    }, s"Waiting till topic ${topic} metadata to propagate to all the servers", 2000)
 
     val bootstrapBroker = InetAddressAndPort.create(config1.hostName, config1.port)
 
@@ -89,13 +106,6 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     assert(sortedBrokers(2).host == config3.hostName)
     assert(sortedBrokers(2).port == config3.port)
     zkClient
-  }
-
-  private def waitForTopicMetadataToPropogate() = {
-    println()
-    //FIXME find a better way
-    println("************* waiting till metadata is propagated *********")
-    Thread.sleep(15000)
   }
 
   private def consumeMessagesFrom(config1: Config, bootstrapBroker: InetAddressAndPort, topic: String, partitionId: Int) = {
