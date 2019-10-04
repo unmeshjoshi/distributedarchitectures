@@ -9,6 +9,8 @@ import org.dist.queue.message.KeyedMessage
 import org.dist.queue.server.{Config, Server}
 import org.dist.queue.utils.ZkUtils
 
+import scala.collection.mutable
+
 class ProducerConsumerTest extends ZookeeperTestHarness {
   test("should produce and consume messages from different partitions") {
     val brokerId1 = 0
@@ -35,7 +37,8 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     //Create internal topic explicitly. THis can be created internally in Kafka on first request.
     CreateTopicCommand.createTopic(zkClient, Topic.GROUP_METADATA_TOPIC_NAME, 3, 3)
 
-    CreateTopicCommand.createTopic(zkClient, topic, 3, 2)
+    val numPartitions = 3
+    CreateTopicCommand.createTopic(zkClient, topic, numPartitions, 2)
 
 
     waitForTopicMetadataToPropogate()
@@ -48,10 +51,12 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
 
     produceMessages(bootstrapBroker, config1, messages)
 
-    val p0Messages = consumeMessagesFrom(config1, bootstrapBroker, topic, 0)
-    val p1messages = consumeMessagesFrom(config1, bootstrapBroker, topic, 1)
+    var allConsumedMessages = List[KeyedMessage[String, String]]()
+    for(partitionId ← (0 to numPartitions - 1)) {
+      allConsumedMessages = allConsumedMessages.concat(consumeMessagesFrom(config1, bootstrapBroker, topic, partitionId))
+    }
 
-    val allConsumedMessages = p0Messages ++ p1messages
+
     assert(allConsumedMessages.size == 3)
 
     assert(allConsumedMessages == messages)
@@ -90,7 +95,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     println()
     //FIXME find a better way
     println("************* waiting till metadata is propagated *********")
-    Thread.sleep(5000)
+    Thread.sleep(15000)
   }
 
   private def consumeMessagesFrom(config1: Config, bootstrapBroker: InetAddressAndPort, topic: String, partitionId: Int) = {

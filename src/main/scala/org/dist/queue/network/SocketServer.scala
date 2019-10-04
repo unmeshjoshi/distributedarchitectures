@@ -58,7 +58,7 @@ class SocketServer(val brokerId: Int,
   }
 }
 
-class TcpListener(localEp: InetAddressAndPort, kafkaApis: KafkaApis, socketServer: SocketServer) extends Thread {
+class TcpListener(localEp: InetAddressAndPort, kafkaApis: KafkaApis, socketServer: SocketServer) extends Thread with Logging {
 
   override def run(): Unit = {
     val serverSocket = new ServerSocket()
@@ -68,7 +68,7 @@ class TcpListener(localEp: InetAddressAndPort, kafkaApis: KafkaApis, socketServe
       val socket = serverSocket.accept()
       socket.setSoTimeout(1000)
       val inputStream = socket.getInputStream()
-      println(s"Connecting from ${socket.getInetAddress}, ${socket.getPort}" )
+      trace(s"Connecting from ${socket.getInetAddress}, ${socket.getPort}" )
 
       val dataInputStream = new DataInputStream(inputStream)
       val size = dataInputStream.readInt()

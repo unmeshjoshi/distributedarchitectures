@@ -313,7 +313,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
         ZkUtils.getAllTopics(zkClient).toSet
     }
     val topicsMetadata = getTopicsMetadata(uniqueTopics)
-    info("Sending topic metadata %s for correlation id %d to client %s".format(topicsMetadata.mkString(","), metadataRequest.correlationId, metadataRequest.clientId))
+    trace("Sending topic metadata %s for correlation id %d to client %s".format(topicsMetadata.mkString(","), metadataRequest.correlationId, metadataRequest.clientId))
     TopicMetadataResponse(topicsMetadata, metadataRequest.correlationId)
   }
 

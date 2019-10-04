@@ -24,6 +24,9 @@ class ReplicaManager(val config: Config,
                      val logManager: LogManager,
                      val isShuttingDown: AtomicBoolean ) extends Logging {
 
+  val highWatermarkCheckpoints = config.logDirs.map(dir => (dir, new HighwaterMarkCheckpoint(dir))).toMap
+
+
 
   def getReplica(topic: String, partitionId: Int, replicaId: Int = config.brokerId): Option[Replica] =  {
     val partitionOpt = getPartition(topic, partitionId)
@@ -139,7 +142,7 @@ class ReplicaManager(val config: Config,
       trace("Broker %d handling LeaderAndIsr request correlation id %d received from controller %d epoch %d for partition [%s,%d]"
         .format(localBrokerId, leaderAndISRRequest.correlationId, leaderAndISRRequest.controllerId,
           leaderAndISRRequest.controllerEpoch, p._1._1, p._1._2)))
-    info("Handling LeaderAndIsr request %s".format(leaderAndISRRequest))
+    debug("Handling LeaderAndIsr request %s".format(leaderAndISRRequest))
 
     val responseMap = new collection.mutable.HashMap[(String, Int), Short]
     if(leaderAndISRRequest.controllerEpoch < controllerEpoch) {
