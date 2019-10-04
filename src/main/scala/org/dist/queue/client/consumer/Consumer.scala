@@ -9,10 +9,19 @@ import org.dist.queue.common.{Logging, TopicAndPartition}
 import org.dist.queue.message.KeyedMessage
 import org.dist.queue.network.SocketClient
 import org.dist.queue.server.Config
+import org.dist.queue.utils.ZkUtils.Broker
 
 import scala.collection.mutable.HashMap
 
 class Consumer(bootstrapBroker:InetAddressAndPort, config:Config) extends Logging {
+  def findCoordinator() = {
+    val findCoordinatorRequest = FindCoordinatorRequest("TestConsumer1", CoordinatorType.GROUP)
+    val request = new RequestOrResponse(RequestKeys.FindCoordinatorKey, JsonSerDes.serialize(findCoordinatorRequest), correlationId.getAndIncrement())
+    val response = socketClient.sendReceiveTcp(request, bootstrapBroker)
+    val coordinatorResponse = JsonSerDes.deserialize(response.messageBodyJson.getBytes(), classOf[FindCoordinatorResponse])
+    InetAddressAndPort.create(coordinatorResponse.host, coordinatorResponse.port)
+  }
+
   val correlationId = new AtomicInteger(0)
   val clientId = "Consumer1"
   val socketClient = new SocketClient

@@ -14,6 +14,8 @@ case class Config(brokerId: Int,
                   controllerMessageQueueSize:Int = 10,
                   val controllerSocketTimeoutMs: Int = 10
                   ) {
+  val offsetsTopicNumPartitions: Int = 50
+
 
   val FetchSize = 1024 * 1024
 

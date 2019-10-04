@@ -1,18 +1,15 @@
 package org.dist.queue
 
-import org.I0Itec.zkclient.ZkClient
-import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
+import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.admin.CreateTopicCommand
-import org.dist.queue.api.{RequestKeys, RequestOrResponse, TopicMetadataRequest}
 import org.dist.queue.client.consumer.Consumer
 import org.dist.queue.client.producer.{DefaultPartitioner, Producer}
-import org.dist.queue.common.KafkaZookeeperClient
+import org.dist.queue.common.Topic
 import org.dist.queue.message.KeyedMessage
 import org.dist.queue.server.{Config, Server}
 import org.dist.queue.utils.ZkUtils
 
 class ProducerConsumerTest extends ZookeeperTestHarness {
-
   test("should produce and consume messages from different partitions") {
     val brokerId1 = 0
     val brokerId2 = 1
@@ -35,7 +32,10 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
 
     val topic = "topic1"
 
-    CreateTopicCommand.createTopic(zkClient, topic, 2, 2)
+    //Create internal topic explicitly. THis can be created internally in Kafka on first request.
+    CreateTopicCommand.createTopic(zkClient, Topic.GROUP_METADATA_TOPIC_NAME, 3, 3)
+
+    CreateTopicCommand.createTopic(zkClient, topic, 3, 2)
 
 
     waitForTopicMetadataToPropogate()
@@ -90,10 +90,12 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     println()
     //FIXME find a better way
     println("************* waiting till metadata is propagated *********")
-    Thread.sleep(2000)
+    Thread.sleep(5000)
   }
 
   private def consumeMessagesFrom(config1: Config, bootstrapBroker: InetAddressAndPort, topic: String, partitionId: Int) = {
-    new Consumer(bootstrapBroker, config1).read(topic, partitionId)
+    val consumer = new Consumer(bootstrapBroker, config1)
+    val inetAddressAndPort = consumer.findCoordinator()
+    consumer.read(topic, partitionId)
   }
 }

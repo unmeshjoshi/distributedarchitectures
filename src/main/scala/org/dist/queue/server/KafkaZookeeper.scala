@@ -10,6 +10,8 @@ import org.dist.queue.utils.ZkUtils
  *   /brokers/[0...N] --> host:port
  */
 class KafkaZooKeeper(config: Config) extends Logging {
+  def getTopicPartitionCount(GROUP_METADATA_TOPIC_NAME: String):Option[Int] = None
+
 
   val brokerIdPath = ZkUtils.BrokerIdsPath + "/" + config.brokerId
   private var zkClient: ZkClient = null

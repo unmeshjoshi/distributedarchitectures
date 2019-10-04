@@ -8,7 +8,7 @@ import org.dist.queue.common._
 import org.dist.queue.controller.{Controller, PartitionStateInfo}
 import org.dist.queue.message.{ByteBufferMessageSet, KeyedMessage, MessageSet}
 import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.queue.utils.{SystemTime, ZkUtils}
+import org.dist.queue.utils.{SystemTime, Utils, ZkUtils}
 
 import scala.collection.{Map, mutable}
 
@@ -141,39 +141,55 @@ class KafkaApis(val replicaManager: ReplicaManager,
     val request: RequestOrResponse = req
     request.requestId match {
       case RequestKeys.UpdateMetadataKey ⇒ {
-        println(s"Handling UpdateMetadataRequest ${request.messageBodyJson}")
+        debug(s"Handling UpdateMetadataRequest ${request.messageBodyJson}")
         val message = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[UpdateMetadataRequest])
         val response = handleUpdateMetadataRequest(message)
         RequestOrResponse(0, JsonSerDes.serialize(response), request.correlationId)
 
       }
       case RequestKeys.LeaderAndIsrKey ⇒ {
-        println(s"Handling LeaderAndIsrRequest ${request.messageBodyJson}" )
+        debug(s"Handling LeaderAndIsrRequest ${request.messageBodyJson}" )
         val leaderAndIsrRequest: LeaderAndIsrRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[LeaderAndIsrRequest])
         val tuple: (collection.Map[(String, Int), Short], Short) = replicaManager.becomeLeaderOrFollower(leaderAndIsrRequest)
         val response = LeaderAndIsrResponse(leaderAndIsrRequest.controllerId, tuple._1.toMap, tuple._2)
         RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(response), leaderAndIsrRequest.correlationId)
       }
       case RequestKeys.MetadataKey ⇒ {
-        println(s"Handling MetadataRequest ${request.messageBodyJson}" )
+        debug(s"Handling MetadataRequest ${request.messageBodyJson}" )
         val topicMetadataRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[TopicMetadataRequest])
         val topicMetadataResponse = handleTopicMetadataRequest(topicMetadataRequest)
         RequestOrResponse(RequestKeys.MetadataKey, JsonSerDes.serialize(topicMetadataResponse), topicMetadataRequest.correlationId)
       }
       case RequestKeys.ProduceKey ⇒ {
-        println(s"Handling ProduceRequest ${request.messageBodyJson}" )
+        debug(s"Handling ProduceRequest ${request.messageBodyJson}" )
         val produceRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[ProduceRequest])
         val produceResponse = handleProducerRequest(produceRequest)
         RequestOrResponse(RequestKeys.ProduceKey, JsonSerDes.serialize(produceResponse), produceRequest.correlationId)
       }
       case RequestKeys.FetchKey ⇒ {
-        println(s"Handling FetchRequest ${request.messageBodyJson}")
+        debug(s"Handling FetchRequest ${request.messageBodyJson}")
         val fetchRequest: FetchRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[FetchRequest])
         val fetchResponse = handleFetchRequest(fetchRequest)
 
         RequestOrResponse(RequestKeys.FetchKey, JsonSerDes.serialize(fetchResponse), fetchRequest.correlationId)
       }
+      case RequestKeys.FindCoordinatorKey ⇒ {
+        debug(s"Handling FindCoordinatorRequest ${request.messageBodyJson}")
+        val findCoordinatorRequest: FindCoordinatorRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[FindCoordinatorRequest])
+        val partitionId = findPartitionHandlingOffsetFor(findCoordinatorRequest)
+        val findCoordinatorResponse = partitionMetadataLock synchronized {
+          val topicMetadata: Seq[TopicMetadata] = getTopicsMetadata(Set(Topic.GROUP_METADATA_TOPIC_NAME))
+          val partitionMetadata = topicMetadata.head.partitionsMetadata.filter(_.partitionId == partitionId)
+          val partitionLeader = partitionMetadata.head.leader.get
+          FindCoordinatorResponse(partitionLeader.host, partitionLeader.port)
+        }
+        RequestOrResponse(RequestKeys.FindCoordinatorKey, JsonSerDes.serialize(findCoordinatorResponse), request.correlationId)
+      }
     }
+  }
+
+  private def findPartitionHandlingOffsetFor(findCoordinatorRequest: FindCoordinatorRequest) = {
+    Utils.abs(findCoordinatorRequest.groupId.hashCode) % Topic.groupMetadataTopicPartitionCount
   }
 
   def appendToLocalLog(producerRequest: ProduceRequest) = {
@@ -289,8 +305,6 @@ class KafkaApis(val replicaManager: ReplicaManager,
    * Service the topic metadata request API
    */
   def handleTopicMetadataRequest(metadataRequest: TopicMetadataRequest) = {
-    val topicsMetadata = new mutable.ArrayBuffer[TopicMetadata]()
-    val config = replicaManager.config
     var uniqueTopics = Set.empty[String]
     uniqueTopics = {
       if (metadataRequest.topics.size > 0)
@@ -298,6 +312,14 @@ class KafkaApis(val replicaManager: ReplicaManager,
       else
         ZkUtils.getAllTopics(zkClient).toSet
     }
+    val topicsMetadata = getTopicsMetadata(uniqueTopics)
+    info("Sending topic metadata %s for correlation id %d to client %s".format(topicsMetadata.mkString(","), metadataRequest.correlationId, metadataRequest.clientId))
+    TopicMetadataResponse(topicsMetadata, metadataRequest.correlationId)
+  }
+
+  private def getTopicsMetadata(uniqueTopics: Set[String]) = {
+    val config = replicaManager.config
+    val topicsMetadata = new mutable.ArrayBuffer[TopicMetadata]()
     val topicMetadataList =
       partitionMetadataLock synchronized {
         uniqueTopics.map { topic =>
@@ -353,7 +375,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
             } catch {
               case e: Exception => {
                 e.printStackTrace()
-              }// let it go, possibly another broker created this topic
+              } // let it go, possibly another broker created this topic
             }
             topicsMetadata += new TopicMetadata(topicMetadata.topic, topicMetadata.partitionsMetadata, ErrorMapping.LeaderNotAvailableCode)
           } else {
@@ -365,8 +387,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
           topicsMetadata += topicMetadata
       }
     }
-    info("Sending topic metadata %s for correlation id %d to client %s".format(topicsMetadata.mkString(","), metadataRequest.correlationId, metadataRequest.clientId))
-    TopicMetadataResponse(topicsMetadata.toSeq, metadataRequest.correlationId)
+    topicsMetadata.toSeq
   }
 
   def handleUpdateMetadataRequest(updateMetadataRequest: UpdateMetadataRequest) {
