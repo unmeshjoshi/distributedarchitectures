@@ -18,4 +18,5 @@ object Libs {
   val `googleGuava` = "com.google.guava" % "guava" % "23.0"
   val `jamm` = "com.github.jbellis" % "jamm" % "0.3.3"
   val `mockito` = "org.mockito" %% "mockito-scala" % "1.5.16"
+  val `pcj` = "pcj" % "pcj" % "1.2"
 }

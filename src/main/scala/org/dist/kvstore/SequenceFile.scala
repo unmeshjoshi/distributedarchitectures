@@ -1,10 +1,12 @@
 package org.dist.kvstore
 
-import java.io.{DataOutputStream, File, IOException, RandomAccessFile}
+import java.io.{DataOutputStream, File, RandomAccessFile}
+import java.util.HashMap
 
 class SequenceFile {
+  val keyIndexes = new HashMap[String, Long]()
 
-  abstract class AbstractWriter(var fileName:String){
+  abstract class AbstractWriter(var fileName: String) {
 
     def lastModified = {
       val file = new File(fileName)
@@ -12,14 +14,10 @@ class SequenceFile {
     }
   }
 
-  class Writer(fileName:String) extends AbstractWriter(fileName) {
-    protected var file = init(fileName)
+  class Writer(fileName: String) extends AbstractWriter(fileName) {
+    var lastWritePosition:Long = 0
 
-    protected def init(filename: String) = {
-      val file = new File(filename)
-      if (!file.exists) file.createNewFile
-      new RandomAccessFile(file, "rw")
-    }
+    protected var file = init(fileName)
 
     def getCurrentPosition: Long = file.getFilePointer
 
@@ -29,15 +27,20 @@ class SequenceFile {
 
     def append(key: String, buffer: Array[Byte]): Unit = {
       if (key == null) throw new IllegalArgumentException("Key cannot be NULL.")
-      file.seek(file.getFilePointer)
+      val keyIndex = lastWritePosition
+      file.seek(keyIndex)
       file.writeUTF(key)
       val length = buffer.size
       file.writeInt(length)
       file.write(buffer, 0, length)
       file.getFD.sync()
+      this.lastWritePosition = file.getFilePointer
+      keyIndexes.put(key, keyIndex)
     }
 
-   def append(key: String, value: Long): Unit = {
+    def getIndexFor(key: String) = keyIndexes.get(key)
+
+    def append(key: String, value: Long): Unit = {
       if (key == null) throw new IllegalArgumentException("Key cannot be NULL.")
       file.seek(file.getFilePointer)
       file.writeUTF(key)
@@ -45,22 +48,21 @@ class SequenceFile {
     }
 
     def getFileSize: Long = file.length
-  }
-
-  class Reader(var fileName:String) {
-    protected var file = init(fileName)
 
     protected def init(filename: String) = {
       val file = new File(filename)
       if (!file.exists) file.createNewFile
       new RandomAccessFile(file, "rw")
     }
+  }
 
-    def getEOF() = file.length
-    def getCurrentPosition = file.getFilePointer
+  class Reader(var fileName: String) {
+    protected var file = init(fileName)
 
-    def isEOF: Boolean = getCurrentPosition == getEOF
-
+    def seekToKeyPosition(key: String) = {
+      val index = keyIndexes.get(key)
+      file.seek(index)
+    }
 
     /**
      * This method dumps the next key/value into the DataOuputStream
@@ -86,5 +88,18 @@ class SequenceFile {
       }
       bytesRead
     }
+
+    def isEOF: Boolean = getCurrentPosition == getEOF
+
+    def getEOF() = file.length
+
+    def getCurrentPosition = file.getFilePointer
+
+    protected def init(filename: String) = {
+      val file = new File(filename)
+      if (!file.exists) file.createNewFile
+      new RandomAccessFile(file, "rw")
+    }
   }
+
 }

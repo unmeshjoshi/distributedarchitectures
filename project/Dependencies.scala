@@ -16,6 +16,7 @@ object Dependencies {
     Libs.`scalaCollectionCompat`,
     Libs.`googleGuava`,
     Libs.`jamm`,
+    Libs.`pcj`,
     Libs.`scalaTest` % Test,
     Libs.`mockito` % Test
   )

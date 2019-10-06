@@ -25,7 +25,7 @@ object Row {
 case class Row(key: String, value: String)
 
 class DbManager(metadataDirectory: String) {
-  val systemTable = new SystemTable("system")
+  val systemTable = new Table(metadataDirectory, "system")
 
   def start(localEndpoint:InetAddressAndPort): StorageMetadata = {
     val rowOpt: Option[Row] = systemTable.get(localEndpoint.toString)
@@ -52,46 +52,5 @@ class DbManager(metadataDirectory: String) {
     var token: BigInteger = FBUtilities.hash(guid)
     if (token.signum == -1) token = token.multiply(BigInteger.valueOf(-1L))
     token.toString
-  }
-
-  class SystemTable(table: String) {
-    val systemTable: String = getFileName
-    val file = new SequenceFile()
-    val reader = new file.Reader(systemTable)
-    val writer = new file.Writer(systemTable)
-
-    /*
-         * This is a one time thing and hence we do not need
-         * any commit log related activity. Just write in an
-         * atomic fashion to the underlying SequenceFile.
-        */
-    private def apply(row: Row): Unit = {
-      val file = getFileName
-      val currentPos = writer.getCurrentPosition
-      var ba = new ByteArrayOutputStream()
-      val bufOut = new DataOutputStream(ba)
-      Row.serialize(row, bufOut)
-      try writer.append(row.key, ba.toByteArray)
-      catch {
-        case e: IOException =>
-          writer.seek(currentPos)
-          throw e
-      }
-    }
-
-    def get(key: String): Option[Row] = {
-      val ba = new ByteArrayOutputStream()
-      val baos = new DataOutputStream(ba)
-      reader.next(baos)
-
-      val bais = new DataInputStream(new ByteArrayInputStream(ba.toByteArray))
-      Try(Row.deserialize(bais)) match {
-        case Success(row) ⇒ Some(row)
-        case Failure(exception) ⇒ None
-      }
-    }
-
-    def getFileName = metadataDirectory + System.getProperty("file.separator") + table + ".db"
-
   }
 }
