@@ -34,7 +34,7 @@ object GossipTestApp extends App {
   Thread.sleep(5000)
 
   val client = new Client(node1ClientEndpoint)
-  client.put("table1", "key1", "value1")
-
+  val mutationResponses = client.put("table1", "key1", "value1")
+  println(mutationResponses)
 
 }

@@ -10,7 +10,7 @@ import org.dist.kvstore.locator.{AbstractStrategy, IReplicaPlacementStrategy, Ra
 
 
 
-class StorageService(clientListenAddress:InetAddressAndPort, controlListenAddress: InetAddressAndPort, config: DatabaseConfiguration) extends IEndPointStateChangeSubscriber  {
+class StorageService(clientListenAddress:InetAddressAndPort, controlListenAddress: InetAddressAndPort, val config: DatabaseConfiguration) extends IEndPointStateChangeSubscriber  {
 
   private val logger = Logger.getLogger(classOf[StorageService])
 
@@ -25,6 +25,7 @@ class StorageService(clientListenAddress:InetAddressAndPort, controlListenAddres
     kv.put(rowMutation.key, rowMutation.value)
 
     logger.info(s"Stored value ${rowMutation.key}->${rowMutation.value} to ${rowMutation.table} at ${controlListenAddress}")
+    true
   }
 
 
@@ -57,7 +58,7 @@ class StorageService(clientListenAddress:InetAddressAndPort, controlListenAddres
     val storageMetadata = new DbManager(config.getSystemDir()).start(controlListenAddress)
     val generationNbr = storageMetadata.generation //need to stored and read for supporting crash failures
     val messagingService = new MessagingService(this)
-    val storageProxy = new StorageProxy(clientListenAddress, this)
+    val storageProxy = new StorageProxy(clientListenAddress, this, messagingService)
 
     val executor = new ScheduledThreadPoolExecutor(1)
     val gossiper = new Gossiper(generationNbr, controlListenAddress, config, executor, messagingService)

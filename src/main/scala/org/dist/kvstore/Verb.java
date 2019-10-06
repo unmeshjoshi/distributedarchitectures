@@ -22,6 +22,6 @@ public enum Verb
     GOSSIP_DIGEST_SYN,
     GOSSIP_DIGEST_ACK,
     GOSSIP_DIGEST_ACK2,
-
+    RESPONSE,
     ROW_MUTATION
 }

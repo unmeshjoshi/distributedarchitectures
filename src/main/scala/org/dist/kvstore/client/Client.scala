@@ -11,6 +11,8 @@ class Client(bootstrapServer: InetAddressAndPort) {
     val header = Header(InetAddressAndPort(new Networks().ipv4Address, 8000)
       , Stage.MUTATION, Verb.ROW_MUTATION)
     val message = Message(header, JsonSerDes.serialize(mutation))
-    socketClient.sendReceiveTcp(message, bootstrapServer)
+    val responseMessage: Message = socketClient.sendReceiveTcp(message, bootstrapServer)
+    val responses = JsonSerDes.deserialize(responseMessage.payloadJson.getBytes, classOf[List[RowMutationResponse]])
+    responses
   }
 }

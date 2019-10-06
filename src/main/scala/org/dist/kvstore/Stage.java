@@ -30,6 +30,7 @@ public enum Stage
     MISC,
     TRACING,
     INTERNAL_RESPONSE,
+    RESPONSE_STAGE,
     IMMEDIATE;
 
     public String getJmxType()

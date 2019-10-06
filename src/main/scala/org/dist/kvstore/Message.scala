@@ -6,11 +6,7 @@ object Message {
   private val messageId = new AtomicInteger(0)
 
   def nextId = {
-    var id = 0L
-    do id = messageId.incrementAndGet while ( {
-      id == 0L
-    })
-    id
+    GuidGenerator.guid
   }
 }
 

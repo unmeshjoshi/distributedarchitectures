@@ -1,24 +1,24 @@
 package org.dist.kvstore
 
 import java.net.{InetSocketAddress, ServerSocket, Socket}
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.{Condition, Lock, ReentrantLock}
 
 import org.dist.util.SocketIO
 import org.slf4j.LoggerFactory
+import scala.collection.JavaConverters._
 
-class StorageProxy(clientRequestIp: InetAddressAndPort, storageService: StorageService) {
+
+class StorageProxy(clientRequestIp: InetAddressAndPort, storageService: StorageService, messagingService:MessagingService) {
 
   def start(): Unit = {
-      new TcpClientRequestListner(clientRequestIp, storageService, this).start()
-  }
-
-  def sendTcpOneWay(message: Message, to: InetAddressAndPort) = {
-    val clientSocket = new Socket(to.address, to.port)
-    new SocketIO[Message](clientSocket, classOf[Message]).write(message)
+      new TcpClientRequestListner(clientRequestIp, storageService, messagingService).start()
   }
 }
 
 
-class TcpClientRequestListner(localEp: InetAddressAndPort, storageService:StorageService, storageProxy:StorageProxy) extends Thread {
+class TcpClientRequestListner(localEp: InetAddressAndPort, storageService:StorageService, messagingService:MessagingService) extends Thread {
   private[kvstore] val logger = LoggerFactory.getLogger(classOf[TcpListener])
 
   override def run(): Unit = {
@@ -27,12 +27,19 @@ class TcpClientRequestListner(localEp: InetAddressAndPort, storageService:Storag
     println(s"Listening for client connections on ${localEp}")
     while (true) {
       val socket = serverSocket.accept()
-      val message = new SocketIO[Message](socket, classOf[Message]).read()
+      val socketIO = new SocketIO[Message](socket, classOf[Message])
+      val message = socketIO.readHandleRespond { message ⇒
 
-      logger.debug(s"Got client message ${message}")
+        logger.debug(s"Got client message ${message}")
 
-      if (message.header.verb == Verb.ROW_MUTATION) {
-        new RowMutationHandler(storageService).handleMessage(message)
+        if (message.header.verb == Verb.ROW_MUTATION) {
+          val response: Seq[Message] = new RowMutationHandler(storageService).handleMessage(message)
+          val value: Seq[RowMutationResponse] = response.map(message ⇒ JsonSerDes.deserialize(message.payloadJson.getBytes, classOf[RowMutationResponse]))
+          new Message(message.header, JsonSerDes.serialize(value))
+        } else {
+          ""
+        }
+
       }
 
     }
@@ -42,9 +49,65 @@ class TcpClientRequestListner(localEp: InetAddressAndPort, storageService:Storag
     def handleMessage(rowMutationMessage: Message) = {
       val rowMutation = JsonSerDes.deserialize(rowMutationMessage.payloadJson.getBytes, classOf[RowMutation])
       val serversHostingKey = storageService.getNStorageEndPointMap(rowMutation.key)
-      serversHostingKey.foreach(endPoint ⇒ {
-        storageProxy.sendTcpOneWay(rowMutationMessage, endPoint)
-      })
+      val quorumResponseHandler = new QuorumResponseHandler(serversHostingKey.size, new WriteResponseResolver())
+      messagingService.sendRR(rowMutationMessage, serversHostingKey.toList, quorumResponseHandler)
+      quorumResponseHandler.get()
+    }
+  }
+
+  trait ResponseResolver {
+    def resolve(messages:List[Message]):List[Message]
+    def isDataPresent(message:List[Message]):Boolean
+  }
+
+  class WriteResponseResolver extends ResponseResolver {
+    override def resolve(messages: List[Message]): List[Message] = {
+      messages
+    }
+
+    override def isDataPresent(message: List[Message]): Boolean = true
+  }
+
+  class QuorumResponseHandler(responseCount:Int, resolver:ResponseResolver) extends MessageResponseHandler {
+    private val lock = new ReentrantLock
+    private val condition = lock.newCondition()
+    private val responses = new java.util.ArrayList[Message]()
+    private val done = new AtomicBoolean(false)
+    override def response(message: Message): Unit = {
+      lock.lock()
+      try {
+        val majority = (responseCount >> 1) + 1
+        if (!done.get) {
+          responses.add(message)
+          logger.info(s"QuorumResponseHandler got message ${message}")
+          if (responses.size >= majority && resolver.isDataPresent(responses.asScala.toList)) {
+            done.set(true)
+            condition.signal()
+          }
+        }
+      } finally {
+         lock.unlock()
+      }
+    }
+
+    def get():List[Message] = {
+      val startTime = System.currentTimeMillis
+      lock.lock()
+      try {
+        var bVal = true
+        try {
+          if (!done.get) bVal = condition.await(5000, TimeUnit.MILLISECONDS)
+        }
+        catch {
+          case ex: InterruptedException =>
+            logger.debug(ex.getMessage)
+        }
+
+      } finally {
+        lock.unlock()
+        responses.forEach( m ⇒ messagingService.callbackMap.remove(m.header.id))
+      }
+      resolver.resolve(responses.asScala.toList)
     }
   }
 }

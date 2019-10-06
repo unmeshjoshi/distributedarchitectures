@@ -22,7 +22,7 @@ class TcpListener(localEp: InetAddressAndPort, storageService: StorageService, g
       val message = new SocketIO[Message](socket, classOf[Message]).read()
       logger.debug(s"Got message ${message}")
 
-      if(message.header.verb == Verb.GOSSIP_DIGEST_SYN) {
+      if (message.header.verb == Verb.GOSSIP_DIGEST_SYN) {
         new GossipDigestSynHandler(gossiper, messagingService).handleMessage(message)
 
       } else if (message.header.verb == Verb.GOSSIP_DIGEST_ACK) {
@@ -33,14 +33,23 @@ class TcpListener(localEp: InetAddressAndPort, storageService: StorageService, g
 
       } else if (message.header.verb == Verb.ROW_MUTATION) {
         new RowMutationHandler(storageService, messagingService).handleMessage(message)
+
+      } else if(message.header.verb == Verb.RESPONSE) {
+
+        val handler = messagingService.callbackMap.get(message.header.id)
+        if (handler != null) handler.response(message)
+
       }
     }
   }
 
   class RowMutationHandler(storageService: StorageService, messagingService: MessagingService) {
-    def handleMessage(rowMutationMessage:Message) = {
+    def handleMessage(rowMutationMessage: Message) = {
       val rowMutation = JsonSerDes.deserialize(rowMutationMessage.payloadJson.getBytes, classOf[RowMutation])
-      storageService.apply(rowMutation)
+      val success = storageService.apply(rowMutation)
+      val response = RowMutationResponse(1, rowMutation.key, success)
+      val responseMessage = Message(Header(localEp, Stage.RESPONSE_STAGE, Verb.RESPONSE, rowMutationMessage.header.id), JsonSerDes.serialize(response))
+      messagingService.sendTcpOneWay(responseMessage, rowMutationMessage.header.from)
     }
   }
 
@@ -89,18 +98,31 @@ class TcpListener(localEp: InetAddressAndPort, storageService: StorageService, g
       gossiper.applyStateLocally(epStateMap)
     }
   }
+
 }
 
-class MessagingService(storageService: StorageService) {
-  var gossiper:Gossiper = _
 
-  def init(gossiper:Gossiper): Unit = {
+trait MessageResponseHandler {
+  def response(msg: Message): Unit
+}
+
+
+class MessagingService(storageService: StorageService) {
+  val callbackMap = new util.HashMap[String, MessageResponseHandler]()
+  var gossiper: Gossiper = _
+
+  def init(gossiper: Gossiper): Unit = {
     this.gossiper = gossiper
   }
 
   def listen(localEp: InetAddressAndPort): Unit = {
     assert(gossiper != null)
     new TcpListener(localEp, storageService, gossiper, this).start()
+  }
+
+  def sendRR(message: Message, to: List[InetAddressAndPort], messageResponseHandler: MessageResponseHandler): Unit = {
+    callbackMap.put(message.header.id, messageResponseHandler)
+    to.foreach(address ⇒ sendTcpOneWay(message, address))
   }
 
   def sendTcpOneWay(message: Message, to: InetAddressAndPort) = {

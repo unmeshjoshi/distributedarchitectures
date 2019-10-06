@@ -8,7 +8,16 @@ import org.dist.kvstore.JsonSerDes
 import scala.util.Using
 
 class SocketIO[T](clientSocket: Socket, responseClass: Class[T]) {
-  clientSocket.setSoTimeout(1000)
+  clientSocket.setSoTimeout(5000)
+
+  def readHandleRespond(block:T ⇒ Any): Unit = {
+    Using.resource(clientSocket) { socket ⇒
+      val responseBytes = read(socket)
+      val message = JsonSerDes.deserialize(responseBytes, responseClass)
+      val response = block(message)
+      write(socket, JsonSerDes.serialize(response))
+    }
+  }
 
   def read(): T = {
     Using.resource(clientSocket) { socket ⇒
