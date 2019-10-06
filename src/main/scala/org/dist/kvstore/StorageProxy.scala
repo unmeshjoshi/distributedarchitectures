@@ -1,8 +1,6 @@
 package org.dist.kvstore
 
-import java.io.DataInputStream
 import java.net.{InetSocketAddress, ServerSocket, Socket}
-import java.util
 
 import org.dist.util.SocketIO
 import org.slf4j.LoggerFactory
@@ -12,8 +10,6 @@ class StorageProxy(clientRequestIp: InetAddressAndPort, storageService: StorageS
   def start(): Unit = {
       new TcpClientRequestListner(clientRequestIp, storageService, this).start()
   }
-
-
 
   def sendTcpOneWay(message: Message, to: InetAddressAndPort) = {
     val clientSocket = new Socket(to.address, to.port)
