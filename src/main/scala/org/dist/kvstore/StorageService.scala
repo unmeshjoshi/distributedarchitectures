@@ -29,7 +29,7 @@ class StorageService(clientListenAddress:InetAddressAndPort, controlListenAddres
   }
 
 
-  private val tokenMetadata = new TokenMetadata()
+  val tokenMetadata = new TokenMetadata()
   /* We use this interface to determine where replicas need to be placed */
   private var nodePicker: IReplicaPlacementStrategy = new RackUnawareStrategy(tokenMetadata)
 
