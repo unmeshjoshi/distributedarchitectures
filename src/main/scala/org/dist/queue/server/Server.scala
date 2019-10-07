@@ -3,13 +3,13 @@ package org.dist.queue.server
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 
-import org.dist.queue.common.KafkaScheduler
+import org.dist.queue.common.{KafkaScheduler, Logging}
 import org.dist.queue.controller.Controller
 import org.dist.queue.log.LogManager
 import org.dist.queue.network.SocketServer
-import org.dist.queue.utils.{SystemTime, Time}
+import org.dist.queue.utils.{SystemTime, Time, Utils}
 
-class Server(val config: Config, time: Time = SystemTime) {
+class Server(val config: Config, time: Time = SystemTime) extends Logging {
   private var shutdownLatch = new CountDownLatch(1)
   var kafkaZooKeeper:KafkaZooKeeper = _
   var controller:Controller = _
@@ -55,9 +55,35 @@ class Server(val config: Config, time: Time = SystemTime) {
 
     controller.startup()
   }
-  def shutdown(): Unit = {
-    shutdownLatch.countDown()
+
+  def controlledShutdown(): Unit = {
   }
 
+
+  def shutdown(): Unit = {
+    info("Shutting down")
+    val canShutdown = isShuttingDown.compareAndSet(false, true);
+    if (canShutdown) {
+      Utils.swallow(controlledShutdown())
+      if (kafkaZooKeeper != null)
+        Utils.swallow(kafkaZooKeeper.shutdown())
+      if (socketServer != null)
+        Utils.swallow(socketServer.shutdown())
+      Utils.swallow(kafkaScheduler.shutdown())
+      if (apis != null)
+        Utils.swallow(apis.close())
+      if (replicaManager != null)
+        Utils.swallow(replicaManager.shutdown())
+      if (logManager != null)
+        Utils.swallow(logManager.shutdown())
+
+      if (controller != null)
+        Utils.swallow(controller.shutdown())
+
+      shutdownLatch.countDown()
+      //      startupComplete.set(false);
+      info("Shut down completed")
+    }
+  }
   def awaitShutdown(): Unit = shutdownLatch.await()
 }

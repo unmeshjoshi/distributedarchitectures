@@ -17,6 +17,8 @@ class KafkaApis(val replicaManager: ReplicaManager,
                 val zkClient: ZkClient,
                 brokerId: Int,
                 val controller: Controller) extends Logging {
+  def close(): Unit = {}
+
   /* following 3 data structures are updated by the update metadata request
    * and is queried by the topic metadata request. */
   var leaderCache: mutable.Map[TopicAndPartition, PartitionStateInfo] =

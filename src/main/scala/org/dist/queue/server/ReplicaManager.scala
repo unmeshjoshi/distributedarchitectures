@@ -24,6 +24,23 @@ class ReplicaManager(val config: Config,
                      val logManager: LogManager,
                      val isShuttingDown: AtomicBoolean ) extends Logging {
 
+  def checkpointHighWatermarks() {
+    val replicas = allPartitions.values.map(_.getReplica(config.brokerId)).collect{case Some(replica) => replica}
+    val replicasByDir = replicas.filter(_.log.isDefined).groupBy(_.log.get.dir.getParent)
+    for((dir, reps) <- replicasByDir) {
+      val hwms = reps.map(r => (TopicAndPartition(r.topic, r.partitionId) -> r.highWatermark)).toMap
+      highWatermarkCheckpoints(dir).write(hwms)
+    }
+  }
+
+  def shutdown() {
+    info("Shut down")
+    replicaFetcherManager.shutdown()
+    checkpointHighWatermarks()
+    info("Shutted down completely")
+  }
+
+
   val highWatermarkCheckpoints = config.logDirs.map(dir => (dir, new HighwaterMarkCheckpoint(dir))).toMap
 
 
@@ -195,6 +212,8 @@ class ReplicaManager(val config: Config,
 case class BrokerAndFetcherId(broker: Broker, fetcherId: Int)
 
 class ReplicaFetcherManager(replicaManager:ReplicaManager, config:Config, numFetchers: Int = 1) extends Logging {
+  def shutdown() = {}
+
   // map of (source brokerid, fetcher Id per source broker) => fetcher
   private val fetcherThreadMap = new mutable.HashMap[BrokerAndFetcherId, FetcherThread]
   private val mapLock = new Object

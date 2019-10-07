@@ -10,6 +10,12 @@ import org.dist.queue.utils.ZkUtils.Broker
 import scala.collection.mutable.HashMap
 
 class ControllerChannelManager(val controllerContext: ControllerContext, val config: Config, socketServer:SocketServer) extends Logging {
+  def shutdown() = {
+    brokerLock synchronized {
+      brokerStateInfo.foreach(brokerState => removeExistingBroker(brokerState._1))
+    }
+  }
+
   private val brokerStateInfo = new HashMap[Int, Broker]
   private val brokerLock = new Object
   this.logIdent = "[Channel manager on controller " + config.brokerId + "]: "

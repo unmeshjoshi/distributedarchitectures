@@ -133,6 +133,11 @@ case object NonExistentPartition extends PartitionState {
 }
 
 case class PartitionStateMachine(controller: Controller) extends Logging {
+  def shutdown() = {
+    hasStarted.set(false)
+    partitionState.clear()
+  }
+
 
   val brokerRequestBatch = new ControllerBrokerRequestBatch(controller.controllerContext, controller.sendRequest,
     controllerId, controller.clientId)

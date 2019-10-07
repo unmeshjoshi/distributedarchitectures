@@ -10,6 +10,12 @@ import org.dist.queue.utils.ZkUtils
 import scala.collection.{Seq, Set, mutable}
 
 class ReplicaStateMachine(controller: Controller) extends Logging {
+  def shutdown() {
+    hasStarted.set(false)
+    replicaState.clear()
+  }
+
+
   val brokerRequestBatch = new ControllerBrokerRequestBatch(controller.controllerContext, controller.sendRequest,
     controllerId, controller.clientId)
   private val controllerContext = controller.controllerContext

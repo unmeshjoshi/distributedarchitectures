@@ -172,6 +172,20 @@ class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 600
 
 class Controller(val config:Config, val zkClient:ZkClient, val socketServer:SocketServer) extends Logging {
 
+  def shutdown() = {
+    controllerContext.controllerLock synchronized {
+      isRunning = false
+      partitionStateMachine.shutdown()
+      replicaStateMachine.shutdown()
+      if(controllerContext.controllerChannelManager != null) {
+        controllerContext.controllerChannelManager.shutdown()
+        controllerContext.controllerChannelManager = null
+        info("Controller shutdown complete")
+      }
+    }
+  }
+
+
   def clientId = "id_%d-host_%s-port_%d".format(config.brokerId, config.hostName, config.port)
 
 
@@ -187,7 +201,7 @@ class Controller(val config:Config, val zkClient:ZkClient, val socketServer:Sock
     elector.startup()
   }
 
-  val isRunning: Boolean = true
+  var isRunning: Boolean = true
 
   val partitionStateMachine = new PartitionStateMachine(this)
 

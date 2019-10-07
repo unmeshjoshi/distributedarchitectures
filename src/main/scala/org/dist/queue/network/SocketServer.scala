@@ -24,6 +24,7 @@ import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.common.Logging
 import org.dist.queue.server.KafkaApis
+import org.dist.queue.utils.Utils
 import org.dist.util.SocketIO
 
 class SocketServer(val brokerId: Int,
@@ -35,12 +36,14 @@ class SocketServer(val brokerId: Int,
                    val recvBufferSize: Int,
                    val maxRequestSize: Int = Int.MaxValue) extends Logging {
 
+  var listener:TcpListener = null
 
   /**
    * Start the socket server
    */
   def startup(kafkaApis: KafkaApis) {
-    new TcpListener(InetAddressAndPort.create(host, port), kafkaApis, this).start()
+    listener = new TcpListener(InetAddressAndPort.create(host, port), kafkaApis, this)
+    listener.start()
     info("Started socket server")
   }
 
@@ -49,6 +52,7 @@ class SocketServer(val brokerId: Int,
    */
   def shutdown() = {
     info("Shutting down")
+    listener.shudown()
     info("Shutdown completed")
   }
 
@@ -59,9 +63,15 @@ class SocketServer(val brokerId: Int,
 }
 
 class TcpListener(localEp: InetAddressAndPort, kafkaApis: KafkaApis, socketServer: SocketServer) extends Thread with Logging {
+  var serverSocket:ServerSocket = null
+
+  def shudown() = {
+    Utils.swallow(serverSocket.close())
+  }
+
 
   override def run(): Unit = {
-    val serverSocket = new ServerSocket()
+    serverSocket = new ServerSocket()
     serverSocket.bind(new InetSocketAddress(localEp.address, localEp.port))
     println(s"Listening on ${localEp}")
     while (true) {
