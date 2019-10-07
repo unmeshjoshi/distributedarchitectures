@@ -70,7 +70,8 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
 
     var allConsumedMessages = List[KeyedMessage[String, String]]()
     for(partitionId ← (0 to numPartitions - 1)) {
-      allConsumedMessages = allConsumedMessages.concat(consumeMessagesFrom(config1, bootstrapBroker, topic, partitionId))
+      val data = consumeMessagesFrom(config1, bootstrapBroker, topic, partitionId)
+      allConsumedMessages = allConsumedMessages.concat(data.messages)
     }
 
 

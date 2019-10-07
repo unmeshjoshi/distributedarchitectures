@@ -39,25 +39,33 @@ class KafkaApis(val replicaManager: ReplicaManager,
 
       import scala.collection.JavaConverters._
 
-      val topicPartitionMessages = new util.HashMap[TopicAndPartition, List[KeyedMessage[String, String]]]
+      val topicPartitionMessages = new util.HashMap[TopicAndPartition, PartitionData]
       for(key ← keys) {
-        val data: FetchResponsePartitionData = map(key)
+        val data = map(key)
         val keyedMessages = data.messages.map(messageAndOffset ⇒ {
           val payload = messageAndOffset.message.payload
+
           val payloadBytes = new Array[Byte](payload.limit)
           payload.get(payloadBytes)
 
           val messageKey = messageAndOffset.message.key
           val keyBytes = new Array[Byte](messageKey.limit)
           messageKey.get(keyBytes)
+
           KeyedMessage(key.topic, new String(keyBytes, "UTF-8"), new String(payloadBytes, "UTF-8"))
         }).toList
-        topicPartitionMessages.put(key, keyedMessages.toList)
+
+        val lastOffset = data.messages.toSeq.lastOption match {
+          case Some(lastElem) ⇒ lastElem.offset
+          case None ⇒ 0
+        }
+
+        topicPartitionMessages.put(key, PartitionData(keyedMessages.toList, lastOffset))
       }
       FetchResponse(fetchRequest.correlationId, topicPartitionMessages.asScala.toMap)
 
     } else {
-      FetchResponse(fetchRequest.correlationId, Map[TopicAndPartition, List[KeyedMessage[String, String]]]().toMap)
+      FetchResponse(fetchRequest.correlationId, Map[TopicAndPartition, PartitionData]().toMap)
     }
   }
 

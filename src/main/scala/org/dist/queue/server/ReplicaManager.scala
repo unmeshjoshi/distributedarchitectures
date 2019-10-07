@@ -83,7 +83,7 @@ class ReplicaManager(val config: Config,
       Some(partition)
   }
 
-  val replicaFetcherManager = new ReplicaFetcherManager
+  val replicaFetcherManager = new ReplicaFetcherManager(config)
 
   var controllerEpoch: Int = Controller.InitialControllerEpoch - 1
   private val localBrokerId = config.brokerId
@@ -191,11 +191,42 @@ class ReplicaManager(val config: Config,
 
 }
 
-class ReplicaFetcherManager {
-  def addFetcher(topic: String, partitionId: Int, logEndOffset: Long, leaderBroker: ZkUtils.Broker) = {
 
+case class BrokerAndFetcherId(broker: Broker, fetcherId: Int)
+
+class ReplicaFetcherManager(config:Config, numFetchers: Int = 1) extends Logging {
+  // map of (source brokerid, fetcher Id per source broker) => fetcher
+  private val fetcherThreadMap = new mutable.HashMap[BrokerAndFetcherId, FetcherThread]
+  private val mapLock = new Object
+
+  def createFetcherThread(fetcherId: Int, sourceBroker: ZkUtils.Broker): FetcherThread = {
+    new FetcherThread(sourceBroker, config)
   }
 
-  def removeFetcher(topic: String, partitionId: Int) = {}
+
+  private def getFetcherId(topic: String, partitionId: Int) : Int = {
+    (topic.hashCode() + 31 * partitionId) % numFetchers
+  }
+
+  def addFetcher(topic: String, partitionId: Int, initialOffset: Long, leaderBroker: ZkUtils.Broker) = {
+    mapLock synchronized {
+      var fetcherThread: FetcherThread = null
+      val key = new BrokerAndFetcherId(leaderBroker, getFetcherId(topic, partitionId))
+      fetcherThreadMap.get(key) match {
+        case Some(f) => fetcherThread = f
+        case None =>
+          fetcherThread = createFetcherThread(key.fetcherId, leaderBroker)
+          fetcherThreadMap.put(key, fetcherThread)
+          fetcherThread.start
+      }
+      fetcherThread.addPartition(topic, partitionId, initialOffset)
+      info("Adding fetcher for partition [%s,%d], initOffset %d to broker %d with fetcherId %d"
+        .format(topic, partitionId, initialOffset, leaderBroker.id, key.fetcherId))
+    }
+  }
+
+  def removeFetcher(topic: String, partitionId: Int) = {
+
+  }
 
 }

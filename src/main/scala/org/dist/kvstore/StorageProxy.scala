@@ -32,10 +32,14 @@ class TcpClientRequestListner(localEp: InetAddressAndPort, storageService:Storag
 
         logger.debug(s"Got client message ${message}")
 
-        if (message.header.verb == Verb.ROW_MUTATION) {
+        if(message.header.verb == Verb.ROW_MUTATION) {
           val response: Seq[Message] = new RowMutationHandler(storageService).handleMessage(message)
           val value: Seq[RowMutationResponse] = response.map(message ⇒ JsonSerDes.deserialize(message.payloadJson.getBytes, classOf[RowMutationResponse]))
           new Message(message.header, JsonSerDes.serialize(value))
+
+        } else if(message.header.verb == Verb.GET_CF) {
+          ""
+
         } else {
           ""
         }

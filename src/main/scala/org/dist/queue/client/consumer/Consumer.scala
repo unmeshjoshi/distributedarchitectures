@@ -30,16 +30,25 @@ class Consumer(bootstrapBroker:InetAddressAndPort, config:Config) extends Loggin
     new HashMap[String, TopicMetadata]())
 
   def read(topic:String, partitionId:Int) = {
-    val correlationIdForRequest = correlationId.getAndIncrement()
-    val topicMetadata = new ClientUtils().fetchTopicMetadata(Set(topic), correlationIdForRequest, clientId, bootstrapBroker)
-    brokerPartitionInfo.updateInfo(Set(topic), correlationIdForRequest, topicMetadata)
+    val correlationIdForRequest: Int = updateBrokerMetadata(topic)
+
     val partitionInfo: Seq[PartitionAndLeader] = brokerPartitionInfo.getBrokerPartitionInfo(topic, correlationIdForRequest)
     val partitionAndLeader: Seq[PartitionAndLeader] = partitionInfo.filter(_.partitionId == partitionId)
     val leaderBrokerId = partitionAndLeader.head.leaderBrokerIdOpt.get
+    val leaderBrokerInfo: Broker = brokerPartitionInfo.getBroker(leaderBrokerId).get
+    fetch(topic, partitionId, leaderBrokerInfo, 0)
+  }
 
-    val leaderBrokerInfo = brokerPartitionInfo.getBroker(leaderBrokerId).get
+  private def updateBrokerMetadata(topic: String) = {
+    val correlationIdForRequest = correlationId.getAndIncrement()
+    val topicMetadata = new ClientUtils().fetchTopicMetadata(Set(topic), correlationIdForRequest, clientId, bootstrapBroker)
+    brokerPartitionInfo.updateInfo(Set(topic), correlationIdForRequest, topicMetadata)
+    correlationIdForRequest
+  }
+
+  def fetch(topic: String, partitionId: Int, leaderBrokerInfo: Broker, initialOffset: Long): PartitionData = {
     val requestInfo = new collection.mutable.HashMap[TopicAndPartition, PartitionFetchInfo]
-    requestInfo.put(TopicAndPartition(topic, partitionId), PartitionFetchInfo(0, config.FetchSize))
+    requestInfo.put(TopicAndPartition(topic, partitionId), PartitionFetchInfo(initialOffset, config.FetchSize))
 
     val fetchRequestCorrelationId = correlationId.getAndIncrement()
     val fetchRequest = FetchRequest(fetchRequestCorrelationId,
@@ -53,7 +62,7 @@ class Consumer(bootstrapBroker:InetAddressAndPort, config:Config) extends Loggin
     val response: RequestOrResponse = socketClient.sendReceiveTcp(request, InetAddressAndPort.create(leaderBrokerInfo.host, leaderBrokerInfo.port))
 
     val fetchResponse = JsonSerDes.deserialize(response.messageBodyJson.getBytes(), classOf[FetchResponse])
-    val data: Seq[KeyedMessage[String, String]] = fetchResponse.dataAsMap(TopicAndPartition(topic, partitionId))
-    data.toList
+    val data: PartitionData = fetchResponse.dataAsMap(TopicAndPartition(topic, partitionId))
+    data
   }
 }

@@ -29,13 +29,13 @@ object FetchResponse {
       4 /* topic count */
 
   def apply(correlationId: Int,
-                          data: Map[TopicAndPartition, List[KeyedMessage[String, String]]]) = {
+                          data: Map[TopicAndPartition, PartitionData]) = {
 
     new FetchResponse(FetchRequest.CurrentVersion, correlationId, convertToStringKeyMap(data))
   }
 
-  def convertToStringKeyMap(data: Map[TopicAndPartition, List[KeyedMessage[String, String]]]):Map[String, List[KeyedMessage[String, String]]] = {
-    val map = new util.HashMap[String, List[KeyedMessage[String, String]]]()
+  def convertToStringKeyMap(data: Map[TopicAndPartition, PartitionData]):Map[String, PartitionData] = {
+    val map = new util.HashMap[String, PartitionData]()
     for(key <- data.keySet) {
       val strKey = s"${key.topic}:${key.partition}"
       map.put(strKey, data(key))
@@ -44,15 +44,17 @@ object FetchResponse {
   }
 }
 
+case class PartitionData(messages:List[KeyedMessage[String, String]], lastOffset:Long)
+
 case class FetchResponse(versionId:Int, correlationId: Int,
-                         data: Map[String, List[KeyedMessage[String, String]]])  {
+                         data: Map[String, PartitionData])  {
 
 
   def dataAsMap = {
     if (data == null) {
-      Map[TopicAndPartition, List[KeyedMessage[String, String]]]()
+      Map[TopicAndPartition, PartitionData]()
     } else {
-      val map = new util.HashMap[TopicAndPartition, List[KeyedMessage[String, String]]]()
+      val map = new util.HashMap[TopicAndPartition, PartitionData]()
       val set = data.keySet
       for (key ← set) {
         val splits: Array[String] = key.split(":")
