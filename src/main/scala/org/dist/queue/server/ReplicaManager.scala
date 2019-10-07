@@ -83,7 +83,7 @@ class ReplicaManager(val config: Config,
       Some(partition)
   }
 
-  val replicaFetcherManager = new ReplicaFetcherManager(config)
+  val replicaFetcherManager = new ReplicaFetcherManager(this, config)
 
   var controllerEpoch: Int = Controller.InitialControllerEpoch - 1
   private val localBrokerId = config.brokerId
@@ -194,13 +194,13 @@ class ReplicaManager(val config: Config,
 
 case class BrokerAndFetcherId(broker: Broker, fetcherId: Int)
 
-class ReplicaFetcherManager(config:Config, numFetchers: Int = 1) extends Logging {
+class ReplicaFetcherManager(replicaManager:ReplicaManager, config:Config, numFetchers: Int = 1) extends Logging {
   // map of (source brokerid, fetcher Id per source broker) => fetcher
   private val fetcherThreadMap = new mutable.HashMap[BrokerAndFetcherId, FetcherThread]
   private val mapLock = new Object
 
   def createFetcherThread(fetcherId: Int, sourceBroker: ZkUtils.Broker): FetcherThread = {
-    new FetcherThread(sourceBroker, config)
+    new FetcherThread(s"Fetcher-${fetcherId}", replicaManager, sourceBroker, config)
   }
 
 
@@ -211,7 +211,7 @@ class ReplicaFetcherManager(config:Config, numFetchers: Int = 1) extends Logging
   def addFetcher(topic: String, partitionId: Int, initialOffset: Long, leaderBroker: ZkUtils.Broker) = {
     mapLock synchronized {
       var fetcherThread: FetcherThread = null
-      val key = new BrokerAndFetcherId(leaderBroker, getFetcherId(topic, partitionId))
+      val key = BrokerAndFetcherId(leaderBroker, getFetcherId(topic, partitionId))
       fetcherThreadMap.get(key) match {
         case Some(f) => fetcherThread = f
         case None =>

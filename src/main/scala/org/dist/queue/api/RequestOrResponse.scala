@@ -3,6 +3,7 @@ package org.dist.queue.api
 import org.dist.kvstore.JsonSerDes
 
 object Request {
+  val FollowerReplicaFetcherId: Int = 0
   val OrdinaryConsumerId: Int = -1
   val DebuggingConsumerId: Int = -2
 }

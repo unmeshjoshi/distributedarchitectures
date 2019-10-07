@@ -43,27 +43,13 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
     val numPartitions = topicPartitionList.size
     if(numPartitions <= 0)
       throw new UnknownTopicOrPartitionException("Topic " + topic + " doesn't exist")
+
     val partition =
       if(key == null) {
-        // If the key is null, we don't really need a partitioner
-        // So we look up in the send partition cache for the topic to decide the target partition
-        val id = sendPartitionPerTopicCache.get(topic)
-        id match {
-          case Some(partitionId) =>
-            // directly return the partitionId without checking availability of the leader,
-            // since we want to postpone the failure until the send operation anyways
-            partitionId
-          case None =>
-            val availablePartitions = topicPartitionList.filter(_.leaderBrokerIdOpt.isDefined)
-            if (availablePartitions.isEmpty)
-              throw new LeaderNotAvailableException("No leader for any partition in topic " + topic)
-            val index = Utils.abs(Random.nextInt) % availablePartitions.size
-            val partitionId = availablePartitions(index).partitionId
-            sendPartitionPerTopicCache.put(topic, partitionId)
-            partitionId
-        }
+        partitionIdForNullKey(topic, topicPartitionList)
       } else
         partitioner.partition(key, numPartitions)
+
     if(partition < 0 || partition >= numPartitions)
       throw new UnknownTopicOrPartitionException("Invalid partition id: " + partition + " for topic " + topic +
         "; Valid values are in the inclusive range of [0, " + (numPartitions-1) + "]")
@@ -71,11 +57,31 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
     partition
   }
 
+  private def partitionIdForNullKey(topic: String, topicPartitionList: Seq[PartitionAndLeader]) = {
+    // If the key is null, we don't really need a partitioner
+    // So we look up in the send partition cache for the topic to decide the target partition
+    val id = sendPartitionPerTopicCache.get(topic)
+    id match {
+      case Some(partitionId) =>
+        // directly return the partitionId without checking availability of the leader,
+        // since we want to postpone the failure until the send operation anyways
+        partitionId
+      case None =>
+        val availablePartitions = topicPartitionList.filter(_.leaderBrokerIdOpt.isDefined)
+        if (availablePartitions.isEmpty)
+          throw new LeaderNotAvailableException("No leader for any partition in topic " + topic)
+        val index = Utils.abs(Random.nextInt) % availablePartitions.size
+        val partitionId = availablePartitions(index).partitionId
+        sendPartitionPerTopicCache.put(topic, partitionId)
+        partitionId
+    }
+  }
+
   private def groupMessagesToSet(messagesPerTopicAndPartition: collection.mutable.Map[TopicAndPartition, Seq[KeyedMessage[String,Message]]]) = {
     val func = (tuple:(TopicAndPartition, Seq[KeyedMessage[String,Message]])) ⇒ {
       val topicAndPartition = tuple._1
       val messages = tuple._2
-      val rawMessages = messages.map(_.message)
+      val rawMessages: Seq[Message] = messages.map(_.message)
       ( topicAndPartition,
         config.compressionCodec match {
           case NoCompressionCodec =>
@@ -146,21 +152,24 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
     val topicMetadata = new ClientUtils().fetchTopicMetadata(Set(serializedMessage.topic), correlationIdForReq, clientId, bootstrapBroker)
     brokerPartitionInfo.updateInfo(Set(keyedMessage.topic), correlationIdForReq, topicMetadata)
     dispatchSerializedData(messageList)
-
-//    printKeyValue(value)
-//    assert(producerRequest == req)
   }
 
   private def serializeMessage(keyedMessage: KeyedMessage[String, String]) = {
-    new KeyedMessage[String, Message](keyedMessage.topic,
+    new KeyedMessage[String, Message](keyedMessage.topic, keyedMessage.key,
       new Message(StringEncoder.toBytes(keyedMessage.message), StringEncoder.toBytes(keyedMessage.key), NoCompressionCodec))
+  }
+
+  def leaderAndReplicasForKey(topic:String, key:String) = {
+    val partitionAndLeader  = getPartitionListForTopic(topic, key)
+    val partitionIndex = getPartition(topic, key, partitionAndLeader)
+    partitionAndLeader(partitionIndex)
   }
 
   def partitionAndCollate(messages: Seq[KeyedMessage[String,Message]]):Option[Map[Int, collection.mutable.Map[TopicAndPartition, Seq[KeyedMessage[String,Message]]]]] = {
     val ret = new HashMap[Int, collection.mutable.Map[TopicAndPartition, Seq[KeyedMessage[String, Message]]]]
     try {
       for (keyedMessage <- messages) {
-        val partitionAndLeader  = getPartitionListForTopic(keyedMessage)
+        val partitionAndLeader  = getPartitionListForTopic(keyedMessage.topic, keyedMessage.key)
         val partitionIndex = getPartition(keyedMessage.topic, keyedMessage.key, partitionAndLeader)
         val brokerPartition = partitionAndLeader(partitionIndex)
         val leaderBrokerId = brokerPartition.leaderBrokerIdOpt.getOrElse(-1)
@@ -200,13 +209,13 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
 
 
 
-  private def getPartitionListForTopic(m: KeyedMessage[String,Message]): Seq[PartitionAndLeader] = {
-    val topicPartitionsList = brokerPartitionInfo.getBrokerPartitionInfo(m.topic, correlationId.getAndIncrement)
+  private def getPartitionListForTopic(topic:String, key:String): Seq[PartitionAndLeader] = {
+    val topicPartitionsList = brokerPartitionInfo.getBrokerPartitionInfo(topic, correlationId.getAndIncrement)
     debug("Broker partitions registered for topic: %s are %s"
-      .format(m.topic, topicPartitionsList.map(p => p.partitionId).mkString(",")))
+      .format(topic, topicPartitionsList.map(p => p.partitionId).mkString(",")))
     val totalNumPartitions = topicPartitionsList.length
     if(totalNumPartitions == 0)
-      throw new NoBrokersForPartitionException("Partition key = " + m.key)
+      throw new NoBrokersForPartitionException("Partition key = " + key)
     topicPartitionsList
   }
 

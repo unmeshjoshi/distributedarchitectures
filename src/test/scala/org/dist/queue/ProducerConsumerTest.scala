@@ -2,12 +2,15 @@ package org.dist.queue
 
 import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.admin.CreateTopicCommand
+import org.dist.queue.client.common.PartitionAndLeader
 import org.dist.queue.client.consumer.Consumer
 import org.dist.queue.client.producer.{DefaultPartitioner, Producer}
-import org.dist.queue.common.Topic
+import org.dist.queue.common.{Topic, TopicAndPartition}
+import org.dist.queue.controller.PartitionStateInfo
 import org.dist.queue.message.KeyedMessage
 import org.dist.queue.server.{Config, Server}
 import org.dist.queue.utils.ZkUtils
+import java.util
 
 class ProducerConsumerTest extends ZookeeperTestHarness {
 
@@ -37,6 +40,8 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val server3 = new Server(config3)
     server3.startup()
 
+    val brokers = Map(brokerId1 → server1, brokerId2 → server2, brokerId3 → server3)
+
     assertBrokersRegisteredWithZookeeper(config1, config2, config3)
 
 
@@ -44,7 +49,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
 
     //Create internal topic explicitly. THis can be created internally in Kafka on first request.
     val groupMetadataNumPartitions = Topic.groupMetadataTopicPartitionCount
-    CreateTopicCommand.createTopic(zkClient, Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, 3)
+    CreateTopicCommand.createTopic(zkClient, Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, 2)
 
     TestUtils.waitUntilTrue(()⇒{
       leaderForAllPartitions(Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, List(server1,server2, server3))
@@ -52,8 +57,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     }, "Waiting till metadata for group metadata topic is propagated to all servers", 2000)
 
     val numPartitions = 3
-    CreateTopicCommand.createTopic(zkClient, topic, numPartitions, 2)
-
+    CreateTopicCommand.createTopic(zkClient, topic, numPartitions, 3)
 
     TestUtils.waitUntilTrue(()⇒{
       leaderForAllPartitions(topic, numPartitions, List(server1,server2, server3))
@@ -62,11 +66,11 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
 
     val bootstrapBroker = InetAddressAndPort.create(config1.hostName, config1.port)
 
-    val messages = List(KeyedMessage(topic, "key1", "test message"),
-                        KeyedMessage(topic, "key2", "test message1"),
-                        KeyedMessage(topic, "key3", "test message2"))
+    val messages = List(KeyedMessage(topic, "AaAa", "test message"),
+                        KeyedMessage(topic, "BBBB", "test message1"),
+                        KeyedMessage(topic, "AaBB", "test message2"))
 
-    produceMessages(bootstrapBroker, config1, messages)
+    val producer = produceMessages(bootstrapBroker, config1, messages)
 
     var allConsumedMessages = List[KeyedMessage[String, String]]()
     for(partitionId ← (0 to numPartitions - 1)) {
@@ -74,10 +78,43 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
       allConsumedMessages = allConsumedMessages.concat(data.messages)
     }
 
-
     assert(allConsumedMessages.size == 3)
-
     assert(allConsumedMessages == messages)
+
+
+    val partitionAndLeader: PartitionAndLeader = producer.leaderAndReplicasForKey("topic1", "AaAa")
+    val partitionIdForMessage = partitionAndLeader.partitionId
+
+    val info1: PartitionStateInfo = server1.apis.leaderCache(TopicAndPartition("topic1", partitionIdForMessage))
+    val leaderBroker: Int = info1.leaderIsrAndControllerEpoch.leaderAndIsr.leader
+    val replicas = info1.allReplicas
+
+    val leaderServer = brokers(leaderBroker)
+    val followerServers = replicas.filter(_ != leaderBroker).map(id ⇒ brokers(id)).toList
+
+    def logOffsetFor(server:Server) = {
+      server.logManager.getLog("topic1", partitionIdForMessage).get.logEndOffset
+    }
+
+    def matchLeaderAndFollowerOffsets = {
+      val leaderOffset = logOffsetFor(leaderServer)
+      val followerOffsets = followerServers.map(server ⇒ {
+        val offset = logOffsetFor(server)
+        offset
+      })
+      println(leaderOffset)
+      println(followerOffsets)
+      leaderOffset == 3 && followerOffsets(0) == leaderOffset && followerOffsets(1) == leaderOffset
+    }
+
+    TestUtils.waitUntilTrue(()⇒{
+      matchLeaderAndFollowerOffsets
+    }, s"Waiting till messages get replicated on all the servers", 4000)
+
+    val leaderOffset = logOffsetFor(leaderServer)
+    val followerOffsets = followerServers.map(server ⇒ logOffsetFor(server))
+    assert(leaderOffset == 3)
+    assert(followerOffsets(0) == leaderOffset && followerOffsets(1) == leaderOffset)
   }
 
   private def produceMessages(bootstrapBroker:InetAddressAndPort, config1: Config, message1: Seq[KeyedMessage[String, String]]) = {
@@ -85,6 +122,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     message1.foreach(message ⇒ {
       producer.send(message)
     })
+    producer
   }
 
   private def assertBrokersRegisteredWithZookeeper(config1: Config, config2: Config, config3: Config) = {
@@ -110,7 +148,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
   }
 
   private def consumeMessagesFrom(config1: Config, bootstrapBroker: InetAddressAndPort, topic: String, partitionId: Int) = {
-    val consumer = new Consumer(bootstrapBroker, config1)
+    val consumer = new Consumer("TestConsumer", bootstrapBroker, config1)
     val inetAddressAndPort = consumer.findCoordinator()
     consumer.read(topic, partitionId)
   }

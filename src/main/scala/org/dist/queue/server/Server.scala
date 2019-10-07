@@ -9,7 +9,7 @@ import org.dist.queue.log.LogManager
 import org.dist.queue.network.SocketServer
 import org.dist.queue.utils.{SystemTime, Time}
 
-class Server(config: Config, time: Time = SystemTime) {
+class Server(val config: Config, time: Time = SystemTime) {
   private var shutdownLatch = new CountDownLatch(1)
   var kafkaZooKeeper:KafkaZooKeeper = _
   var controller:Controller = _

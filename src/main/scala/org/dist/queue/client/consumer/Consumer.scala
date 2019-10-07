@@ -13,7 +13,7 @@ import org.dist.queue.utils.ZkUtils.Broker
 
 import scala.collection.mutable.HashMap
 
-class Consumer(bootstrapBroker:InetAddressAndPort, config:Config) extends Logging {
+class Consumer(val clientId:String, bootstrapBroker:InetAddressAndPort, config:Config, val consumerId:Int = Request.OrdinaryConsumerId) extends Logging {
   def findCoordinator() = {
     val findCoordinatorRequest = FindCoordinatorRequest("TestConsumer1", CoordinatorType.GROUP)
     val request = new RequestOrResponse(RequestKeys.FindCoordinatorKey, JsonSerDes.serialize(findCoordinatorRequest), correlationId.getAndIncrement())
@@ -23,7 +23,7 @@ class Consumer(bootstrapBroker:InetAddressAndPort, config:Config) extends Loggin
   }
 
   val correlationId = new AtomicInteger(0)
-  val clientId = "Consumer1"
+
   val socketClient = new SocketClient
   val brokerPartitionInfo = new BrokerPartitionInfo(config,
     bootstrapBroker,
@@ -45,15 +45,20 @@ class Consumer(bootstrapBroker:InetAddressAndPort, config:Config) extends Loggin
     brokerPartitionInfo.updateInfo(Set(topic), correlationIdForRequest, topicMetadata)
     correlationIdForRequest
   }
-
   def fetch(topic: String, partitionId: Int, leaderBrokerInfo: Broker, initialOffset: Long): PartitionData = {
-    val requestInfo = new collection.mutable.HashMap[TopicAndPartition, PartitionFetchInfo]
-    requestInfo.put(TopicAndPartition(topic, partitionId), PartitionFetchInfo(initialOffset, config.FetchSize))
+    val data = fetch(Map(TopicAndPartition(topic, partitionId) → initialOffset), leaderBrokerInfo)
+    data(TopicAndPartition(topic, partitionId))
+  }
 
+  def fetch(requestMap:Map[TopicAndPartition, Long], leaderBrokerInfo: Broker): Map[TopicAndPartition, PartitionData] = {
+    val mapFunc = (tuple:(TopicAndPartition, Long)) ⇒ {
+      (TopicAndPartition(tuple._1.topic, tuple._1.partition), PartitionFetchInfo(tuple._2, config.FetchSize))
+    }
+    val requestInfo = requestMap.map(mapFunc)
     val fetchRequestCorrelationId = correlationId.getAndIncrement()
     val fetchRequest = FetchRequest(fetchRequestCorrelationId,
       clientId,
-      Request.OrdinaryConsumerId,
+      consumerId,
       FetchRequest.DefaultMaxWait,
       FetchRequest.DefaultMinBytes,
       requestInfo.toMap)
@@ -62,7 +67,6 @@ class Consumer(bootstrapBroker:InetAddressAndPort, config:Config) extends Loggin
     val response: RequestOrResponse = socketClient.sendReceiveTcp(request, InetAddressAndPort.create(leaderBrokerInfo.host, leaderBrokerInfo.port))
 
     val fetchResponse = JsonSerDes.deserialize(response.messageBodyJson.getBytes(), classOf[FetchResponse])
-    val data: PartitionData = fetchResponse.dataAsMap(TopicAndPartition(topic, partitionId))
-    data
+    fetchResponse.dataAsMap
   }
 }
