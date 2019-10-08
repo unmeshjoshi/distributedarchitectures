@@ -5,7 +5,7 @@ import java.util
 import org.dist.queue.common.{ErrorMapping, TopicAndPartition}
 import org.dist.queue.message.{KeyedMessage, MessageSet}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Map
 
 object FetchResponsePartitionData {

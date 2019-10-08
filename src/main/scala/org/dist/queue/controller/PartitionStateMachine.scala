@@ -24,9 +24,35 @@ class PartitionStateMachine(controller: Controller) extends Logging {
   }
 
   def startup() = {
+    // initialize partition state
+    initializePartitionState()
     hasStarted.set(true)
+    // try to move partitions to online state
+    triggerOnlinePartitionStateChange()
+    info("Started partition state machine with initial state -> " + partitionState.toString())
   }
 
+  /**
+   * Invoked on startup of the partition's state machine to set the initial state for all existing partitions in
+   * zookeeper
+   */
+  private def initializePartitionState() {
+    for((topicPartition, replicaAssignment) <- controllerContext.partitionReplicaAssignment) {
+      // check if leader and isr path exists for partition. If not, then it is in NEW state
+      controllerContext.partitionLeadershipInfo.get(topicPartition) match {
+        case Some(currentLeaderIsrAndEpoch) =>
+          // else, check if the leader for partition is alive. If yes, it is in Online state, else it is in Offline state
+          controllerContext.liveBrokerIds.contains(currentLeaderIsrAndEpoch.leaderAndIsr.leader) match {
+            case true => // leader is alive
+              partitionState.put(topicPartition, OnlinePartition)
+            case false =>
+              partitionState.put(topicPartition, OfflinePartition)
+          }
+        case None =>
+          partitionState.put(topicPartition, NewPartition)
+      }
+    }
+  }
 
   def registerListeners() = {
     registerTopicChangeListener()

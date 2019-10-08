@@ -10,19 +10,8 @@ import org.dist.queue.controller.PartitionStateInfo
 import org.dist.queue.message.KeyedMessage
 import org.dist.queue.server.{Config, Server}
 import org.dist.queue.utils.ZkUtils
-import java.util
 
 class ProducerConsumerTest extends ZookeeperTestHarness {
-
-  def leaderForAllPartitions(topic:String, numPartitions:Int, servers: List[Server]): Boolean = {
-    val conditions = servers.map(server ⇒ {
-      val topicPartitions = server.apis.leaderCache.keySet.filter(_.topic == topic)
-      topicPartitions.size == numPartitions
-
-    })
-    conditions.filter(_ == false).size == 0
-  }
-
   test("should produce and consume messages from different partitions") {
     val brokerId1 = 0
     val brokerId2 = 1
@@ -51,29 +40,29 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val groupMetadataNumPartitions = Topic.groupMetadataTopicPartitionCount
     CreateTopicCommand.createTopic(zkClient, Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, 2)
 
-    TestUtils.waitUntilTrue(()⇒{
-      leaderForAllPartitions(Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, List(server1,server2, server3))
+    TestUtils.waitUntilTrue(() ⇒ {
+      leaderForAllPartitions(Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, List(server1, server2, server3))
 
     }, "Waiting till metadata for group metadata topic is propagated to all servers", 2000)
 
     val numPartitions = 3
     CreateTopicCommand.createTopic(zkClient, topic, numPartitions, 3)
 
-    TestUtils.waitUntilTrue(()⇒{
-      leaderForAllPartitions(topic, numPartitions, List(server1,server2, server3))
+    TestUtils.waitUntilTrue(() ⇒ {
+      leaderForAllPartitions(topic, numPartitions, List(server1, server2, server3))
 
     }, s"Waiting till topic ${topic} metadata to propagate to all the servers", 2000)
 
     val bootstrapBroker = InetAddressAndPort.create(config1.hostName, config1.port)
 
     val messages = List(KeyedMessage(topic, "AaAa", "test message"),
-                        KeyedMessage(topic, "BBBB", "test message1"),
-                        KeyedMessage(topic, "AaBB", "test message2"))
+      KeyedMessage(topic, "BBBB", "test message1"),
+      KeyedMessage(topic, "AaBB", "test message2"))
 
     val producer = produceMessages(bootstrapBroker, config1, messages)
 
     var allConsumedMessages = List[KeyedMessage[String, String]]()
-    for(partitionId ← (0 to numPartitions - 1)) {
+    for (partitionId ← (0 to numPartitions - 1)) {
       val data = consumeMessagesFrom(config1, bootstrapBroker, topic, partitionId)
       allConsumedMessages = allConsumedMessages.concat(data.messages)
     }
@@ -92,7 +81,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val leaderServer = brokers(leaderBroker)
     val followerServers = replicas.filter(_ != leaderBroker).map(id ⇒ brokers(id)).toList
 
-    def logOffsetFor(server:Server) = {
+    def logOffsetFor(server: Server) = {
       server.logManager.getLog("topic1", partitionIdForMessage).get.logEndOffset
     }
 
@@ -102,12 +91,10 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
         val offset = logOffsetFor(server)
         offset
       })
-      println(leaderOffset)
-      println(followerOffsets)
       leaderOffset == 3 && followerOffsets(0) == leaderOffset && followerOffsets(1) == leaderOffset
     }
 
-    TestUtils.waitUntilTrue(()⇒{
+    TestUtils.waitUntilTrue(() ⇒ {
       matchLeaderAndFollowerOffsets
     }, s"Waiting till messages get replicated on all the servers", 4000)
 
@@ -117,7 +104,16 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     assert(followerOffsets(0) == leaderOffset && followerOffsets(1) == leaderOffset)
   }
 
-  private def produceMessages(bootstrapBroker:InetAddressAndPort, config1: Config, message1: Seq[KeyedMessage[String, String]]) = {
+  def leaderForAllPartitions(topic: String, numPartitions: Int, servers: List[Server]): Boolean = {
+    val conditions = servers.map(server ⇒ {
+      val topicPartitions = server.apis.leaderCache.keySet.filter(_.topic == topic)
+      topicPartitions.size == numPartitions
+
+    })
+    conditions.filter(_ == false).size == 0
+  }
+
+  private def produceMessages(bootstrapBroker: InetAddressAndPort, config1: Config, message1: Seq[KeyedMessage[String, String]]) = {
     val producer = new Producer(bootstrapBroker, config1, new DefaultPartitioner[String]())
     message1.foreach(message ⇒ {
       producer.send(message)

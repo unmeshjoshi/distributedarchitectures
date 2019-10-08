@@ -1,8 +1,7 @@
 package org.dist.queue.controller
 
-import org.dist.queue.{TestUtils, TestZKUtils, ZookeeperTestHarness}
 import org.dist.queue.server.{Config, Server}
-import org.scalatest.FunSuite
+import org.dist.queue.{TestUtils, TestZKUtils, ZookeeperTestHarness}
 
 class ReplicaStateMachineTest extends ZookeeperTestHarness {
 
@@ -25,9 +24,6 @@ class ReplicaStateMachineTest extends ZookeeperTestHarness {
 
     val brokers = Map(brokerId1 → server1, brokerId2 → server2, brokerId3 → server3)
 
-    server1.controller
-
 
   }
-
 }

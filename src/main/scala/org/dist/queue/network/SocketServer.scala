@@ -73,12 +73,12 @@ class TcpListener(localEp: InetAddressAndPort, kafkaApis: KafkaApis, socketServe
   override def run(): Unit = {
     serverSocket = new ServerSocket()
     serverSocket.bind(new InetSocketAddress(localEp.address, localEp.port))
-    println(s"Listening on ${localEp}")
+    info(s"Listening on ${localEp}")
     while (true) {
       val socket = serverSocket.accept()
       socket.setSoTimeout(1000)
       val inputStream = socket.getInputStream()
-      trace(s"Connecting from ${socket.getInetAddress}, ${socket.getPort}" )
+      trace(s"Connection from ${socket.getInetAddress}, ${socket.getPort}" )
 
       val dataInputStream = new DataInputStream(inputStream)
       val size = dataInputStream.readInt()
