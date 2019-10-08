@@ -1,6 +1,5 @@
 package org.dist.queue.controller
 
-import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicInteger
 
 import org.I0Itec.zkclient.{IZkDataListener, ZkClient}
@@ -34,38 +33,6 @@ object Controller extends Logging {
 case class PartitionStateInfo(val leaderIsrAndControllerEpoch: LeaderIsrAndControllerEpoch,
                               val allReplicas: Set[Int]) {
   def replicationFactor = allReplicas.size
-
-  def writeTo(buffer: ByteBuffer) {
-    buffer.putInt(leaderIsrAndControllerEpoch.controllerEpoch)
-    buffer.putInt(leaderIsrAndControllerEpoch.leaderAndIsr.leader)
-    buffer.putInt(leaderIsrAndControllerEpoch.leaderAndIsr.leaderEpoch)
-    buffer.putInt(leaderIsrAndControllerEpoch.leaderAndIsr.isr.size)
-    leaderIsrAndControllerEpoch.leaderAndIsr.isr.foreach(buffer.putInt(_))
-    buffer.putInt(leaderIsrAndControllerEpoch.leaderAndIsr.zkVersion)
-    buffer.putInt(replicationFactor)
-    allReplicas.foreach(buffer.putInt(_))
-  }
-
-  def sizeInBytes(): Int = {
-    val size =
-      4 /* epoch of the controller that elected the leader */ +
-        4 /* leader broker id */ +
-        4 /* leader epoch */ +
-        4 /* number of replicas in isr */ +
-        4 * leaderIsrAndControllerEpoch.leaderAndIsr.isr.size /* replicas in isr */ +
-        4 /* zk version */ +
-        4 /* replication factor */ +
-        allReplicas.size * 4
-    size
-  }
-
-  override def toString(): String = {
-    val partitionStateInfo = new StringBuilder
-    partitionStateInfo.append("(LeaderAndIsrInfo:" + leaderIsrAndControllerEpoch.toString)
-    partitionStateInfo.append(",ReplicationFactor:" + replicationFactor + ")")
-    partitionStateInfo.append(",AllReplicas:" + allReplicas.mkString(",") + ")")
-    partitionStateInfo.toString()
-  }
 }
 
 object LeaderAndIsr {
@@ -125,16 +92,7 @@ case class ReassignedPartitionsContext(var newReplicas: Seq[Int] = Seq.empty,
 
 case class PartitionAndReplica(topic: String, partition: Int, replica: Int)
 
-case class LeaderIsrAndControllerEpoch(val leaderAndIsr: LeaderAndIsr, controllerEpoch: Int) {
-  override def toString(): String = {
-    val leaderAndIsrInfo = new StringBuilder
-    leaderAndIsrInfo.append("(Leader:" + leaderAndIsr.leader)
-    leaderAndIsrInfo.append(",ISR:" + leaderAndIsr.isr.mkString(","))
-    leaderAndIsrInfo.append(",LeaderEpoch:" + leaderAndIsr.leaderEpoch)
-    leaderAndIsrInfo.append(",ControllerEpoch:" + controllerEpoch + ")")
-    leaderAndIsrInfo.toString()
-  }
-}
+case class LeaderIsrAndControllerEpoch(val leaderAndIsr: LeaderAndIsr, controllerEpoch: Int)
 
 class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 6000,
                         var controllerChannelManager: ControllerChannelManager = null,
@@ -171,20 +129,6 @@ class ControllerContext(val zkClient:ZkClient, val zkSessionTimeoutMs: Int = 600
 }
 
 class Controller(val config:Config, val zkClient:ZkClient, val socketServer:SocketServer) extends Logging {
-
-  def shutdown() = {
-    controllerContext.controllerLock synchronized {
-      isRunning = false
-      partitionStateMachine.shutdown()
-      replicaStateMachine.shutdown()
-      if(controllerContext.controllerChannelManager != null) {
-        controllerContext.controllerChannelManager.shutdown()
-        controllerContext.controllerChannelManager = null
-        info("Controller shutdown complete")
-      }
-    }
-  }
-
 
   def clientId = "id_%d-host_%s-port_%d".format(config.brokerId, config.hostName, config.port)
 
@@ -408,7 +352,6 @@ class Controller(val config:Config, val zkClient:ZkClient, val socketServer:Sock
     }.flatten
   }
 
-
   def getPartitionsAssignedToBroker(zkClient: ZkClient, topics: Seq[String], brokerId: Int): Seq[(String, Int)] = {
     val topicsAndPartitions: mutable.Map[String, Map[Int, Seq[Int]]] = ZkUtils.getPartitionAssignmentForTopics(zkClient, topics)
     topicsAndPartitions.map { topicAndPartitionMap:(String, Map[Int, Seq[Int]]) =>
@@ -435,6 +378,20 @@ class Controller(val config:Config, val zkClient:ZkClient, val socketServer:Sock
   }
 
   val offlinePartitionSelector = new OfflinePartitionLeaderSelector(controllerContext)
+
+
+  def shutdown() = {
+    controllerContext.controllerLock synchronized {
+      isRunning = false
+      partitionStateMachine.shutdown()
+      replicaStateMachine.shutdown()
+      if(controllerContext.controllerChannelManager != null) {
+        controllerContext.controllerChannelManager.shutdown()
+        controllerContext.controllerChannelManager = null
+        info("Controller shutdown complete")
+      }
+    }
+  }
 
 }
 

@@ -26,7 +26,6 @@ class LeaderAndIsrRequestTest extends FunSuite {
     val deserializedRequest = JsonSerDes.deserialize(str.getBytes, classOf[LeaderAndIsrRequest])
 
     assert(deserializedRequest == request)
-
   }
 
 }

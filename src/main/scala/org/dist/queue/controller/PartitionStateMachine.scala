@@ -3,144 +3,15 @@ package org.dist.queue.controller
 import java.util.concurrent.atomic.AtomicBoolean
 
 import org.I0Itec.zkclient.exception.ZkNodeExistsException
-import org.I0Itec.zkclient.{IZkChildListener, IZkDataListener}
-import org.dist.kvstore.JsonSerDes
-import org.dist.queue.api.{LeaderAndIsrRequest, RequestKeys, RequestOrResponse, UpdateMetadataRequest}
 import org.dist.queue.common.{Logging, StateChangeFailedException, TopicAndPartition}
 import org.dist.queue.utils.ZkUtils
 
-import scala.collection.JavaConverters._
 import scala.collection.{Seq, Set, mutable}
 
-class ControllerBrokerRequestBatch(controllerContext: ControllerContext, sendRequest: (Int, RequestOrResponse, (RequestOrResponse) => Unit) => Unit,
-                                   controllerId: Int, clientId: String) extends Logging {
-  val leaderAndIsrRequestMap = new mutable.HashMap[Int, mutable.HashMap[(String, Int), PartitionStateInfo]]
-  val stopReplicaRequestMap = new mutable.HashMap[Int, Seq[(String, Int)]]
-  val stopAndDeleteReplicaRequestMap = new mutable.HashMap[Int, Seq[(String, Int)]]
-  val updateMetadataRequestMap = new mutable.HashMap[Int, mutable.HashMap[TopicAndPartition, PartitionStateInfo]]
-
-  def addLeaderAndIsrRequestForBrokers(brokerIds: Seq[Int], topic: String, partition: Int,
-                                       leaderIsrAndControllerEpoch: LeaderIsrAndControllerEpoch,
-                                       replicas: Seq[Int]) = {
-    brokerIds.foreach { brokerId =>
-      leaderAndIsrRequestMap.getOrElseUpdate(brokerId, new mutable.HashMap[(String, Int), PartitionStateInfo])
-      leaderAndIsrRequestMap(brokerId).put((topic, partition),
-        PartitionStateInfo(leaderIsrAndControllerEpoch, replicas.toSet))
-    }
-    addUpdateMetadataRequestForBrokers(controllerContext.liveOrShuttingDownBrokerIds.toSeq, Set(TopicAndPartition(topic, partition)))
-  }
-
-  def addUpdateMetadataRequestForBrokers(brokerIds: Seq[Int],
-                                         partitions: scala.collection.Set[TopicAndPartition] = Set.empty[TopicAndPartition]) {
-    val partitionList =
-      if (partitions.isEmpty) {
-        controllerContext.partitionLeadershipInfo.keySet
-      } else {
-        partitions
-      }
-    partitionList.foreach { partition =>
-      val leaderIsrAndControllerEpochOpt = controllerContext.partitionLeadershipInfo.get(partition)
-      leaderIsrAndControllerEpochOpt match {
-        case Some(leaderIsrAndControllerEpoch) =>
-          val replicas = controllerContext.partitionReplicaAssignment(partition).toSet
-          val partitionStateInfo = PartitionStateInfo(leaderIsrAndControllerEpoch, replicas)
-          brokerIds.foreach { brokerId =>
-            updateMetadataRequestMap.getOrElseUpdate(brokerId, new mutable.HashMap[TopicAndPartition, PartitionStateInfo])
-            updateMetadataRequestMap(brokerId).put(partition, partitionStateInfo)
-          }
-        case None =>
-          info("Leader not assigned yet for partition %s. Skip sending udpate metadata request".format(partition))
-      }
-    }
-  }
-
-
-  def sendRequestsToBrokers(controllerEpoch: Int, correlationId: Int): Unit = {
-    //send leaderandisr requests
-    //send update metadata requests
-    //send stop replica requests
-    leaderAndIsrRequestMap.foreach { m =>
-      val broker = m._1
-      val partitionStateInfos: Map[(String, Int), PartitionStateInfo] = m._2.toMap
-      val func = (tuple: ((String, Int), PartitionStateInfo)) ⇒ tuple._2.leaderIsrAndControllerEpoch.leaderAndIsr.leader
-      val leaderIds = partitionStateInfos.map(func).toSet
-      val leaders = controllerContext.liveOrShuttingDownBrokers.filter(b => leaderIds.contains(b.id))
-      val leaderAndIsrRequest = LeaderAndIsrRequest(partitionStateInfos,
-        leaders, controllerId, controllerEpoch, correlationId, clientId)
-      for (p <- partitionStateInfos) {
-        val typeOfRequest = if (broker == p._2.leaderIsrAndControllerEpoch.leaderAndIsr.leader) "become-leader" else "become-follower"
-        trace(("Controller %d epoch %d sending %s LeaderAndIsr request with correlationId %d to broker %d " +
-          "for partition [%s,%d]").format(controllerId, controllerEpoch, typeOfRequest, correlationId, broker,
-          p._1._1, p._1._2))
-      }
-      sendRequest(broker, RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(leaderAndIsrRequest), correlationId), null)
-    }
-    leaderAndIsrRequestMap.clear()
-    updateMetadataRequestMap.foreach { m =>
-      val broker = m._1
-      val partitionStateInfos = m._2.toMap
-      val updateMetadataRequest = UpdateMetadataRequest(controllerId, controllerEpoch, correlationId, clientId,
-        partitionStateInfos, controllerContext.liveOrShuttingDownBrokers)
-      partitionStateInfos.foreach(p => trace(("Controller %d epoch %d sending UpdateMetadata request with " +
-        "correlationId %d to broker %d for partition %s").format(controllerId, controllerEpoch, correlationId, broker, p._1)))
-      sendRequest(broker, RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest),correlationId), null)
-    }
-    updateMetadataRequestMap.clear()
-  }
-
-  def newBatch() = {
-    // raise error if the previous batch is not empty
-    if (leaderAndIsrRequestMap.size > 0)
-      throw new IllegalStateException("Controller to broker state change requests batch is not empty while creating " +
-        "a new one. Some LeaderAndIsr state changes %s might be lost ".format(leaderAndIsrRequestMap.toString()))
-    if (stopReplicaRequestMap.size > 0)
-      throw new IllegalStateException("Controller to broker state change requests batch is not empty while creating a " +
-        "new one. Some StopReplica state changes %s might be lost ".format(stopReplicaRequestMap.toString()))
-    if (updateMetadataRequestMap.size > 0)
-      throw new IllegalStateException("Controller to broker state change requests batch is not empty while creating a " +
-        "new one. Some UpdateMetadata state changes %s might be lost ".format(updateMetadataRequestMap.toString()))
-    if (stopAndDeleteReplicaRequestMap.size > 0)
-      throw new IllegalStateException("Controller to broker state change requests batch is not empty while creating a " +
-        "new one. Some StopReplica with delete state changes %s might be lost ".format(stopAndDeleteReplicaRequestMap.toString()))
-
-    leaderAndIsrRequestMap.clear()
-    stopReplicaRequestMap.clear()
-    updateMetadataRequestMap.clear()
-    stopAndDeleteReplicaRequestMap.clear()
-  }
-
-}
-
-
-sealed trait PartitionState {
-  def state: Byte
-}
-
-case object NewPartition extends PartitionState {
-  val state: Byte = 0
-}
-
-case object OnlinePartition extends PartitionState {
-  val state: Byte = 1
-}
-
-case object OfflinePartition extends PartitionState {
-  val state: Byte = 2
-}
-
-case object NonExistentPartition extends PartitionState {
-  val state: Byte = 3
-}
-
-case class PartitionStateMachine(controller: Controller) extends Logging {
-  def shutdown() = {
-    hasStarted.set(false)
-    partitionState.clear()
-  }
-
-
+class PartitionStateMachine(controller: Controller) extends Logging {
   val brokerRequestBatch = new ControllerBrokerRequestBatch(controller.controllerContext, controller.sendRequest,
     controllerId, controller.clientId)
+
   private val controllerContext = controller.controllerContext
   private val controllerId = controller.config.brokerId
   private val zkClient = controllerContext.zkClient
@@ -149,7 +20,7 @@ case class PartitionStateMachine(controller: Controller) extends Logging {
   var partitionState: mutable.Map[TopicAndPartition, PartitionState] = mutable.Map.empty
 
   def registerPartitionChangeListener(topic: String) = {
-    zkClient.subscribeDataChanges(ZkUtils.getTopicPath(topic), new AddPartitionsListener(topic))
+    zkClient.subscribeDataChanges(ZkUtils.getTopicPath(topic), new AddPartitionsListener(topic, controller))
   }
 
   def startup() = {
@@ -163,7 +34,7 @@ case class PartitionStateMachine(controller: Controller) extends Logging {
 
 
   private def registerTopicChangeListener() = {
-    zkClient.subscribeChildChanges(ZkUtils.BrokerTopicsPath, new TopicChangeListener())
+    zkClient.subscribeChildChanges(ZkUtils.BrokerTopicsPath, new TopicChangeListener(controller, hasStarted))
   }
 
   /**
@@ -299,68 +170,31 @@ case class PartitionStateMachine(controller: Controller) extends Logging {
     }
   }
 
-  class AddPartitionsListener(topic: String) extends IZkDataListener with Logging {
-
-    this.logIdent = "[AddPartitionsListener on " + controller.config.brokerId + "]: "
-
-    @throws(classOf[Exception])
-    def handleDataChange(dataPath: String, data: Object) {
-      controllerContext.controllerLock synchronized {
-        try {
-          info("Add Partition triggered " + data.toString + " for path " + dataPath)
-          val partitionReplicaAssignment = ZkUtils.getReplicaAssignmentForTopics(zkClient, List(topic))
-          val partitionsRemainingToBeAdded = partitionReplicaAssignment.filter(p =>
-            !controllerContext.partitionReplicaAssignment.contains(p._1))
-          info("New partitions to be added [%s]".format(partitionsRemainingToBeAdded))
-          controller.onNewPartitionCreation(partitionsRemainingToBeAdded.keySet.toSet)
-        } catch {
-          case e: Throwable => error("Error while handling add partitions for data path " + dataPath, e)
-        }
-      }
-    }
-
-    @throws(classOf[Exception])
-    def handleDataDeleted(parentPath: String) {
-      // this is not implemented for partition change
-    }
+  def shutdown() = {
+    hasStarted.set(false)
+    partitionState.clear()
   }
-
-  /**
-   * This is the zookeeper listener that triggers all the state transitions for a partition
-   */
-  class TopicChangeListener extends IZkChildListener with Logging {
-    this.logIdent = "[TopicChangeListener on Controller " + controller.config.brokerId + "]: "
-
-    @throws(classOf[Exception])
-    def handleChildChange(parentPath: String, children: java.util.List[String]) {
-      controllerContext.controllerLock synchronized {
-        if (hasStarted.get) {
-          try {
-            val currentChildren = {
-              debug("Topic change listener fired for path %s with children %s".format(parentPath, children.asScala.mkString(",")))
-              children.asScala.toSet
-            }
-            val newTopics = currentChildren -- controllerContext.allTopics
-            val deletedTopics = controllerContext.allTopics -- currentChildren
-            //        val deletedPartitionReplicaAssignment = replicaAssignment.filter(p => deletedTopics.contains(p._1._1))
-            controllerContext.allTopics = currentChildren
-
-            val addedPartitionReplicaAssignment = ZkUtils.getReplicaAssignmentForTopics(zkClient, newTopics.toSeq)
-            controllerContext.partitionReplicaAssignment = controllerContext.partitionReplicaAssignment.filter(p =>
-              !deletedTopics.contains(p._1.topic))
-            controllerContext.partitionReplicaAssignment.++=(addedPartitionReplicaAssignment)
-            info("New topics: [%s], deleted topics: [%s], new partition replica assignment [%s]".format(newTopics,
-              deletedTopics, addedPartitionReplicaAssignment))
-            if (newTopics.size > 0)
-              controller.onNewTopicCreation(newTopics, addedPartitionReplicaAssignment.keySet.toSet)
-          } catch {
-            case e: Throwable => error("Error while handling new topic", e)
-          }
-          // TODO: kafka-330  Handle deleted topics
-        }
-      }
-    }
-  }
-
 }
+
+
+sealed trait PartitionState {
+  def state: Byte
+}
+
+case object NewPartition extends PartitionState {
+  val state: Byte = 0
+}
+
+case object OnlinePartition extends PartitionState {
+  val state: Byte = 1
+}
+
+case object OfflinePartition extends PartitionState {
+  val state: Byte = 2
+}
+
+case object NonExistentPartition extends PartitionState {
+  val state: Byte = 3
+}
+
 
