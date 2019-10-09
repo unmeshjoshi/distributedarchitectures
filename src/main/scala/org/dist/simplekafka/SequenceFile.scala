@@ -1,4 +1,4 @@
-package org.dist.kvstore
+package org.dist.simplekafka
 
 import java.io.{DataOutputStream, File, RandomAccessFile}
 import java.util.HashMap
@@ -59,9 +59,6 @@ class SequenceFile {
   class Reader(var fileName: String) {
     protected var file = init(fileName)
 
-    def seekToOffset(offset:Long) = {
-      file.seek(offset)
-    }
     def seekToKeyPosition(key: String) = {
       val index = keyIndexes.get(key)
       file.seek(index)

@@ -5,10 +5,6 @@ import org.dist.queue.utils.ZkUtils.Broker
 case class PartitionLeaderInfo(partitionId:Int, leaderBrokerId:Int, replicaIds:List[Int])
 
 class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int) {
-  def addBroker(broker: Broker) = {
-    liveBrokers += broker
-  }
-
   var liveBrokers:Set[Broker] = Set()
 
   def elect() = {
@@ -21,6 +17,10 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int) {
     }
   }
 
+  def addBroker(broker: Broker) = {
+    liveBrokers += broker
+  }
+
   def onBecomingLeader() = {
     liveBrokers = liveBrokers ++ zookeeperClient.getAllBrokers()
     zookeeperClient.subscribeTopicChangeListener(new TopicChangeHandler(zookeeperClient, onTopicChange))
@@ -31,6 +31,8 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int) {
     val leaderAndReplicas = partitionReplicas.map(p => {
       PartitionLeaderInfo(p.partitionId, p.brokerIds.head, p.brokerIds)
     })
+    //sendleaderandisr request to all brokers
+    //send updatemetadata request to all brokers
   }
 
   //We do not do anything, assuming all topics are created after all the brokers are up and running

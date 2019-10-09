@@ -177,7 +177,7 @@ private[queue] class LogManager(val config: Config,
   }
 
   /**
-   * Choose the next directory in which to create a log. Currently this is done
+   e* Choose the next directory in which to create a log. Currently this is done
    * by calculating the number of partitions in each directory and then choosing the
    * data directory with the fewest partitions.
    */
