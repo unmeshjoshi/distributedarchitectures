@@ -38,8 +38,8 @@ class Table(metadataDirectory:String, table: String) {
 
     val bais = new DataInputStream(new ByteArrayInputStream(ba.toByteArray))
     Try(Row.deserialize(bais)) match {
-      case Success(row) ⇒ Some(row)
-      case Failure(exception) ⇒ None
+      case Success(row) => Some(row)
+      case Failure(exception) => None
     }
   }
 

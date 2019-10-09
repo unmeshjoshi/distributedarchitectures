@@ -6,7 +6,7 @@ import java.util
 import org.dist.util.SocketIO
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class TcpListener(localEp: InetAddressAndPort, storageService: StorageService, gossiper: Gossiper, messagingService: MessagingService) extends Thread {
   private[kvstore] val logger = LoggerFactory.getLogger(classOf[TcpListener])
@@ -122,7 +122,7 @@ class MessagingService(storageService: StorageService) {
 
   def sendRR(message: Message, to: List[InetAddressAndPort], messageResponseHandler: MessageResponseHandler): Unit = {
     callbackMap.put(message.header.id, messageResponseHandler)
-    to.foreach(address ⇒ sendTcpOneWay(message, address))
+    to.foreach(address => sendTcpOneWay(message, address))
   }
 
   def sendTcpOneWay(message: Message, to: InetAddressAndPort) = {

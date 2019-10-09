@@ -49,9 +49,6 @@ class AdminUtilsTest extends ZookeeperTestHarness {
     val replicas: collection.Seq[Int] = value(TopicAndPartition("topic1", 0))
     assert(partitionAssignments(0) == replicas)
 
-    Thread.sleep(10000)
-
-
   }
 
   test("should register partition assignments in zookeeper") {

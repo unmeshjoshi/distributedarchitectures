@@ -27,7 +27,7 @@ class TopicChangeHandlerTest extends ZookeeperTestHarness {
     zookeeperClient.subscribeTopicChangeListener(topicChangeListener)
     createTopicCommand.createTopic("topic1", 2, 2)
 
-    TestUtils.waitUntilTrue(() ⇒ {
+    TestUtils.waitUntilTrue(() => {
       testContext.replicas.size > 0
     }, "Selected leader and replicas", 1000)
   }

@@ -48,7 +48,7 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
   }
 
   def getAllBrokers(): Set[Broker] = {
-    zkClient.getChildren(BrokerIdsPath).asScala.map(brokerId ⇒ {
+    zkClient.getChildren(BrokerIdsPath).asScala.map(brokerId => {
       val data:String = zkClient.readData(getBrokerPath(brokerId.toInt))
       JsonSerDes.deserialize(data.getBytes, classOf[Broker])
     }).toSet
@@ -91,7 +91,7 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
   @VisibleForTesting
   def getAllTopics() = {
     val topics = zkClient.getChildren(BrokerTopicsPath).asScala
-    topics.map(topicName ⇒ {
+    topics.map(topicName => {
       val partitionAssignments:String = zkClient.readData(getTopicPath(topicName))
       val partitionReplicas:List[PartitionReplicas] = JsonSerDes.deserialize[List[PartitionReplicas]](partitionAssignments.getBytes, new TypeReference[List[PartitionReplicas]](){})
       (topicName, partitionReplicas)
@@ -157,7 +157,7 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
     try {
       createEphemeralPath(zkClient, ControllerPath, controllerId)
     } catch {
-      case e:ZkNodeExistsException ⇒ {
+      case e:ZkNodeExistsException => {
         val existingControllerId:String = zkClient.readData(ControllerPath)
         throw new ControllerExistsException(existingControllerId)
       }

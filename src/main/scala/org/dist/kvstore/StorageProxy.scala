@@ -7,7 +7,7 @@ import java.util.concurrent.locks.{Condition, Lock, ReentrantLock}
 
 import org.dist.util.SocketIO
 import org.slf4j.LoggerFactory
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 
 class StorageProxy(clientRequestIp: InetAddressAndPort, storageService: StorageService, messagingService:MessagingService) {
@@ -28,13 +28,13 @@ class TcpClientRequestListner(localEp: InetAddressAndPort, storageService:Storag
     while (true) {
       val socket = serverSocket.accept()
       val socketIO = new SocketIO[Message](socket, classOf[Message])
-      val message = socketIO.readHandleRespond { message ⇒
+      val message = socketIO.readHandleRespond { message =>
 
         logger.debug(s"Got client message ${message}")
 
         if(message.header.verb == Verb.ROW_MUTATION) {
           val response: Seq[Message] = new RowMutationHandler(storageService).handleMessage(message)
-          val value: Seq[RowMutationResponse] = response.map(message ⇒ JsonSerDes.deserialize(message.payloadJson.getBytes, classOf[RowMutationResponse]))
+          val value: Seq[RowMutationResponse] = response.map(message => JsonSerDes.deserialize(message.payloadJson.getBytes, classOf[RowMutationResponse]))
           new Message(message.header, JsonSerDes.serialize(QuorumResponse(value.toList)))
 
         } else if(message.header.verb == Verb.GET_CF) {
@@ -109,7 +109,7 @@ class TcpClientRequestListner(localEp: InetAddressAndPort, storageService:Storag
 
       } finally {
         lock.unlock()
-        responses.forEach( m ⇒ messagingService.callbackMap.remove(m.header.id))
+        responses.forEach( m => messagingService.callbackMap.remove(m.header.id))
       }
       resolver.resolve(responses.asScala.toList)
     }

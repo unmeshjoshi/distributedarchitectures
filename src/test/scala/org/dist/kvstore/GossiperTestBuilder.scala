@@ -1,7 +1,7 @@
 package org.dist.kvstore
 
 import java.util.concurrent.ScheduledThreadPoolExecutor
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 
 class GossiperTestBuilder(val seeds:Set[InetAddressAndPort] = Set(InetAddressAndPort.create("127.0.0.1", 8000)),
@@ -20,12 +20,12 @@ class GossiperTestBuilder(val seeds:Set[InetAddressAndPort] = Set(InetAddressAnd
   }
 
   def withLiveEndpoints(hosts:List[(String, Int)]) = {
-    hosts.map(hostPort ⇒ gossiper.liveEndpoints.add(InetAddressAndPort.create(hostPort._1, hostPort._2)))
+    hosts.map(hostPort => gossiper.liveEndpoints.add(InetAddressAndPort.create(hostPort._1, hostPort._2)))
     this
   }
 
   def withUnReachableEndpoints(hosts:List[(String, Int)]) = {
-    hosts.map(hostPort ⇒ gossiper.unreachableEndpoints.add(InetAddressAndPort.create(hostPort._1, hostPort._2)))
+    hosts.map(hostPort => gossiper.unreachableEndpoints.add(InetAddressAndPort.create(hostPort._1, hostPort._2)))
     this
   }
 }

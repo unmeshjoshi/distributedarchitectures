@@ -56,7 +56,7 @@ class ControllerBrokerRequestBatch(controllerContext: ControllerContext, sendReq
     leaderAndIsrRequestMap.foreach { m =>
       val broker = m._1
       val partitionStateInfos: Map[(String, Int), PartitionStateInfo] = m._2.toMap
-      val func = (tuple: ((String, Int), PartitionStateInfo)) ⇒ tuple._2.leaderIsrAndControllerEpoch.leaderAndIsr.leader
+      val func = (tuple: ((String, Int), PartitionStateInfo)) => tuple._2.leaderIsrAndControllerEpoch.leaderAndIsr.leader
       val leaderIds = partitionStateInfos.map(func).toSet
       val leaders = controllerContext.liveOrShuttingDownBrokers.filter(b => leaderIds.contains(b.id))
       val leaderAndIsrRequest = LeaderAndIsrRequest(partitionStateInfos,

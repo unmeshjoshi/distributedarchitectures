@@ -2,13 +2,13 @@ package org.dist.kvstore
 
 import java.util
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object GossipDigestAck {
   def create(gDigestList: List[GossipDigest], epStateMap: Map[InetAddressAndPort, EndPointState]) = {
     val map: util.Map[String, EndPointState] = new util.HashMap[String, EndPointState]()
     val set = epStateMap.keySet
-    for (key ← set) {
+    for (key <- set) {
       val newKey = s"${key.address.getHostAddress}:${key.port}"
       map.put(newKey, epStateMap.asJava.get(key))
     }
@@ -27,7 +27,7 @@ case class GossipDigestAck(val gDigestList: List[GossipDigest],
     } else {
       val map: util.Map[InetAddressAndPort, EndPointState] = new util.HashMap[InetAddressAndPort, EndPointState]()
       val set = epStateMap.keySet
-      for (key ← set) {
+      for (key <- set) {
         val splits = key.split(":")
         map.put(InetAddressAndPort.create(splits(0), splits(1).toInt), epStateMap.asJava.get(key))
       }

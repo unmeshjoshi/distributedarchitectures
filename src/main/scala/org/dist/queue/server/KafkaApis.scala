@@ -39,12 +39,12 @@ class KafkaApis(val replicaManager: ReplicaManager,
 
       import java.util
 
-      import scala.collection.JavaConverters._
+      import scala.jdk.CollectionConverters._
 
       val topicPartitionMessages = new util.HashMap[TopicAndPartition, PartitionData]
-      for(key ← keys) {
+      for(key <- keys) {
         val data = map(key)
-        val keyedMessages = data.messages.map(messageAndOffset ⇒ {
+        val keyedMessages = data.messages.map(messageAndOffset => {
           val payload = messageAndOffset.message.payload
 
           val payloadBytes = new Array[Byte](payload.limit)
@@ -58,8 +58,8 @@ class KafkaApis(val replicaManager: ReplicaManager,
         }).toList
 
         val lastOffset = data.messages.toSeq.lastOption match {
-          case Some(lastElem) ⇒ lastElem.offset
-          case None ⇒ 0
+          case Some(lastElem) => lastElem.offset
+          case None => 0
         }
 
         topicPartitionMessages.put(key, PartitionData(keyedMessages.toList, lastOffset))
@@ -150,40 +150,40 @@ class KafkaApis(val replicaManager: ReplicaManager,
   def handle(req: RequestOrResponse): RequestOrResponse = {
     val request: RequestOrResponse = req
     request.requestId match {
-      case RequestKeys.UpdateMetadataKey ⇒ {
+      case RequestKeys.UpdateMetadataKey => {
         debug(s"Handling UpdateMetadataRequest ${request.messageBodyJson}")
         val message = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[UpdateMetadataRequest])
         val response = handleUpdateMetadataRequest(message)
         RequestOrResponse(0, JsonSerDes.serialize(response), request.correlationId)
 
       }
-      case RequestKeys.LeaderAndIsrKey ⇒ {
+      case RequestKeys.LeaderAndIsrKey => {
         debug(s"Handling LeaderAndIsrRequest ${request.messageBodyJson}" )
         val leaderAndIsrRequest: LeaderAndIsrRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[LeaderAndIsrRequest])
         val tuple: (collection.Map[(String, Int), Short], Short) = replicaManager.becomeLeaderOrFollower(leaderAndIsrRequest)
         val response = LeaderAndIsrResponse(leaderAndIsrRequest.controllerId, tuple._1.toMap, tuple._2)
         RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(response), leaderAndIsrRequest.correlationId)
       }
-      case RequestKeys.MetadataKey ⇒ {
+      case RequestKeys.MetadataKey => {
         debug(s"Handling MetadataRequest ${request.messageBodyJson}" )
         val topicMetadataRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[TopicMetadataRequest])
         val topicMetadataResponse = handleTopicMetadataRequest(topicMetadataRequest)
         RequestOrResponse(RequestKeys.MetadataKey, JsonSerDes.serialize(topicMetadataResponse), topicMetadataRequest.correlationId)
       }
-      case RequestKeys.ProduceKey ⇒ {
+      case RequestKeys.ProduceKey => {
         debug(s"Handling ProduceRequest ${request.messageBodyJson}" )
         val produceRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[ProduceRequest])
         val produceResponse = handleProducerRequest(produceRequest)
         RequestOrResponse(RequestKeys.ProduceKey, JsonSerDes.serialize(produceResponse), produceRequest.correlationId)
       }
-      case RequestKeys.FetchKey ⇒ {
+      case RequestKeys.FetchKey => {
         debug(s"Handling FetchRequest ${request.messageBodyJson}")
         val fetchRequest: FetchRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[FetchRequest])
         val fetchResponse = handleFetchRequest(fetchRequest)
 
         RequestOrResponse(RequestKeys.FetchKey, JsonSerDes.serialize(fetchResponse), fetchRequest.correlationId)
       }
-      case RequestKeys.FindCoordinatorKey ⇒ {
+      case RequestKeys.FindCoordinatorKey => {
         debug(s"Handling FindCoordinatorRequest ${request.messageBodyJson}")
         val findCoordinatorRequest: FindCoordinatorRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[FindCoordinatorRequest])
         val partitionId = findPartitionHandlingOffsetFor(findCoordinatorRequest)
@@ -204,7 +204,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
 
   def appendToLocalLog(producerRequest: ProduceRequest) = {
     val partitionAndData: Map[TopicAndPartition, MessageSet] = producerRequest.dataAsMap
-    val func = (tuple: (TopicAndPartition, MessageSet)) ⇒ {
+    val func = (tuple: (TopicAndPartition, MessageSet)) => {
       try {
         val topicAndPartition = tuple._1
         val messages = tuple._2
@@ -221,7 +221,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
           .format(messages.size, topicAndPartition.topic, topicAndPartition.partition, start, end))
         ProduceResult(topicAndPartition, start, end)
       } catch {
-        case e: Exception ⇒ throw new RuntimeException(e)
+        case e: Exception => throw new RuntimeException(e)
       }
     }
 

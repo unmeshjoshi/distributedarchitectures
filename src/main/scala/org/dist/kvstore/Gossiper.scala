@@ -7,7 +7,7 @@ import java.util.{ArrayList, Collections, List, Random}
 
 import org.slf4j.LoggerFactory
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.util.control.Breaks
 import scala.util.control.Breaks.breakable
 
@@ -72,7 +72,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
 
   def applyStateLocally(epStateMap: util.Map[InetAddressAndPort, EndPointState]): Unit = this.synchronized {
     val eps = epStateMap.keySet.asScala
-    for (ep ← eps) {
+    for (ep <- eps) {
       breakable {
         if (ep == localEndPoint)
           Breaks.break()
@@ -107,7 +107,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
     }
   }
 
-  def resusitate(addr: InetAddressAndPort, localState: EndPointState) {
+  def resusitate(addr: InetAddressAndPort, localState: EndPointState) = {
     logger.debug("Attempting to resusitate " + addr)
     isAlive(addr, localState, true)
     logger.debug("EndPoint " + addr + " is now UP")
@@ -115,7 +115,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
 
   def doNotifications(ep: InetAddressAndPort, epState: EndPointState): Unit = {
     logger.info(s"notifications for ${ep} ${epState}")
-    for(subscriber ← subscribers.asScala) {
+    for(subscriber <- subscribers.asScala) {
       subscriber.onChange(ep, epState)
     }
   }
@@ -270,7 +270,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
   class GossipTask extends Runnable {
 
     @Override
-    def run() {
+    def run() = {
       try {
         //        //wait on messaging service to start listening
         //        MessagingService.instance().waitUntilListening()
@@ -289,7 +289,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
           doGossipToSeed(gossipDigestSynMessage)
         }
       } catch {
-        case ex:Exception ⇒ ex.printStackTrace()
+        case ex:Exception => ex.printStackTrace()
       } finally {
         taskLock.unlock()
       }
@@ -410,7 +410,5 @@ class Gossiper(private[kvstore] val generationNbr: Int,
 
       digests.asScala.toList.asJava
     }
-
   }
-
 }

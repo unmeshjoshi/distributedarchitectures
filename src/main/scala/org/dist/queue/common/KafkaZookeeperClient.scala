@@ -9,7 +9,7 @@ import org.dist.queue.utils.ZKStringSerializer
 object KafkaZookeeperClient {
   private val INSTANCE = new AtomicReference[ZkClient](null)
 
-  def getZookeeperClient(config: Config, connect: Config ⇒ String): ZkClient = {
+  def getZookeeperClient(config: Config, connect: Config => String): ZkClient = {
     // TODO: This cannot be a singleton since unit tests break if we do that
     //    INSTANCE.compareAndSet(null, new ZkClient(config.zkConnect, config.zkSessionTimeoutMs, config.zkConnectionTimeoutMs,
     //                                              ZKStringSerializer))

@@ -40,7 +40,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val groupMetadataNumPartitions = Topic.groupMetadataTopicPartitionCount
     CreateTopicCommand.createTopic(zkClient, Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, 2)
 
-    TestUtils.waitUntilTrue(() ⇒ {
+    TestUtils.waitUntilTrue(() => {
       leaderForAllPartitions(Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, List(server1, server2, server3))
 
     }, "Waiting till metadata for group metadata topic is propagated to all servers", 2000)
@@ -48,7 +48,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val numPartitions = 3
     CreateTopicCommand.createTopic(zkClient, topic, numPartitions, 3)
 
-    TestUtils.waitUntilTrue(() ⇒ {
+    TestUtils.waitUntilTrue(() => {
       leaderForAllPartitions(topic, numPartitions, List(server1, server2, server3))
 
     }, s"Waiting till topic ${topic} metadata to propagate to all the servers", 2000)
@@ -62,7 +62,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val producer = produceMessages(bootstrapBroker, config1, messages)
 
     var allConsumedMessages = List[KeyedMessage[String, String]]()
-    for (partitionId ← (0 to numPartitions - 1)) {
+    for (partitionId <- (0 to numPartitions - 1)) {
       val data = consumeMessagesFrom(config1, bootstrapBroker, topic, partitionId)
       allConsumedMessages = allConsumedMessages.concat(data.messages)
     }
@@ -79,7 +79,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val replicas = info1.allReplicas
 
     val leaderServer = brokers(leaderBroker)
-    val followerServers = replicas.filter(_ != leaderBroker).map(id ⇒ brokers(id)).toList
+    val followerServers = replicas.filter(_ != leaderBroker).map(id => brokers(id)).toList
 
     def logOffsetFor(server: Server) = {
       server.logManager.getLog("topic1", partitionIdForMessage).get.logEndOffset
@@ -87,25 +87,25 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
 
     def matchLeaderAndFollowerOffsets = {
       val leaderOffset = logOffsetFor(leaderServer)
-      val followerOffsets = followerServers.map(server ⇒ {
+      val followerOffsets = followerServers.map(server => {
         val offset = logOffsetFor(server)
         offset
       })
       leaderOffset == 3 && followerOffsets(0) == leaderOffset && followerOffsets(1) == leaderOffset
     }
 
-    TestUtils.waitUntilTrue(() ⇒ {
+    TestUtils.waitUntilTrue(() => {
       matchLeaderAndFollowerOffsets
     }, s"Waiting till messages get replicated on all the servers", 4000)
 
     val leaderOffset = logOffsetFor(leaderServer)
-    val followerOffsets = followerServers.map(server ⇒ logOffsetFor(server))
+    val followerOffsets = followerServers.map(server => logOffsetFor(server))
     assert(leaderOffset == 3)
     assert(followerOffsets(0) == leaderOffset && followerOffsets(1) == leaderOffset)
   }
 
   def leaderForAllPartitions(topic: String, numPartitions: Int, servers: List[Server]): Boolean = {
-    val conditions = servers.map(server ⇒ {
+    val conditions = servers.map(server => {
       val topicPartitions = server.apis.leaderCache.keySet.filter(_.topic == topic)
       topicPartitions.size == numPartitions
 
@@ -115,7 +115,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
 
   private def produceMessages(bootstrapBroker: InetAddressAndPort, config1: Config, message1: Seq[KeyedMessage[String, String]]) = {
     val producer = new Producer(bootstrapBroker, config1, new DefaultPartitioner[String]())
-    message1.foreach(message ⇒ {
+    message1.foreach(message => {
       producer.send(message)
     })
     producer
@@ -127,7 +127,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
 
     assert(3 == brokers.size)
 
-    val sortedBrokers = brokers.sortWith((b1, b2) ⇒ b1.id < b2.id)
+    val sortedBrokers = brokers.sortWith((b1, b2) => b1.id < b2.id)
 
     assert(sortedBrokers(0).id == config1.brokerId)
     assert(sortedBrokers(0).host == config1.hostName)

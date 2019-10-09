@@ -71,11 +71,11 @@ object ZkUtils extends Logging {
                 val m1: Map[String, Seq[Int]] = replicaMap.asInstanceOf[Map[String, Seq[Int]]]
                 import java.util.HashMap
 
-                import scala.collection.JavaConverters._
+                import scala.jdk.CollectionConverters._
 
                 val m2 = new HashMap[Int, Seq[Int]]()
                 val keys = m1.keySet
-                for(key ← keys) {
+                for(key <- keys) {
                   val value = m1(key)
                   m2.put(key.toInt, value)
                 }
@@ -103,7 +103,7 @@ object ZkUtils extends Logging {
               case Some(seq) => seq
               case None => Seq.empty[Int]
             }
-            case None ⇒ Seq.empty[Int]
+            case None => Seq.empty[Int]
         }
       case None => Seq.empty[Int]
     }
@@ -117,12 +117,12 @@ object ZkUtils extends Logging {
         case Some(jsonPartitionMap) => {
           val partitionsOpt = JsonSerDes.deserialize(jsonPartitionMap.getBytes(), classOf[Map[String, Any]]).get("partitions")
           partitionsOpt match {
-            case Some(partitions) ⇒
+            case Some(partitions) =>
               for((partition, replicas) <- partitions.asInstanceOf[Map[String, Seq[Int]]]){
                 ret.put(TopicAndPartition(topic, partition.toInt), replicas)
                 debug("Replicas assigned to topic [%s], partition [%s] are [%s]".format(topic, partition, replicas))
               }
-            case None ⇒
+            case None =>
           }
         }
         case None =>
@@ -226,7 +226,7 @@ object ZkUtils extends Logging {
 
 
   def getChildren(client: ZkClient, path: String): Seq[String] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     // triggers implicit conversion from java list to scala Seq
     client.getChildren(path).asScala
   }
@@ -274,7 +274,7 @@ object ZkUtils extends Logging {
   }
 
   def getChildrenParentMayNotExist(client: ZkClient, path: String): Seq[String] = {
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
     // triggers implicit conversion from java list to scala Seq
     try {
       client.getChildren(path).asScala

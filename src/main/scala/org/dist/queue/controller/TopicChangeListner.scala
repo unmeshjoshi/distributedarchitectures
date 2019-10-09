@@ -6,7 +6,7 @@ import org.I0Itec.zkclient.IZkChildListener
 import org.dist.queue.common.Logging
 import org.dist.queue.utils.ZkUtils
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 
 /**

@@ -17,7 +17,7 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int) {
       zookeeperClient.tryCreatingControllerPath(leaderId)
       onBecomingLeader()
     } catch {
-      case e: ControllerExistsException ⇒ e.controllerId
+      case e: ControllerExistsException => e.controllerId
     }
   }
 
@@ -28,7 +28,7 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int) {
   }
 
   def onTopicChange(partitionReplicas:Seq[PartitionReplicas]) = {
-    val leaderAndReplicas = partitionReplicas.map(p ⇒ {
+    val leaderAndReplicas = partitionReplicas.map(p => {
       PartitionLeaderInfo(p.partitionId, p.brokerIds.head, p.brokerIds)
     })
   }

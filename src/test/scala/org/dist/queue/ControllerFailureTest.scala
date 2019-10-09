@@ -36,7 +36,7 @@ class ControllerFailureTest extends ZookeeperTestHarness {
     val groupMetadataNumPartitions = Topic.groupMetadataTopicPartitionCount
     CreateTopicCommand.createTopic(zkClient, Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, 2)
 
-    TestUtils.waitUntilTrue(()⇒{
+    TestUtils.waitUntilTrue(()=>{
       leaderForAllPartitions(Topic.GROUP_METADATA_TOPIC_NAME, groupMetadataNumPartitions, List(server1,server2, server3))
 
     }, "Waiting till metadata for group metadata topic is propagated to all servers", 2000)
@@ -44,7 +44,7 @@ class ControllerFailureTest extends ZookeeperTestHarness {
     val numPartitions = 3
     CreateTopicCommand.createTopic(zkClient, topic, numPartitions, 3)
 
-    TestUtils.waitUntilTrue(()⇒{
+    TestUtils.waitUntilTrue(()=>{
       leaderForAllPartitions(topic, numPartitions, List(server1,server2, server3))
 
     }, s"Waiting till topic ${topic} metadata to propagate to all the servers", 2000)
@@ -63,7 +63,7 @@ class ControllerFailureTest extends ZookeeperTestHarness {
 
 
   def leaderForAllPartitions(topic:String, numPartitions:Int, servers: List[Server]): Boolean = {
-    val conditions = servers.map(server ⇒ {
+    val conditions = servers.map(server => {
       val topicPartitions = server.apis.leaderCache.keySet.filter(_.topic == topic)
       topicPartitions.size == numPartitions
 
@@ -77,7 +77,7 @@ class ControllerFailureTest extends ZookeeperTestHarness {
 
     assert(3 == brokers.size)
 
-    val sortedBrokers = brokers.sortWith((b1, b2) ⇒ b1.id < b2.id)
+    val sortedBrokers = brokers.sortWith((b1, b2) => b1.id < b2.id)
 
     assert(sortedBrokers(0).id == config1.brokerId)
     assert(sortedBrokers(0).host == config1.hostName)

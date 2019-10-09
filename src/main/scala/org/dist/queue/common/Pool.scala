@@ -67,7 +67,7 @@ class Pool[K,V](valueFactory: Option[(K) => V] = None) extends Iterable[(K, V)] 
   
   def remove(key: K): V = pool.remove(key)
 
-  import scala.collection.JavaConverters._
+  import scala.jdk.CollectionConverters._
   def keys: Set[K] = {
     pool.keySet().asScala.toSet
   }

@@ -2,7 +2,7 @@ package org.dist.kvstore
 
 import org.scalatest.FunSuite
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class GossiperTest extends FunSuite {
 
@@ -71,9 +71,9 @@ class GossiperTest extends FunSuite {
 
     val digests = new gossiper.GossipDigestBuilder().makeRandomGossipDigest()
     assert(digests.size() == 3)
-    assert(digests.asScala.map(digest ⇒ digest.endPoint).contains(InetAddressAndPort.create("127.0.0.1", 8000)))
-    assert(digests.asScala.map(digest ⇒ digest.endPoint).contains(InetAddressAndPort.create("127.0.0.1", 8002)))
-    assert(digests.asScala.map(digest ⇒ digest.endPoint).contains(InetAddressAndPort.create("127.0.0.1", 8001)))
+    assert(digests.asScala.map(digest => digest.endPoint).contains(InetAddressAndPort.create("127.0.0.1", 8000)))
+    assert(digests.asScala.map(digest => digest.endPoint).contains(InetAddressAndPort.create("127.0.0.1", 8002)))
+    assert(digests.asScala.map(digest => digest.endPoint).contains(InetAddressAndPort.create("127.0.0.1", 8001)))
   }
 
 
@@ -97,10 +97,10 @@ class GossiperTest extends FunSuite {
 
 
     val digests = new gossiper.GossipDigestBuilder().makeRandomGossipDigest()
-    val node1Digest = digests.asScala.filter(digest ⇒ digest.endPoint == node1)
+    val node1Digest = digests.asScala.filter(digest => digest.endPoint == node1)
     assert(node1Digest(0).maxVersion == 2)
 
-    val localDigest = digests.asScala.filter(digest ⇒ digest.endPoint == localEndpoint)
+    val localDigest = digests.asScala.filter(digest => digest.endPoint == localEndpoint)
     assert(localDigest(0).maxVersion == 0)
   }
 

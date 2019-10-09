@@ -5,7 +5,7 @@ import java.util
 import org.dist.queue.client.consumer.ConsumerConfig
 import org.dist.queue.common.TopicAndPartition
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.collection.immutable.Map
 
 case class PartitionFetchInfo(offset: Long, fetchSize: Int)
@@ -60,7 +60,7 @@ case class FetchRequest(versionId: Short,
       } else {
         val map = new util.HashMap[TopicAndPartition, PartitionFetchInfo]()
         val set = requestInfo.keySet
-        for (key ← set) {
+        for (key <- set) {
           val splits: Array[String] = key.split(":")
           val tuple = TopicAndPartition(splits(0), splits(1).toInt)
           map.put(tuple, requestInfo(key))

@@ -78,7 +78,7 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
   }
 
   private def groupMessagesToSet(messagesPerTopicAndPartition: collection.mutable.Map[TopicAndPartition, Seq[KeyedMessage[String,Message]]]) = {
-    val func = (tuple:(TopicAndPartition, Seq[KeyedMessage[String,Message]])) ⇒ {
+    val func = (tuple:(TopicAndPartition, Seq[KeyedMessage[String,Message]])) => {
       val topicAndPartition = tuple._1
       val messages = tuple._2
       val rawMessages: Seq[Message] = messages.map(_.message)
@@ -220,7 +220,7 @@ class Producer(bootstrapBroker:InetAddressAndPort, config:Config, private val pa
   }
 
   private def printKeyValue(value: ByteBufferMessageSet) = {
-    for (m ← value.iterator) {
+    for (m <- value.iterator) {
       //      val message = m.message
       //      val value: ByteBuffer = message.payload
       //      val key: ByteBuffer = message.key

@@ -63,7 +63,7 @@ class CreateTopicCommand(zookeeperClient:ZookeeperClient, partitionAssigner:Repl
       currentPartitionId = currentPartitionId + 1
     }
     val partitionIds = ret.toMap.keySet
-    partitionIds.map(id ⇒ PartitionReplicas(id, ret(id)))
+    partitionIds.map(id => PartitionReplicas(id, ret(id)))
   }
 
 

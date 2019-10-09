@@ -21,6 +21,6 @@ class CreateTopicCommandZookeeperTest extends ZookeeperTestHarness {
 
     val partitionAssignments = topics("topic1")
     assert(partitionAssignments.size == 2)
-    partitionAssignments.foreach(p ⇒ assert(p.brokerIds.size == 3))
+    partitionAssignments.foreach(p => assert(p.brokerIds.size == 3))
   }
 }

@@ -51,7 +51,7 @@ class Consumer(val clientId:String, bootstrapBroker:InetAddressAndPort, config:C
   }
 
   def fetch(requestMap:Map[TopicAndPartition, Long], leaderBrokerInfo: Broker): Map[TopicAndPartition, PartitionData] = {
-    val mapFunc = (tuple:(TopicAndPartition, Long)) ⇒ {
+    val mapFunc = (tuple:(TopicAndPartition, Long)) => {
       (TopicAndPartition(tuple._1.topic, tuple._1.partition), PartitionFetchInfo(tuple._2, config.FetchSize))
     }
     val requestInfo = requestMap.map(mapFunc)

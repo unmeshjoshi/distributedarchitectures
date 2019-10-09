@@ -29,12 +29,12 @@ class FetcherThread(fetcherId: String, replicaMgr: ReplicaManager, leaderBroker:
     Utils.inLock(partitionMapLock) {
       try {
         val partitionFetchData: Map[TopicAndPartition, PartitionData] = consumer.fetch(partitionMap.toMap, leaderBroker)
-        partitionFetchData.foreach(topicPartitionAndPartitionData ⇒ {
+        partitionFetchData.foreach(topicPartitionAndPartitionData => {
 
           val topicAndPartition = topicPartitionAndPartitionData._1
           val partitionData = topicPartitionAndPartitionData._2
           val fetchedMessages: Seq[KeyedMessage[String, String]] = partitionData.messages
-          val serializedMessage: Seq[Message] = fetchedMessages.map(m ⇒ serializeMessage(m)).map(km ⇒ km.message)
+          val serializedMessage: Seq[Message] = fetchedMessages.map(m => serializeMessage(m)).map(km => km.message)
 
 
           val replica = replicaMgr.getReplica(topicAndPartition.topic, topicAndPartition.partition).get

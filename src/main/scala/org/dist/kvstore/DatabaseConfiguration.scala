@@ -1,7 +1,7 @@
 package org.dist.kvstore
 
 import java.util
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class DatabaseConfiguration(seeds:Set[InetAddressAndPort], systemDir:String = System.getProperty(("java.io.tmpdir"))) {
   def getSystemDir(): String = systemDir
@@ -10,7 +10,7 @@ case class DatabaseConfiguration(seeds:Set[InetAddressAndPort], systemDir:String
 
 
   def nonLocalSeeds(localEndpoint:InetAddressAndPort) = {
-    seeds.filter(address ⇒ address != localEndpoint).toList.asJava
+    seeds.filter(address => address != localEndpoint).toList.asJava
   }
 
 }

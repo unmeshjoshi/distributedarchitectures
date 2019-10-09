@@ -5,7 +5,7 @@ import java.util
 import org.dist.queue.controller.PartitionStateInfo
 import org.dist.queue.utils.ZkUtils.Broker
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 object LeaderAndIsrRequest {
   val CurrentVersion = 0.shortValue
@@ -53,7 +53,7 @@ case class LeaderAndIsrRequest(versionId: Short,
     } else {
       val map = new util.HashMap[(String, Int), PartitionStateInfo]()
       val set = partitionStateInfos.keySet
-      for (key ← set) {
+      for (key <- set) {
         val splits: Array[String] = key.split(":")
         val tuple = (splits(0), splits(1).toInt)
         map.put(tuple, partitionStateInfos(key))

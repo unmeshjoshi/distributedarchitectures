@@ -12,7 +12,7 @@ class ByteBufferMessageSetTest extends FunSuite {
 
 
   private def printKeyValue(value: ByteBufferMessageSet) = {
-    for (m ← value.iterator) {
+    for (m <- value.iterator) {
       //      val message = m.message
       //      val value: ByteBuffer = message.payload
       //      val key: ByteBuffer = message.key

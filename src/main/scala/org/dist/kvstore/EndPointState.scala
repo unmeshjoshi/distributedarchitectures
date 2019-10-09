@@ -3,7 +3,7 @@ package org.dist.kvstore
 import java.util
 import java.util.{Collections, Map}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class EndPointState(heartBeatState: HeartBeatState,
                          applicationStates:Map[ApplicationState, VersionedValue] = new util.EnumMap[ApplicationState, VersionedValue](classOf[ApplicationState]),
@@ -15,7 +15,7 @@ case class EndPointState(heartBeatState: HeartBeatState,
   def addApplicationStates(values: util.Map[ApplicationState, VersionedValue]): EndPointState = {
     val applicationState: util.Map[ApplicationState, VersionedValue] = new util.EnumMap[ApplicationState, VersionedValue](classOf[ApplicationState])
     val states = values.keySet().asScala.toList
-    for(state ← states) {
+    for(state <- states) {
       applicationState.put(state, values.get(state))
     }
     EndPointState(heartBeatState, applicationState)

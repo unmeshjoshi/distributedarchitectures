@@ -2,7 +2,7 @@ package org.dist.util
 
 import java.net.{Inet6Address, InetAddress, NetworkInterface}
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 case class NetworkInterfaceNotFound(message: String) extends Exception(message)
 

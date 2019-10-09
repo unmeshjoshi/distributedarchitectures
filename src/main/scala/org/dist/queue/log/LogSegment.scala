@@ -55,7 +55,7 @@ class LogSegment(val messageSet: FileMessageSet,
    *
    * It is assumed this method is being called from within a lock
    */
-  def append(offset: Long, messages: ByteBufferMessageSet) {
+  def append(offset: Long, messages: ByteBufferMessageSet) = {
     if (messages.sizeInBytes > 0) {
       trace("Inserting %d bytes at offset %d at position %d".format(messages.sizeInBytes, offset, messageSet.sizeInBytes()))
       // append an entry to the index (if needed)

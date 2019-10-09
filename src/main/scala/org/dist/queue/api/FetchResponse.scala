@@ -56,7 +56,7 @@ case class FetchResponse(versionId:Int, correlationId: Int,
     } else {
       val map = new util.HashMap[TopicAndPartition, PartitionData]()
       val set = data.keySet
-      for (key ← set) {
+      for (key <- set) {
         val splits: Array[String] = key.split(":")
         val tuple = TopicAndPartition(splits(0), splits(1).toInt)
         map.put(tuple, data(key))

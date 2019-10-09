@@ -171,7 +171,7 @@ class ReplicaStateMachine(controller: Controller) extends Logging {
   class BrokerChangeListener() extends IZkChildListener with Logging {
     this.logIdent = "[BrokerChangeListener on Controller " + controller.config.brokerId + "]: "
 
-    import scala.collection.JavaConverters._
+    import scala.jdk.CollectionConverters._
 
     override def handleChildChange(parentPath: String, currentBrokerList: util.List[String]): Unit = {
       info("Broker change listener fired for path %s with children %s".format(parentPath, currentBrokerList.asScala.mkString(",")))

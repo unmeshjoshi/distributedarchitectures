@@ -33,7 +33,7 @@ class KVStoreQuorumPutAndGetTest extends FunSuite {
     node3.start()
     node4.start()
 
-    TestUtils.waitUntilTrue(()⇒{
+    TestUtils.waitUntilTrue(()=>{
       node1.tokenMetadata.cloneTokenEndPointMap.size() == 4 &&
       node2.tokenMetadata.cloneTokenEndPointMap.size() == 4 &&
       node3.tokenMetadata.cloneTokenEndPointMap.size() == 4 &&
@@ -43,6 +43,6 @@ class KVStoreQuorumPutAndGetTest extends FunSuite {
     val client = new Client(node1ClientEndpoint)
     val mutationResponses: Seq[RowMutationResponse] = client.put("table1", "key1", "value1")
     assert(mutationResponses.size == 2)
-    assert(mutationResponses.map(m ⇒ m.success).toSet == Set(true))
+    assert(mutationResponses.map(m => m.success).toSet == Set(true))
   }
 }

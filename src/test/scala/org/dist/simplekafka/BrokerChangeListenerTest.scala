@@ -18,7 +18,7 @@ class BrokerChangeListenerTest extends ZookeeperTestHarness {
     zookeeperClient.registerBroker(Broker(2, "10.10.10.12", 8002))
 
 
-    TestUtils.waitUntilTrue(() ⇒ {
+    TestUtils.waitUntilTrue(() => {
       controller.liveBrokers.size == 3
     }, "Waiting for all brokers to get added", 1000)
 
