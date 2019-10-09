@@ -2,9 +2,9 @@ package org.dist.simplekafka
 
 import org.dist.queue.server.Config
 
-class Server(config:Config) {
-  var zookeeperClient:ZookeeperClient = null
+class Server(config:Config, zookeeperClient: ZookeeperClient, controller:Controller) {
   def startup() = {
-    zookeeperClient = new ZookeeperClientImpl(config)
+    zookeeperClient.registerSelf()
+    controller.elect()
   }
 }

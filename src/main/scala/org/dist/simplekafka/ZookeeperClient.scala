@@ -2,7 +2,7 @@ package org.dist.simplekafka
 
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.google.common.annotations.VisibleForTesting
-import org.I0Itec.zkclient.exception.ZkNoNodeException
+import org.I0Itec.zkclient.exception.{ZkNoNodeException, ZkNodeExistsException}
 import org.I0Itec.zkclient.{IZkChildListener, IZkStateListener, ZkClient}
 import org.apache.zookeeper.Watcher.Event.KeeperState
 import org.dist.kvstore.JsonSerDes
@@ -16,15 +16,20 @@ import scala.jdk.CollectionConverters._
 
 trait ZookeeperClient {
   def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas])
-  def getAllBrokerIds():List[Int]
-  def getPartitionAssignmentsFor(topicName:String):List[PartitionReplicas]
-  def subscribeTopicChangeListener(listener: IZkChildListener):Option[List[String]]
+  def getAllBrokerIds(): List[Int]
+  def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas]
+  def subscribeTopicChangeListener(listener: IZkChildListener): Option[List[String]]
   def registerSelf()
+  def tryCreatingControllerPath(data: String)
 }
 
-class ZookeeperClientImpl(config:Config) extends ZookeeperClient {
-  private val BrokerTopicsPath = "/brokers/topics"
-  private val BrokerIdsPath = "/brokers/ids"
+case class ControllerExistsException(controllerId:String) extends RuntimeException
+
+private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperClient {
+  val BrokerTopicsPath = "/brokers/topics"
+  val BrokerIdsPath = "/brokers/ids"
+  val ControllerPath = "/controller"
+
 
   private val zkClient = new ZkClient(config.zkConnect, config.zkSessionTimeoutMs, config.zkConnectionTimeoutMs, ZKStringSerializer)
   zkClient.subscribeStateChanges(new SessionExpireListener)
@@ -71,7 +76,7 @@ class ZookeeperClientImpl(config:Config) extends ZookeeperClient {
     }).toMap
   }
 
-  private def createEphemeralPath(client: ZkClient, path: String, data: String): Unit = {
+  def createEphemeralPath(client: ZkClient, path: String, data: String): Unit = {
     try {
       client.createEphemeral(path, data)
     } catch {
@@ -119,6 +124,17 @@ class ZookeeperClientImpl(config:Config) extends ZookeeperClient {
 
     override def handleSessionEstablishmentError(error: Throwable): Unit = {
       debug(error)
+    }
+  }
+
+  override def tryCreatingControllerPath(controllerId: String): Unit = {
+    try {
+      createEphemeralPath(zkClient, ControllerPath, controllerId)
+    } catch {
+      case e:ZkNodeExistsException ⇒ {
+        val existingControllerId:String = zkClient.readData(ControllerPath)
+        throw new ControllerExistsException(existingControllerId)
+      }
     }
   }
 }
