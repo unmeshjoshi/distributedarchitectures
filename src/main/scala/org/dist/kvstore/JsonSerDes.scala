@@ -1,6 +1,7 @@
 package org.dist.kvstore
 
 import com.fasterxml.jackson.annotation.{JsonAutoDetect, PropertyAccessor}
+import com.fasterxml.jackson.core.`type`.TypeReference
 import com.fasterxml.jackson.databind.{DeserializationFeature, JavaType, ObjectMapper, SerializationFeature}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
@@ -22,4 +23,13 @@ object JsonSerDes {
     objectMapper.registerModule(DefaultScalaModule)
     objectMapper.readValue(json, clazz)
   }
+
+  def deserialize[T](json:Array[Byte], typeRef:TypeReference[T]):T = {
+    val objectMapper = new ObjectMapper() with ScalaObjectMapper
+    objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+    objectMapper.registerModule(DefaultScalaModule)
+    objectMapper.readValue(json, typeRef)
+  }
+
 }

@@ -41,7 +41,7 @@ class Consumer(val clientId:String, bootstrapBroker:InetAddressAndPort, config:C
 
   private def updateBrokerMetadata(topic: String) = {
     val correlationIdForRequest = correlationId.getAndIncrement()
-    val topicMetadata = new ClientUtils().fetchTopicMetadata(Set(topic), correlationIdForRequest, clientId, bootstrapBroker)
+    val topicMetadata: Seq[TopicMetadata] = new ClientUtils().fetchTopicMetadata(Set(topic), correlationIdForRequest, clientId, bootstrapBroker)
     brokerPartitionInfo.updateInfo(Set(topic), correlationIdForRequest, topicMetadata)
     correlationIdForRequest
   }

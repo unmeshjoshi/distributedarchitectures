@@ -13,7 +13,7 @@ class ReplicaStateMachine(controller: Controller) extends Logging {
   private val controllerContext = controller.controllerContext
   private val controllerId = controller.config.brokerId
   private val zkClient = controllerContext.zkClient
-  private val hasStarted = new AtomicBoolean(false)
+  private val hasStarted = new AtomicBoolean(true)
   var replicaState: mutable.Map[(String, Int, Int), ReplicaState] = mutable.Map.empty
   logIdent = "[Replica state machine on controller " + controller.config.brokerId + "]: "
 

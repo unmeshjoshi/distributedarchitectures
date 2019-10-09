@@ -219,7 +219,7 @@ class Controller(val config:Config, val zkClient:ZkClient, val socketServer:Sock
   }
 
   private def updateLeaderAndIsrCache() {
-    val leaderAndIsrInfo = ZkUtils.getPartitionLeaderAndIsrForTopics(zkClient, controllerContext.partitionReplicaAssignment.keySet)
+    val leaderAndIsrInfo: mutable.Map[TopicAndPartition, LeaderIsrAndControllerEpoch] = ZkUtils.getPartitionLeaderAndIsrForTopics(zkClient, controllerContext.partitionReplicaAssignment.keySet)
     for((topicPartition, leaderIsrAndControllerEpoch) <- leaderAndIsrInfo)
       controllerContext.partitionLeadershipInfo.put(topicPartition, leaderIsrAndControllerEpoch)
   }

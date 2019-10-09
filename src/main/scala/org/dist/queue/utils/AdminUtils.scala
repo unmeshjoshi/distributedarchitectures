@@ -40,6 +40,7 @@ object AdminUtils extends Logging {
     if (replicationFactor > brokerList.size)
       throw new AdministrationException("replication factor: " + replicationFactor +
         " larger than available brokers: " + brokerList.size)
+
     val ret = new mutable.HashMap[Int, List[Int]]()
     val startIndex = if (fixedStartIndex >= 0) fixedStartIndex else rand.nextInt(brokerList.size)
     var currentPartitionId = if (startPartitionId >= 0) startPartitionId else 0
