@@ -3,7 +3,7 @@ package org.dist.simplekafka
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.google.common.annotations.VisibleForTesting
 import org.I0Itec.zkclient.exception.ZkNoNodeException
-import org.I0Itec.zkclient.{IZkStateListener, ZkClient}
+import org.I0Itec.zkclient.{IZkChildListener, IZkStateListener, ZkClient}
 import org.apache.zookeeper.Watcher.Event.KeeperState
 import org.dist.kvstore.JsonSerDes
 import org.dist.queue.common.Logging
@@ -11,9 +11,14 @@ import org.dist.queue.server.Config
 import org.dist.queue.utils.{ZKStringSerializer, ZkUtils}
 import org.dist.queue.utils.ZkUtils.{Broker, BrokerTopicsPath, createParentPath, getTopicPath}
 
+import scala.jdk.CollectionConverters._
+
+
 trait ZookeeperClient {
   def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas])
   def getAllBrokerIds():List[Int]
+  def getPartitionAssignmentsFor(topicName:String):List[PartitionReplicas]
+  def subscribeTopicChangeListener(listener: IZkChildListener):Option[List[String]]
   def registerSelf()
 }
 
@@ -30,8 +35,6 @@ class ZookeeperClientImpl(config:Config) extends ZookeeperClient {
     createPersistentPath(zkClient, topicsPath, topicsData)
   }
 
-  import scala.jdk.CollectionConverters._
-
   override def getAllBrokerIds() = {
     zkClient.getChildren(BrokerIdsPath).asScala.map(_.toInt).toList
   }
@@ -41,6 +44,16 @@ class ZookeeperClientImpl(config:Config) extends ZookeeperClient {
     registerBroker(broker)
   }
 
+  override def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas] = {
+    val partitionAssignments:String = zkClient.readData(getTopicPath(topicName))
+    JsonSerDes.deserialize[List[PartitionReplicas]](partitionAssignments.getBytes, new TypeReference[List[PartitionReplicas]](){})
+  }
+
+  def subscribeTopicChangeListener(listener: IZkChildListener):Option[List[String]] = {
+    val result = zkClient.subscribeChildChanges(BrokerTopicsPath, listener)
+    Option(result).map(_.asScala.toList)
+  }
+
   @VisibleForTesting
   def registerBroker(broker: Broker) = {
     val brokerData = JsonSerDes.serialize(broker)
@@ -48,6 +61,7 @@ class ZookeeperClientImpl(config:Config) extends ZookeeperClient {
     createEphemeralPath(zkClient, brokerPath, brokerData)
   }
 
+  @VisibleForTesting
   def getAllTopics() = {
     val topics = zkClient.getChildren(BrokerTopicsPath).asScala
     topics.map(topicName ⇒ {
@@ -55,7 +69,6 @@ class ZookeeperClientImpl(config:Config) extends ZookeeperClient {
       val partitionReplicas:List[PartitionReplicas] = JsonSerDes.deserialize[List[PartitionReplicas]](partitionAssignments.getBytes, new TypeReference[List[PartitionReplicas]](){})
       (topicName, partitionReplicas)
     }).toMap
-
   }
 
   private def createEphemeralPath(client: ZkClient, path: String, data: String): Unit = {

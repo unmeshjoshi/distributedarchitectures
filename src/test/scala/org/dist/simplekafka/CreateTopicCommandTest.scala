@@ -1,5 +1,6 @@
 package org.dist.simplekafka
 
+import org.I0Itec.zkclient.IZkChildListener
 import org.scalatest.FunSuite
 
 class TestZookeeperClient(brokerIds:List[Int]) extends ZookeeperClient {
@@ -13,6 +14,10 @@ class TestZookeeperClient(brokerIds:List[Int]) extends ZookeeperClient {
   }
 
   override def registerSelf(): Unit = {}
+
+  override def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas] = List()
+
+  override def subscribeTopicChangeListener(listener: IZkChildListener): Option[List[String]] = ???
 }
 
 class CreateTopicCommandTest extends FunSuite {
