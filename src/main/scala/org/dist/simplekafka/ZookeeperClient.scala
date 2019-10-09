@@ -16,9 +16,12 @@ import scala.jdk.CollectionConverters._
 
 trait ZookeeperClient {
   def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas])
-  def getAllBrokerIds(): List[Int]
+  def getAllBrokerIds(): Set[Int]
+  def getAllBrokers(): Set[Broker]
+  def getBrokerInfo(brokerId: Int): Broker
   def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas]
   def subscribeTopicChangeListener(listener: IZkChildListener): Option[List[String]]
+  def subscribeBrokerChangeListener(listener: IZkChildListener): Option[List[String]]
   def registerSelf()
   def tryCreatingControllerPath(data: String)
 }
@@ -40,9 +43,23 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
     createPersistentPath(zkClient, topicsPath, topicsData)
   }
 
-  override def getAllBrokerIds() = {
-    zkClient.getChildren(BrokerIdsPath).asScala.map(_.toInt).toList
+  override def getAllBrokerIds(): Set[Int] = {
+    zkClient.getChildren(BrokerIdsPath).asScala.map(_.toInt).toSet
   }
+
+  def getAllBrokers(): Set[Broker] = {
+    zkClient.getChildren(BrokerIdsPath).asScala.map(brokerId ⇒ {
+      val data:String = zkClient.readData(getBrokerPath(brokerId.toInt))
+      JsonSerDes.deserialize(data.getBytes, classOf[Broker])
+    }).toSet
+  }
+
+  def getBrokerInfo(brokerId: Int): Broker = {
+    val data:String = zkClient.readData(getBrokerPath(brokerId))
+    JsonSerDes.deserialize(data.getBytes, classOf[Broker])
+  }
+
+
 
   override def registerSelf(): Unit = {
     val broker = Broker(config.brokerId, config.hostName, config.port)
@@ -59,10 +76,15 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
     Option(result).map(_.asScala.toList)
   }
 
+  def subscribeBrokerChangeListener(listener: IZkChildListener): Option[List[String]] = {
+    val result = zkClient.subscribeChildChanges(BrokerIdsPath, listener)
+    Option(result).map(_.asScala.toList)
+  }
+
   @VisibleForTesting
   def registerBroker(broker: Broker) = {
     val brokerData = JsonSerDes.serialize(broker)
-    val brokerPath = BrokerIdsPath + "/" + broker.id
+    val brokerPath = getBrokerPath(broker.id)
     createEphemeralPath(zkClient, brokerPath, brokerData)
   }
 
@@ -96,6 +118,10 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
         client.createPersistent(path, data)
       }
     }
+  }
+
+  private def getBrokerPath(id:Int) = {
+    BrokerIdsPath + "/" + id
   }
 
   private def getTopicPath(topicName: String) = {

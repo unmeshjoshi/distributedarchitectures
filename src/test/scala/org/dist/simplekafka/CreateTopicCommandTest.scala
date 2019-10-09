@@ -1,6 +1,7 @@
 package org.dist.simplekafka
 
 import org.I0Itec.zkclient.{IZkChildListener, ZkClient}
+import org.dist.queue.utils.ZkUtils.Broker
 import org.scalatest.FunSuite
 
 class TestZookeeperClient(brokerIds:List[Int]) extends ZookeeperClient {
@@ -8,7 +9,7 @@ class TestZookeeperClient(brokerIds:List[Int]) extends ZookeeperClient {
   var partitionReplicas = Set[PartitionReplicas]()
   var topicChangeListner:IZkChildListener = null
 
-  override def getAllBrokerIds(): List[Int] = List(0, 1, 2)
+  override def getAllBrokerIds(): Set[Int] = Set(0, 1, 2)
 
   override def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas]): Unit = {
     this.topicName = topicName
@@ -24,7 +25,13 @@ class TestZookeeperClient(brokerIds:List[Int]) extends ZookeeperClient {
     None
   }
 
+  def subscribeBrokerChangeListener(listener: IZkChildListener): Option[List[String]] = {
+    None
+  }
+
   override def tryCreatingControllerPath(data: String): Unit = {}
+  def getAllBrokers(): Set[Broker] = Set()
+  def getBrokerInfo(brokerId: Int): Broker = Broker(1, "", 0)
 }
 
 class CreateTopicCommandTest extends FunSuite {

@@ -15,7 +15,7 @@ class CreateTopicCommand(zookeeperClient:ZookeeperClient, partitionAssigner:Repl
     val brokerIds = zookeeperClient.getAllBrokerIds()
     //get list of brokers
     //assign replicas to partition
-    val partitionReplicas = assignReplicasToBrokers(brokerIds, noOfPartitions, replicationFactor)
+    val partitionReplicas = assignReplicasToBrokers(brokerIds.toList, noOfPartitions, replicationFactor)
     // register topic with partition assignments to zookeeper
     zookeeperClient.setPartitionReplicasForTopic(topicName, partitionReplicas)
 
@@ -45,7 +45,7 @@ class CreateTopicCommand(zookeeperClient:ZookeeperClient, partitionAssigner:Repl
    * p3        p4        p0        p1        p2       (3nd replica)
    * p7        p8        p9        p5        p6       (3nd replica)
    */
-  def assignReplicasToBrokers(brokerList: Seq[Int], nPartitions: Int, replicationFactor: Int) = {
+  def assignReplicasToBrokers(brokerList: List[Int], nPartitions: Int, replicationFactor: Int) = {
 
     val ret = new mutable.HashMap[Int, List[Int]]()
     val startIndex = rand.nextInt(brokerList.size)
