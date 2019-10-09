@@ -5,7 +5,9 @@ import org.dist.queue.utils.ZkUtils.Broker
 case class PartitionLeaderInfo(partitionId:Int, leaderBrokerId:Int, replicaIds:List[Int])
 
 class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int) {
-  def addBroker(broker: Broker) = {}
+  def addBroker(broker: Broker) = {
+    liveBrokers += broker
+  }
 
   var liveBrokers:Set[Broker] = Set()
 
