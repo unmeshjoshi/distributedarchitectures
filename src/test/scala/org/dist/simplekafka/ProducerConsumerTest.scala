@@ -11,13 +11,13 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val broker2 = newBroker(2)
     val broker3 = newBroker(3)
 
-    broker1.startup()
+    broker1.startup() //broker1 will become controller as its the first one to start
     broker2.startup()
     broker3.startup()
 
     TestUtils.waitUntilTrue(()⇒ {
       broker1.controller.liveBrokers.size == 3
-    }, "Waiting for all brokers are discovered by controller")
+    }, "Waiting for all brokers to be discovered by the controller")
 
     new CreateTopicCommand(broker1.zookeeperClient).createTopic("topic1", 2, 2)
 
