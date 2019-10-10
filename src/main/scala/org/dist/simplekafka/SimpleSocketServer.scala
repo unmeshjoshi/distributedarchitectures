@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.dist.queue.network
+package org.dist.simplekafka
 
 import java.io.{DataInputStream, DataOutputStream}
 import java.net._
@@ -27,21 +27,16 @@ import org.dist.queue.server.KafkaApis
 import org.dist.queue.utils.Utils
 import org.dist.util.SocketIO
 
-class SocketServer(val brokerId: Int,
-                   val host: String,
-                   val port: Int,
-                   val numProcessorThreads: Int = 2,
-                   val maxQueuedRequests: Int = 500,
-                   val sendBufferSize: Int = 100*1024,
-                   val recvBufferSize: Int = 100*1024,
-                   val maxRequestSize: Int = Int.MaxValue) extends Logging {
+class SimpleSocketServer(val brokerId: Int,
+                         val host: String,
+                         val port: Int) extends Logging {
 
   var listener:TcpListener = null
 
   /**
    * Start the socket server
    */
-  def startup(kafkaApis: KafkaApis) {
+  def startup(kafkaApis: SimpleKafkaApi) {
     listener = new TcpListener(InetAddressAndPort.create(host, port), kafkaApis, this)
     listener.start()
     info("Started socket server")
@@ -62,7 +57,7 @@ class SocketServer(val brokerId: Int,
   }
 }
 
-class TcpListener(localEp: InetAddressAndPort, kafkaApis: KafkaApis, socketServer: SocketServer) extends Thread with Logging {
+class TcpListener(localEp: InetAddressAndPort, kafkaApis: SimpleKafkaApi, socketServer: SimpleSocketServer) extends Thread with Logging {
   var serverSocket:ServerSocket = null
 
   def shudown() = {

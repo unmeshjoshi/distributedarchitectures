@@ -9,7 +9,7 @@ class TopicChangeHandlerTest extends ZookeeperTestHarness {
 
   class TestContext {
     var replicas:Seq[PartitionReplicas] = List()
-    def leaderAndIsr(replicas:Seq[PartitionReplicas]) = {
+    def leaderAndIsr(topicName:String, replicas:Seq[PartitionReplicas]) = {
       this.replicas = replicas
     }
   }
