@@ -29,14 +29,15 @@ import org.dist.util.SocketIO
 
 class SimpleSocketServer(val brokerId: Int,
                          val host: String,
-                         val port: Int) extends Logging {
+                         val port: Int,
+                         val kafkaApis: SimpleKafkaApi) extends Logging {
 
   var listener:TcpListener = null
 
   /**
    * Start the socket server
    */
-  def startup(kafkaApis: SimpleKafkaApi) {
+  def startup() {
     listener = new TcpListener(InetAddressAndPort.create(host, port), kafkaApis, this)
     listener.start()
     info("Started socket server")

@@ -10,7 +10,7 @@ import org.dist.queue.{TestUtils, ZookeeperTestHarness}
 import org.dist.util.Networks
 import scala.jdk.CollectionConverters._
 
-class TestSocketServer(config: Config) extends SimpleSocketServer(config.brokerId, config.hostName, config.port) {
+class TestSocketServer(config: Config) extends SimpleSocketServer(config.brokerId, config.hostName, config.port, null) {
   var messages = new util.ArrayList[RequestOrResponse]()
   var toAddresses = new util.ArrayList[InetAddressAndPort]()
 
@@ -97,8 +97,5 @@ class ControllerZookeeperTest extends ZookeeperTestHarness {
     assert(socketServer1.toAddresses.asScala.toSet == Set(InetAddressAndPort.create(config1.hostName, config1.port),
       InetAddressAndPort.create(config2.hostName, config2.port),
       InetAddressAndPort.create(config3.hostName, config3.port)))
-
-  }
-
-
+ }
 }
