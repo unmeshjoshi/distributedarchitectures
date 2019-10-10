@@ -18,6 +18,10 @@ class ReplicaManager(config:Config) {
     partition.makeLeader()
   }
 
+  def getPartition(topicAndPartition: TopicAndPartition) = {
+    allPartitions.get(topicAndPartition)
+  }
+
   def getOrCreatePartition(topicAndPartition: TopicAndPartition) = {
     var partition = allPartitions.get(topicAndPartition)
     if (null == partition) {

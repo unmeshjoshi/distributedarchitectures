@@ -2,9 +2,9 @@ package org.dist.simplekafka
 
 import java.io._
 
-import org.dist.kvstore.SequenceFile
 import org.dist.queue.common.TopicAndPartition
 import org.dist.queue.server.Config
+import scala.jdk.CollectionConverters._
 
 import scala.util.{Failure, Success, Try}
 
@@ -13,9 +13,9 @@ class Partition(config:Config, topicAndPartition: TopicAndPartition) {
   val logFile =
     new File(config.logDirs(0), topicAndPartition.topic + "-" + topicAndPartition.partition + LogFileSuffix)
 
-  val file = new SequenceFile()
-  val reader = new file.Reader(logFile.getAbsolutePath)
-  val writer = new file.Writer(logFile.getAbsolutePath)
+  val sequenceFile = new SequenceFile()
+  val reader = new sequenceFile.Reader(logFile.getAbsolutePath)
+  val writer = new sequenceFile.Writer(logFile.getAbsolutePath)
 
 
   def makeFollower(leaderId:Int) = {
@@ -41,18 +41,24 @@ class Partition(config:Config, topicAndPartition: TopicAndPartition) {
   }
 
   def read(offset:Long = 0) = {
-    val ba = new ByteArrayOutputStream()
-    val baos = new DataOutputStream(ba)
+    val result = new java.util.ArrayList[Row]()
+    val offsets = sequenceFile.getAllOffSetsFrom(offset)
+    offsets.foreach(offset ⇒ {
+      val filePosition = sequenceFile.offsetIndexes.get(offset)
 
-    reader.seekToOffset(offset)
-    reader.next(baos)
+      val ba = new ByteArrayOutputStream()
+      val baos = new DataOutputStream(ba)
 
-    val bais = new DataInputStream(new ByteArrayInputStream(ba.toByteArray))
-    Try(Row.deserialize(bais)) match {
-      case Success(row) => Some(row)
-      case Failure(exception) => None
-    }
+      reader.seekToOffset(filePosition)
+      reader.next(baos)
 
+      val bais = new DataInputStream(new ByteArrayInputStream(ba.toByteArray))
+      Try(Row.deserialize(bais)) match {
+        case Success(row) => result.add(row)
+        case Failure(exception) => None
+      }
+    })
+    result.asScala.toList
   }
 
 

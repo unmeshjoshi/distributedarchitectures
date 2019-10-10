@@ -2,9 +2,16 @@ package org.dist.simplekafka
 
 import java.io.{DataOutputStream, File, RandomAccessFile}
 import java.util.HashMap
+import java.util.concurrent.atomic.AtomicInteger
+import scala.jdk.CollectionConverters._
 
 class SequenceFile {
+  def getAllOffSetsFrom(offset: Long) = offsetIndexes.keySet().asScala.filter(i ⇒ i >= offset)
+
   val keyIndexes = new HashMap[String, Long]()
+  val offsetIndexes = new HashMap[Long, Long]()
+
+  val offset = new AtomicInteger(0)
 
   abstract class AbstractWriter(var fileName: String) {
 
@@ -25,7 +32,10 @@ class SequenceFile {
       file.seek(position)
     }
 
-    def append(key: String, buffer: Array[Byte]): Unit = {
+    def append(key: String, message: String):Int = {
+      append(key, message.getBytes())
+    }
+    def append(key: String, buffer: Array[Byte]): Int = {
       if (key == null) throw new IllegalArgumentException("Key cannot be NULL.")
       val keyIndex = lastWritePosition
       file.seek(keyIndex)
@@ -36,6 +46,8 @@ class SequenceFile {
       file.getFD.sync()
       this.lastWritePosition = file.getFilePointer
       keyIndexes.put(key, keyIndex)
+      offsetIndexes.put(offset.incrementAndGet(), keyIndex)
+      offset.get()
     }
 
     def getIndexFor(key: String) = keyIndexes.get(key)
@@ -59,6 +71,9 @@ class SequenceFile {
   class Reader(var fileName: String) {
     protected var file = init(fileName)
 
+    def seekToOffset(offset:Long) = {
+      file.seek(offset)
+    }
     def seekToKeyPosition(key: String) = {
       val index = keyIndexes.get(key)
       file.seek(index)

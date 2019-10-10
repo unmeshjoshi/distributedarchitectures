@@ -1,5 +1,6 @@
 package org.dist.simplekafka
 
+import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.server.Config
 import org.dist.queue.{TestUtils, ZookeeperTestHarness}
 import org.dist.util.Networks
@@ -25,6 +26,25 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     }, "waiting till topic metadata is propogated to all the servers", 2000 )
 
     assert(leaderCache(broker1) ==  leaderCache(broker2) &&  leaderCache(broker2) == leaderCache(broker3))
+
+    val bootstrapBroker = InetAddressAndPort.create(broker2.config.hostName, broker2.config.port)
+    val simpleProducer = new SimpleProducer(bootstrapBroker)
+    val offset1 = simpleProducer.produce("topic1", "key1", "message1")
+    assert(offset1 == 1) //first offset
+
+    val offset2 = simpleProducer.produce("topic1", "key2", "message2")
+    assert(offset2 == 1) //first offset on different partition
+
+    val offset3 = simpleProducer.produce("topic1", "key3", "message3")
+    assert(offset3 == 2) //offset on first partition
+
+    val simpleConsumer = new SimpleConsumer(bootstrapBroker)
+    val messages = simpleConsumer.consume("topic1")
+
+    assert(messages.size() == 3)
+    assert(messages.get("key1") == "message1")
+    assert(messages.get("key2") == "message2")
+    assert(messages.get("key3") == "message3")
   }
 
   private def leaderCache(broker: Server) = {
