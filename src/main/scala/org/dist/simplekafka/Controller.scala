@@ -28,19 +28,32 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
   }
 
   def onTopicChange(topicName: String, partitionReplicas: Seq[PartitionReplicas]) = {
-    val leaderAndReplicas = partitionReplicas.map(p => {
+    val leaderAndReplicas: Seq[LeaderAndReplicas] = partitionReplicas.map(p => {
       val leaderBrokerId = p.brokerIds.head //This is where leader for particular partition is selected
       LeaderAndReplicas(TopicAndPartition(topicName, p.partitionId), PartitionInfo(leaderBrokerId, p.brokerIds))
     })
-    val brokerIdsForPartitions: Set[Broker] = partitionReplicas.flatMap(p ⇒ p.brokerIds).toSet.map((bid: Int) ⇒ liveBrokers.find(b ⇒ b.id == bid).get)
 
-    brokerIdsForPartitions.foreach(broker ⇒ {
+    sendLeaderAndReplicaRequest(leaderAndReplicas, partitionReplicas)
+    sendUpdateMetadataRequest(leaderAndReplicas)
+
+  }
+
+  private def sendUpdateMetadataRequest(leaderAndReplicas: Seq[LeaderAndReplicas]) = {
+    liveBrokers.foreach(broker ⇒ {
+      val updateMetadataRequest = UpdateMetadataRequest(liveBrokers.toList, leaderAndReplicas.toList)
+      val request = RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest), correlationId.incrementAndGet())
+      socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
+    })
+  }
+
+  private def sendLeaderAndReplicaRequest(leaderAndReplicas:Seq[LeaderAndReplicas], partitionReplicas: Seq[PartitionReplicas]) = {
+    val brokersForPartition: Set[Broker] = partitionReplicas.flatMap(p ⇒ p.brokerIds).toSet.map((bid: Int) ⇒ liveBrokers.find(b ⇒ b.id == bid).get)
+
+    brokersForPartition.foreach(broker ⇒ {
       val leaderAndReplicaRequest = LeaderAndReplicaRequest(leaderAndReplicas.toList)
       val request = RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(leaderAndReplicaRequest), correlationId.getAndIncrement())
       socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
     })
-    //sendleaderandisr request to all brokers
-    //send updatemetadata request to all brokers
   }
 
   def addBroker(broker: Broker) = {
