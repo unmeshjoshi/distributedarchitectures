@@ -415,6 +415,7 @@ class KafkaApis(val replicaManager: ReplicaManager,
       updateMetadataRequest.aliveBrokers.foreach(b => aliveBrokers.put(b.id, b))
       updateMetadataRequest.partitionStateInfoMap.foreach { partitionState =>
         leaderCache.put(partitionState._1, partitionState._2)
+
         trace(("Broker %d cached leader info %s for partition %s in response to UpdateMetadata request " +
           "sent by controller %d epoch %d with correlation id %d").format(brokerId, partitionState._2, partitionState._1,
           updateMetadataRequest.controllerId, updateMetadataRequest.controllerEpoch, updateMetadataRequest.correlationId))
