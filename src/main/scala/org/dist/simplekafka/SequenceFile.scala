@@ -46,8 +46,10 @@ class SequenceFile {
       file.getFD.sync()
       this.lastWritePosition = file.getFilePointer
       keyIndexes.put(key, keyIndex)
-      offsetIndexes.put(offset.incrementAndGet(), keyIndex)
-      offset.get()
+      val currentOffset = offset.incrementAndGet()
+      offsetIndexes.put(currentOffset, keyIndex)
+      currentOffset
+
     }
 
     def getIndexFor(key: String) = keyIndexes.get(key)

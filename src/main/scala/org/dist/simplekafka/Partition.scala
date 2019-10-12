@@ -28,11 +28,7 @@ class Partition(config:Config, topicAndPartition: TopicAndPartition) {
 
   def append(key:String, message:String) = {
     val currentPos = writer.getCurrentPosition
-    val ba = new ByteArrayOutputStream()
-    val bufOut = new DataOutputStream(ba)
-    val row = Row(key, message)
-    Row.serialize(row, bufOut)
-    try writer.append(row.key, ba.toByteArray)
+    try writer.append(key, message)
     catch {
       case e: IOException =>
         writer.seek(currentPos)
