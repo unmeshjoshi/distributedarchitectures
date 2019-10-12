@@ -72,28 +72,9 @@ class TcpListener(localEp: InetAddressAndPort, kafkaApis: SimpleKafkaApi, socket
     info(s"Listening on ${localEp}")
     while (true) {
       val socket = serverSocket.accept()
-      socket.setSoTimeout(1000)
-      val inputStream = socket.getInputStream()
-      trace(s"Connection from ${socket.getInetAddress}, ${socket.getPort}" )
-
-      val dataInputStream = new DataInputStream(inputStream)
-      val size = dataInputStream.readInt()
-      val messageBytes = new Array[Byte](size)
-      inputStream.read(messageBytes)
-      val request = JsonSerDes.deserialize(messageBytes, classOf[RequestOrResponse])
-
-      val response = kafkaApis.handle(request)
-      val str = JsonSerDes.serialize(response)
-
-      val outptStream = socket.getOutputStream
-      val dataOutputStream = new DataOutputStream(outptStream)
-      val bytes = str.getBytes()
-      dataOutputStream.writeInt(bytes.size)
-      dataOutputStream.write(bytes)
-      outptStream.flush()
-      outptStream.close()
-      inputStream.close()
-      socket.close()
+      new SocketIO(socket, classOf[RequestOrResponse]).readHandleRespond((request)⇒{
+        kafkaApis.handle(request)
+      })
     }
   }
 }

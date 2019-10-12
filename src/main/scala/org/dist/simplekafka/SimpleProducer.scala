@@ -19,7 +19,7 @@ class SimpleProducer(bootstrapBroker: InetAddressAndPort, socketClient:SocketCli
     val producerRequest = RequestOrResponse(RequestKeys.ProduceKey, JsonSerDes.serialize(produceRequest), correlationId.incrementAndGet())
     val produceResponse = socketClient.sendReceiveTcp(producerRequest, InetAddressAndPort.create(leaderBroker.host, leaderBroker.port))
     val response1 = JsonSerDes.deserialize(produceResponse.messageBodyJson.getBytes(), classOf[ProduceResponse])
-    info(s"Produced message ${key} -> ${message}. Message offset is ${response1.offset}")
+    info(s"Produced message ${key} -> ${message} on leader broker ${leaderBroker}. Message offset is ${response1.offset}")
     response1.offset
   }
 

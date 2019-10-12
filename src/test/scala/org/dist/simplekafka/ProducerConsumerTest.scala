@@ -1,11 +1,13 @@
 package org.dist.simplekafka
 
 import org.dist.kvstore.InetAddressAndPort
+import org.dist.queue.common.Logging
 import org.dist.queue.server.Config
 import org.dist.queue.{TestUtils, ZookeeperTestHarness}
 import org.dist.util.Networks
 
-class ProducerConsumerTest extends ZookeeperTestHarness {
+class ProducerConsumerTest extends ZookeeperTestHarness with Logging {
+
   test("should produce and consumer messages from three broker cluster") {
     val broker1 = newBroker(1)
     val broker2 = newBroker(2)
@@ -40,6 +42,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     assert(offset2 == 1) //first offset on different partition
 
     val offset3 = simpleProducer.produce("topic1", "key3", "message3")
+
     assert(offset3 == 2) //offset on first partition
 
     val simpleConsumer = new SimpleConsumer(bootstrapBroker)
@@ -60,11 +63,11 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
   }
 
   private def newBroker(brokerId: Int) = {
-    val config1 = Config(brokerId, new Networks().hostname(), TestUtils.choosePort(), zkConnect, List(TestUtils.tempDir().getAbsolutePath))
-    val zookeeperClient: ZookeeperClientImpl = new ZookeeperClientImpl(config1)
-    val replicaManager = new ReplicaManager(config1)
-    val socketServer1 = new SimpleSocketServer(config1.brokerId, config1.hostName, config1.port, new SimpleKafkaApi(config1, replicaManager))
-    val controller = new Controller(zookeeperClient, config1.brokerId, socketServer1)
-    new Server(config1, zookeeperClient, controller, socketServer1)
+    val config = Config(brokerId, new Networks().hostname(), TestUtils.choosePort(), zkConnect, List(TestUtils.tempDir().getAbsolutePath))
+    val zookeeperClient: ZookeeperClientImpl = new ZookeeperClientImpl(config)
+    val replicaManager = new ReplicaManager(config)
+    val socketServer1 = new SimpleSocketServer(config.brokerId, config.hostName, config.port, new SimpleKafkaApi(config, replicaManager))
+    val controller = new Controller(zookeeperClient, config.brokerId, socketServer1)
+    new Server(config, zookeeperClient, controller, socketServer1)
   }
 }
