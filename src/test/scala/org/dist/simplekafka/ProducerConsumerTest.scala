@@ -10,19 +10,23 @@ class ProducerConsumerTest extends ZookeeperTestHarness {
     val broker1 = newBroker(1)
     val broker2 = newBroker(2)
     val broker3 = newBroker(3)
+    val broker4 = newBroker(4)
+    val broker5 = newBroker(5)
 
     broker1.startup() //broker1 will become controller as its the first one to start
     broker2.startup()
     broker3.startup()
+    broker4.startup()
+    broker5.startup()
 
     TestUtils.waitUntilTrue(()⇒ {
-      broker1.controller.liveBrokers.size == 3
+      broker1.controller.liveBrokers.size == 5
     }, "Waiting for all brokers to be discovered by the controller")
 
-    new CreateTopicCommand(broker1.zookeeperClient).createTopic("topic1", 2, 2)
+    new CreateTopicCommand(broker1.zookeeperClient).createTopic("topic1", 2, 5)
 
     TestUtils.waitUntilTrue(() ⇒ {
-        liveBrokersIn(broker1) == 3 && liveBrokersIn(broker2) == 3 && liveBrokersIn(broker3) == 3
+        liveBrokersIn(broker1) == 5 && liveBrokersIn(broker2) == 5 && liveBrokersIn(broker3) == 5
     }, "waiting till topic metadata is propogated to all the servers", 2000 )
 
     assert(leaderCache(broker1) ==  leaderCache(broker2) &&  leaderCache(broker2) == leaderCache(broker3))

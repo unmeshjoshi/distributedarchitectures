@@ -14,7 +14,7 @@ class TopicChangeHandlerTest extends ZookeeperTestHarness {
     }
   }
 
-  test("should select leader and follower replicas for when topic is created in zookeeper") {
+  test("should register for topic change and get replica assignments") {
     val config = new Config(1, new Networks().hostname(), TestUtils.choosePort(), zkConnect, List(TestUtils.tempDir().getAbsolutePath))
     val zookeeperClient = new ZookeeperClientImpl(config)
     zookeeperClient.registerBroker(Broker(0, "10.10.10.10", 8000))
@@ -29,6 +29,6 @@ class TopicChangeHandlerTest extends ZookeeperTestHarness {
 
     TestUtils.waitUntilTrue(() => {
       testContext.replicas.size > 0
-    }, "Selected leader and replicas", 1000)
+    }, "Waiting for topic metadata", 1000)
   }
 }

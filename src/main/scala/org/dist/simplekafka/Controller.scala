@@ -1,7 +1,9 @@
 package org.dist.simplekafka
 
+import java.util
 import java.util.concurrent.atomic.AtomicInteger
 
+import com.google.common.annotations.VisibleForTesting
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.api.{RequestKeys, RequestOrResponse}
 import org.dist.queue.common.TopicAndPartition
@@ -35,8 +37,8 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
       LeaderAndReplicas(TopicAndPartition(topicName, p.partitionId), PartitionInfo(leaderBroker, replicaBrokers))
     })
 
-    sendLeaderAndReplicaRequest(leaderAndReplicas, partitionReplicas)
-    sendUpdateMetadataRequest(leaderAndReplicas)
+    sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(leaderAndReplicas, partitionReplicas)
+    sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas)
 
   }
 
@@ -44,7 +46,7 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
     liveBrokers.find(b ⇒ b.id == brokerId).get
   }
 
-  private def sendUpdateMetadataRequest(leaderAndReplicas: Seq[LeaderAndReplicas]) = {
+  private def sendUpdateMetadataRequestToAllLiveBrokers(leaderAndReplicas: Seq[LeaderAndReplicas]) = {val brokerListToIsrRequestMap =
     liveBrokers.foreach(broker ⇒ {
       val updateMetadataRequest = UpdateMetadataRequest(liveBrokers.toList, leaderAndReplicas.toList)
       val request = RequestOrResponse(RequestKeys.UpdateMetadataKey, JsonSerDes.serialize(updateMetadataRequest), correlationId.incrementAndGet())
@@ -52,14 +54,29 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
     })
   }
 
-  private def sendLeaderAndReplicaRequest(leaderAndReplicas:Seq[LeaderAndReplicas], partitionReplicas: Seq[PartitionReplicas]) = {
-    val brokersForPartition: Set[Broker] = partitionReplicas.flatMap(p ⇒ p.brokerIds).toSet.map((bid: Int) ⇒ liveBrokers.find(b ⇒ b.id == bid).get)
+  import scala.jdk.CollectionConverters._
 
-    brokersForPartition.foreach(broker ⇒ {
-      val leaderAndReplicaRequest = LeaderAndReplicaRequest(leaderAndReplicas.toList)
+  @VisibleForTesting
+  def sendLeaderAndReplicaRequestToAllLeadersAndFollowersForGivenPartition(leaderAndReplicas:Seq[LeaderAndReplicas], partitionReplicas: Seq[PartitionReplicas]) = {
+    val brokerToLeaderIsrRequest = new util.HashMap[Broker, java.util.List[LeaderAndReplicas]]()
+    leaderAndReplicas.foreach(lr ⇒ {
+        lr.partitionStateInfo.allReplicas.foreach(broker ⇒ {
+          var leaderReplicas = brokerToLeaderIsrRequest.get(broker)
+          if (leaderReplicas == null) {
+            leaderReplicas = new util.ArrayList[LeaderAndReplicas]()
+            brokerToLeaderIsrRequest.put(broker, leaderReplicas)
+          }
+          leaderReplicas.add(lr)
+        })
+    })
+
+    val brokers = brokerToLeaderIsrRequest.keySet().asScala
+    for(broker ← brokers) {
+      val leaderAndReplicas: java.util.List[LeaderAndReplicas] = brokerToLeaderIsrRequest.get(broker)
+      val leaderAndReplicaRequest = LeaderAndReplicaRequest(leaderAndReplicas.asScala.toList)
       val request = RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(leaderAndReplicaRequest), correlationId.getAndIncrement())
       socketServer.sendReceiveTcp(request, InetAddressAndPort.create(broker.host, broker.port))
-    })
+    }
   }
 
   def addBroker(broker: Broker) = {

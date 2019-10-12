@@ -22,7 +22,7 @@ class TestSocketServer(config: Config) extends SimpleSocketServer(config.brokerI
 }
 
 class ControllerZookeeperTest extends ZookeeperTestHarness {
-  test("should send LeaderAndFollower requests to all leader and follower brokers") {
+  test("should send LeaderAndFollower requests to all leader and follower brokers for given topicandpartition") {
     val config1 = Config(1, new Networks().hostname(), TestUtils.choosePort(), zkConnect, List(TestUtils.tempDir().getAbsolutePath))
     val zookeeperClient: ZookeeperClientImpl = new ZookeeperClientImpl(config1)
     zookeeperClient.registerBroker(Broker(config1.brokerId, config1.hostName, config1.port))
@@ -45,10 +45,10 @@ class ControllerZookeeperTest extends ZookeeperTestHarness {
     assert(controller.liveBrokers.size == 3)
 
     val createCommandTest = new CreateTopicCommand(zookeeperClient)
-    createCommandTest.createTopic("topic1", 2, 3)
+    createCommandTest.createTopic("topic1", 2, 1)
 
     TestUtils.waitUntilTrue(() ⇒ {
-      socketServer1.messages.size == 6 && socketServer1.toAddresses.asScala.toSet.size == 3
+      socketServer1.messages.size == 5 && socketServer1.toAddresses.asScala.toSet.size == 3
     }, "waiting for leader and replica requests handled in all brokers", 2000)
 
     socketServer1.messages.asScala.filter(m⇒ m.requestId == RequestKeys.LeaderAndIsrKey).toList.foreach(message ⇒ {

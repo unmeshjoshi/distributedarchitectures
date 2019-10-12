@@ -46,4 +46,16 @@ class CreateTopicCommandTest extends FunSuite {
     assert(zookeeperClient.partitionReplicas.size == noOfPartitions)
     zookeeperClient.partitionReplicas.map(p => p.brokerIds).foreach(_.size == replicationFactor)
   }
+
+  test("should assign partitions assigned to ") {
+    val brokerIds = List(0, 1, 2)
+    val zookeeperClient = new TestZookeeperClient(brokerIds)
+    val createCommandTest = new CreateTopicCommand(zookeeperClient)
+    val noOfPartitions = 3
+    val replicationFactor = 2
+    createCommandTest.createTopic("topic1", noOfPartitions, replicationFactor)
+    assert(zookeeperClient.topicName == "topic1")
+    assert(zookeeperClient.partitionReplicas.size == noOfPartitions)
+    zookeeperClient.partitionReplicas.map(p => p.brokerIds).foreach(_.size == replicationFactor)
+  }
 }
