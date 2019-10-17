@@ -33,6 +33,9 @@ class ProducerConsumerTest extends ZookeeperTestHarness with Logging {
 
     assert(leaderCache(broker1) ==  leaderCache(broker2) &&  leaderCache(broker2) == leaderCache(broker3))
 
+
+
+
     val bootstrapBroker = InetAddressAndPort.create(broker2.config.hostName, broker2.config.port)
     val simpleProducer = new SimpleProducer(bootstrapBroker)
     val offset1 = simpleProducer.produce("topic1", "key1", "message1")

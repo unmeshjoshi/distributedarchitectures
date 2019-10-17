@@ -164,11 +164,11 @@ class KafkaApis(val replicaManager: ReplicaManager,
         val response = LeaderAndIsrResponse(leaderAndIsrRequest.controllerId, tuple._1.toMap, tuple._2)
         RequestOrResponse(RequestKeys.LeaderAndIsrKey, JsonSerDes.serialize(response), leaderAndIsrRequest.correlationId)
       }
-      case RequestKeys.MetadataKey => {
+      case RequestKeys.GetMetadataKey => {
         debug(s"Handling MetadataRequest ${request.messageBodyJson}" )
         val topicMetadataRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes, classOf[TopicMetadataRequest])
         val topicMetadataResponse = handleTopicMetadataRequest(topicMetadataRequest)
-        RequestOrResponse(RequestKeys.MetadataKey, JsonSerDes.serialize(topicMetadataResponse), topicMetadataRequest.correlationId)
+        RequestOrResponse(RequestKeys.GetMetadataKey, JsonSerDes.serialize(topicMetadataResponse), topicMetadataRequest.correlationId)
       }
       case RequestKeys.ProduceKey => {
         debug(s"Handling ProduceRequest ${request.messageBodyJson}" )

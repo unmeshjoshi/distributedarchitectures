@@ -10,7 +10,7 @@ class ClientUtils {
 
   def fetchTopicMetadata(topics: Set[String], correlationId: Int, clientId:String, bootstrapBroker:InetAddressAndPort): Seq[TopicMetadata] = {
     val topicMetadataRequest = new TopicMetadataRequest(TopicMetadataRequest.CurrentVersion, correlationId, clientId, topics.toSeq)
-    val response = socketClient.sendReceiveTcp(new RequestOrResponse(RequestKeys.MetadataKey, JsonSerDes.serialize(topicMetadataRequest), correlationId), bootstrapBroker)
+    val response = socketClient.sendReceiveTcp(new RequestOrResponse(RequestKeys.GetMetadataKey, JsonSerDes.serialize(topicMetadataRequest), correlationId), bootstrapBroker)
     val topicMetadataResponse = JsonSerDes.deserialize(response.messageBodyJson.getBytes(), classOf[TopicMetadataResponse])
     topicMetadataResponse.topicsMetadata
   }

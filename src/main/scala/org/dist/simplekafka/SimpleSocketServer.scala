@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,13 +17,12 @@
 
 package org.dist.simplekafka
 
-import java.io.{DataInputStream, DataOutputStream}
 import java.net._
+import java.util.concurrent.atomic.AtomicBoolean
 
-import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
+import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.common.Logging
-import org.dist.queue.server.KafkaApis
 import org.dist.queue.utils.Utils
 import org.dist.util.SocketIO
 
@@ -32,7 +31,7 @@ class SimpleSocketServer(val brokerId: Int,
                          val port: Int,
                          val kafkaApis: SimpleKafkaApi) extends Logging {
 
-  var listener:TcpListener = null
+  var listener: TcpListener = null
 
   /**
    * Start the socket server
@@ -59,7 +58,8 @@ class SimpleSocketServer(val brokerId: Int,
 }
 
 class TcpListener(localEp: InetAddressAndPort, kafkaApis: SimpleKafkaApi, socketServer: SimpleSocketServer) extends Thread with Logging {
-  var serverSocket:ServerSocket = null
+  val isRunning = new AtomicBoolean(true)
+  var serverSocket: ServerSocket = null
 
   def shudown() = {
     Utils.swallow(serverSocket.close())
@@ -67,14 +67,17 @@ class TcpListener(localEp: InetAddressAndPort, kafkaApis: SimpleKafkaApi, socket
 
 
   override def run(): Unit = {
-    serverSocket = new ServerSocket()
-    serverSocket.bind(new InetSocketAddress(localEp.address, localEp.port))
-    info(s"Listening on ${localEp}")
-    while (true) {
-      val socket = serverSocket.accept()
-      new SocketIO(socket, classOf[RequestOrResponse]).readHandleRespond((request)⇒{
-        kafkaApis.handle(request)
-      })
+    Utils.swallow({
+      serverSocket = new ServerSocket()
+      serverSocket.bind(new InetSocketAddress(localEp.address, localEp.port))
+      info(s"Listening on ${localEp}")
+      while (true) {
+        val socket = serverSocket.accept()
+        new SocketIO(socket, classOf[RequestOrResponse]).readHandleRespond((request) ⇒ {
+          kafkaApis.handle(request)
+        })
+      }
     }
+    )
   }
 }

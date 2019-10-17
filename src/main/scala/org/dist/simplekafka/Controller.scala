@@ -12,6 +12,14 @@ import org.dist.queue.utils.ZkUtils.Broker
 class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socketServer: SimpleSocketServer) {
   val correlationId = new AtomicInteger(0)
   var liveBrokers: Set[Broker] = Set()
+  var currentLeader = -1
+  def startup(): Unit = {
+    zookeeperClient.subscribeControllerChangeListner(this)
+    elect()
+  }
+
+  def shutdown() = {
+  }
 
   def elect() = {
     val leaderId = s"${brokerId}"
@@ -19,7 +27,9 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
       zookeeperClient.tryCreatingControllerPath(leaderId)
       onBecomingLeader()
     } catch {
-      case e: ControllerExistsException => e.controllerId
+      case e: ControllerExistsException => {
+        this.currentLeader = e.controllerId.toInt
+      }
     }
   }
 
@@ -92,6 +102,10 @@ class Controller(val zookeeperClient: ZookeeperClient, val brokerId: Int, socket
   //We do not do anything, assuming all topics are created after all the brokers are up and running
   def onBrokerStartup(toSeq: Seq[Int]) = {
 
+  }
+
+  def setCurrent(existingControllerId: Int): Unit = {
+    this.currentLeader = existingControllerId
   }
 }
 

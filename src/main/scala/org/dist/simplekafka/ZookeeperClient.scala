@@ -3,7 +3,7 @@ package org.dist.simplekafka
 import com.fasterxml.jackson.core.`type`.TypeReference
 import com.google.common.annotations.VisibleForTesting
 import org.I0Itec.zkclient.exception.{ZkNoNodeException, ZkNodeExistsException}
-import org.I0Itec.zkclient.{IZkChildListener, IZkStateListener, ZkClient}
+import org.I0Itec.zkclient.{IZkChildListener, IZkDataListener, IZkStateListener, ZkClient}
 import org.apache.zookeeper.Watcher.Event.KeeperState
 import org.dist.kvstore.JsonSerDes
 import org.dist.queue.common.Logging
@@ -15,6 +15,8 @@ import scala.jdk.CollectionConverters._
 
 
 trait ZookeeperClient {
+  def shutdown()
+
   def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas])
   def getAllBrokerIds(): Set[Int]
   def getAllBrokers(): Set[Broker]
@@ -22,6 +24,8 @@ trait ZookeeperClient {
   def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas]
   def subscribeTopicChangeListener(listener: IZkChildListener): Option[List[String]]
   def subscribeBrokerChangeListener(listener: IZkChildListener): Option[List[String]]
+  def subscribeControllerChangeListner(controller:Controller): Unit
+
   def registerSelf()
   def tryCreatingControllerPath(data: String)
 }
@@ -161,6 +165,24 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
         val existingControllerId:String = zkClient.readData(ControllerPath)
         throw new ControllerExistsException(existingControllerId)
       }
+    }
+  }
+
+  override def subscribeControllerChangeListner(controller:Controller): Unit = {
+    zkClient.subscribeDataChanges(ControllerPath, new ControllerChangeListener(controller))
+  }
+
+  override def shutdown(): Unit = zkClient.close()
+
+
+  class ControllerChangeListener(controller:Controller) extends IZkDataListener {
+    override def handleDataChange(dataPath: String, data: Any): Unit = {
+      val existingControllerId:String = zkClient.readData(dataPath)
+      controller.setCurrent(existingControllerId.toInt)
+    }
+
+    override def handleDataDeleted(dataPath: String): Unit = {
+      controller.elect()
     }
   }
 }

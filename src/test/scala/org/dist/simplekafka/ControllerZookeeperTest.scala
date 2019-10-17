@@ -29,7 +29,7 @@ class ControllerZookeeperTest extends ZookeeperTestHarness {
 
     val socketServer1 = new TestSocketServer(config1)
     val controller = new Controller(zookeeperClient, config1.brokerId, socketServer1)
-    controller.elect()
+    controller.startup()
 
     val config2 = Config(2, new Networks().hostname(), TestUtils.choosePort(), zkConnect, List(TestUtils.tempDir().getAbsolutePath))
     zookeeperClient.registerBroker(Broker(config2.brokerId, config2.hostName, config2.port))
@@ -68,7 +68,7 @@ class ControllerZookeeperTest extends ZookeeperTestHarness {
 
     val socketServer1 = new TestSocketServer(config1)
     val controller = new Controller(zookeeperClient, config1.brokerId, socketServer1)
-    controller.elect()
+    controller.startup()
 
     val config2 = Config(2, new Networks().hostname(), TestUtils.choosePort(), zkConnect, List(TestUtils.tempDir().getAbsolutePath))
     zookeeperClient.registerBroker(Broker(config2.brokerId, config2.hostName, config2.port))

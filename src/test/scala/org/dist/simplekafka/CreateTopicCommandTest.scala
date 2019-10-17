@@ -1,6 +1,6 @@
 package org.dist.simplekafka
 
-import org.I0Itec.zkclient.{IZkChildListener, ZkClient}
+import org.I0Itec.zkclient.{IZkChildListener, IZkDataListener, ZkClient}
 import org.dist.queue.utils.ZkUtils.Broker
 import org.scalatest.FunSuite
 
@@ -32,6 +32,10 @@ class TestZookeeperClient(brokerIds:List[Int]) extends ZookeeperClient {
   override def tryCreatingControllerPath(data: String): Unit = {}
   def getAllBrokers(): Set[Broker] = Set()
   def getBrokerInfo(brokerId: Int): Broker = Broker(1, "", 0)
+
+  override def shutdown(): Unit = ???
+
+  override def subscribeControllerChangeListner(controller: Controller): Unit = ???
 }
 
 class CreateTopicCommandTest extends FunSuite {

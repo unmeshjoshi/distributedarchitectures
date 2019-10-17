@@ -162,7 +162,9 @@ class PartitionStateMachine(controller: Controller) extends Logging {
     }
   }
 
-  def electLeaderForPartition(topic: String, partition: Int, leaderSelector: PartitionLeaderSelector) = ???
+  def electLeaderForPartition(topic: String, partition: Int, leaderSelector: PartitionLeaderSelector) = {
+
+  }
 
   private def assertValidPreviousStates(topicAndPartition: TopicAndPartition, fromStates: Seq[PartitionState],
                                         targetState: PartitionState) {

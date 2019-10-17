@@ -13,7 +13,7 @@ object RequestKeys {
   val ProduceKey: Short = 0
   val FetchKey: Short = 1
   val OffsetsKey: Short = 2
-  val MetadataKey: Short = 3
+  val GetMetadataKey: Short = 3
   val LeaderAndIsrKey: Short = 4
   val StopReplicaKey: Short = 5
   val UpdateMetadataKey: Short = 6

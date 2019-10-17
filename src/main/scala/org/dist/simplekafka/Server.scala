@@ -7,9 +7,13 @@ class Server(val config:Config, val zookeeperClient: ZookeeperClient, val contro
   def startup() = {
     socketServer.startup()
     zookeeperClient.registerSelf()
-    controller.elect()
+    controller.startup()
 
     info(s"Server ${config.brokerId} started with log dir ${config.logDirs}")
+  }
 
+  def shutdown()= {
+    zookeeperClient.shutdown()
+    socketServer.shutdown()
   }
 }

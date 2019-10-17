@@ -24,7 +24,7 @@ class SimpleProducer(bootstrapBroker: InetAddressAndPort, socketClient:SocketCli
   }
 
   private def fetchTopicMetadata(topic: String) = {
-    val request = RequestOrResponse(RequestKeys.MetadataKey, JsonSerDes.serialize(TopicMetadataRequest(topic)), 1)
+    val request = RequestOrResponse(RequestKeys.GetMetadataKey, JsonSerDes.serialize(TopicMetadataRequest(topic)), 1)
 
     val response = socketClient.sendReceiveTcp(request, bootstrapBroker)
     val topicMetadataResponse = JsonSerDes.deserialize(response.messageBodyJson.getBytes(), classOf[TopicMetadataResponse])

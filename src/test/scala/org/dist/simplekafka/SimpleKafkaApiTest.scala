@@ -45,7 +45,7 @@ class SimpleKafkaApiTest extends ZookeeperTestHarness {
     val replicaManager = new ReplicaManager(config)
     val simpleKafkaApi = new SimpleKafkaApi(config, replicaManager)
     val aliveBrokers = List(Broker(0, "10.10.10.10", 8000), Broker(1, "10.10.10.11", 8000), Broker(2, "10.10.10.12", 8000))
-    val request = RequestOrResponse(RequestKeys.MetadataKey, JsonSerDes.serialize(TopicMetadataRequest("topic1")), 1)
+    val request = RequestOrResponse(RequestKeys.GetMetadataKey, JsonSerDes.serialize(TopicMetadataRequest("topic1")), 1)
     simpleKafkaApi.aliveBrokers = aliveBrokers
     simpleKafkaApi.leaderCache = new java.util.HashMap[TopicAndPartition, PartitionInfo]
     simpleKafkaApi.leaderCache.put(TopicAndPartition("topic1", 0), PartitionInfo(Broker(0, "10.10.10.10", 8000), List(Broker(0, "10.10.10.10", 8000), Broker(1, "10.10.10.11", 8000))))

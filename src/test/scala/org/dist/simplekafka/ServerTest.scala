@@ -25,6 +25,6 @@ class ServerTest extends ZookeeperTestHarness {
     var server = new Server(config, client, leaderElector, socketServer)
     server.startup()
     verify(client, atLeastOnce()).registerSelf()
-    verify(leaderElector, atLeastOnce()).elect()
+    verify(leaderElector, atLeastOnce()).startup()
   }
 }

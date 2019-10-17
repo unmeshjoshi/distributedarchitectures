@@ -20,7 +20,7 @@ class SimpleKafkaApi(config: Config, replicaManager: ReplicaManager) {
         leaderAndReplicasRequest.leaderReplicas.foreach(leaderAndReplicas ⇒ {
           val topicAndPartition = leaderAndReplicas.topicPartition
           val leader = leaderAndReplicas.partitionStateInfo.leader
-          if (leader == config.brokerId)
+          if (leader.id == config.brokerId)
             replicaManager.makeLeader(topicAndPartition)
           else
             replicaManager.makeFollower(topicAndPartition, leader.id)
@@ -35,7 +35,7 @@ class SimpleKafkaApi(config: Config, replicaManager: ReplicaManager) {
         })
         RequestOrResponse(RequestKeys.UpdateMetadataKey, "", request.correlationId)
       }
-      case RequestKeys.MetadataKey ⇒ {
+      case RequestKeys.GetMetadataKey ⇒ {
         val topicMetadataRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes(), classOf[TopicMetadataRequest])
         val topicAndPartitions = leaderCache.keySet().asScala.filter(topicAndPartition ⇒ topicAndPartition.topic == topicMetadataRequest.topicName)
         val partitionInfo: Map[TopicAndPartition, PartitionInfo] = topicAndPartitions.map((tp: TopicAndPartition) ⇒ {
