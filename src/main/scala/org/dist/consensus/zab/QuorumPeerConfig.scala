@@ -1,3 +1,7 @@
 package org.dist.consensus.zab
 
-case class QuorumPeerConfig(serverId:Long, servers:List[QuorumServer])
+import org.dist.kvstore.InetAddressAndPort
+
+case class QuorumPeerConfig(serverId:Long, electionAddress:InetAddressAndPort, serverAddress:InetAddressAndPort, servers:List[QuorumServer]) {
+
+}
