@@ -22,12 +22,11 @@ class QuorumPeerTest extends FunSuite {
     
     val peer1 = new QuorumPeer(QuorumPeerConfig(1, peerAddr1,serverAddr1, serverList ), quorumConnectionManager)
     val peer2 = new QuorumPeer(QuorumPeerConfig(2, peerAddr2,serverAddr1, serverList), quorumConnectionManager)
-//    val peer3 = new QuorumPeer(QuorumPeerConfig(3, peerAddr3,serverAddr1, serverList), quorumConnectionManager)
+    val peer3 = new QuorumPeer(QuorumPeerConfig(3, peerAddr3,serverAddr1, serverList), quorumConnectionManager)
 
     peer1.start()
     peer2.start()
-//    peer3.start()
+    peer3.start()
 
-    Thread.sleep(10000)
   }
 }

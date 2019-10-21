@@ -188,12 +188,12 @@ class QuorumPeer(val config:QuorumPeerConfig, quorumConnectionManager: QuorumCon
         }
         case ServerState.LEADING ⇒ {
           info(s"${myid} Leading now")
+          val leader = new Leader(this)
         }
         case ServerState.FOLLOWING ⇒ {
           info(s"${myid} Following now")
         }
       }
-      Thread.sleep(5000)
     }
   }
 
