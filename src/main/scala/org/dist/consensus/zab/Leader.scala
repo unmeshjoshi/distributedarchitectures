@@ -1,6 +1,11 @@
 package org.dist.consensus.zab
 
 import java.net.ServerSocket
+import java.util
+
+import org.dist.queue.common.Logging
+
+import scala.jdk.CollectionConverters._
 
 object Leader {
   /**
@@ -76,9 +81,12 @@ object Leader {
   private[zab] val SYNC = 7
 }
 
-class Leader(self:QuorumPeer) {
+class Leader(self:QuorumPeer) extends Logging {
+  val lastProposed: Long = 0
   val config = self.config
-  val ss = new ServerSocket(config.electionAddress.port, 50, config.electionAddress.address)
+
+  val ss = new ServerSocket(config.serverAddress.port, 100, config.serverAddress.address)
+  val followers = new util.ArrayList[FollowerHandler]()
 
   def lead() = {
     //setup tcpip server communication
@@ -86,18 +94,33 @@ class Leader(self:QuorumPeer) {
     new Thread() {
       override def run(): Unit = {
         try {
+          info(s"Leader listening on ${config.serverAddress.address} and ${config.serverAddress.port}")
           while (true) {
             val s = ss.accept
             s.setSoTimeout(config.tickTime * config.syncLimit)
             s.setTcpNoDelay(true)
             val followerHandler = new FollowerHandler(s, Leader.this)
+            followers.add(followerHandler)
             followerHandler.start()
           }
         } catch {
-          case e: Exception ⇒
+          case e: Exception ⇒ {
+            error("Error in follower connection. Moving ahead")
+          }
           //
         }
       }
     }.start()
+
+    while(true) {
+      Thread.sleep(self.config.tickTime / 2)
+
+      self.tick.incrementAndGet()
+
+      followers.asScala.foreach(follower ⇒ {
+        follower.ping()
+      })
+    }
   }
+
 }

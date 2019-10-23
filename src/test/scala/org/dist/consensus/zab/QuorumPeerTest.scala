@@ -18,15 +18,16 @@ class QuorumPeerTest extends FunSuite {
     val serverAddr2 = InetAddressAndPort(address, 9081)
     val serverAddr3 = InetAddressAndPort(address, 9082)
 
-    val serverList = List(QuorumServer(peerAddr1, serverAddr1), QuorumServer(peerAddr2, serverAddr2))
+    val serverList = List(QuorumServer(1, peerAddr1, serverAddr1), QuorumServer(2, peerAddr2, serverAddr2), QuorumServer(3, peerAddr3, serverAddr3))
     
     val peer1 = new QuorumPeer(QuorumPeerConfig(1, peerAddr1,serverAddr1, serverList ), quorumConnectionManager)
-    val peer2 = new QuorumPeer(QuorumPeerConfig(2, peerAddr2,serverAddr1, serverList), quorumConnectionManager)
-    val peer3 = new QuorumPeer(QuorumPeerConfig(3, peerAddr3,serverAddr1, serverList), quorumConnectionManager)
+    val peer2 = new QuorumPeer(QuorumPeerConfig(2, peerAddr2,serverAddr2, serverList), quorumConnectionManager)
+    val peer3 = new QuorumPeer(QuorumPeerConfig(3, peerAddr3,serverAddr3, serverList), quorumConnectionManager)
 
     peer1.start()
     peer2.start()
     peer3.start()
 
+    Thread.sleep(100000)
   }
 }
