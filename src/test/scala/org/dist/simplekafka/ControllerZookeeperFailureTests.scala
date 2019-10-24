@@ -23,7 +23,7 @@ class ControllerZookeeperFailureTests extends ZookeeperTestHarness {
 
     TestUtils.waitUntilTrue(() => {
       controller.liveBrokers.size == 3
-    }, "Waiting for all brokers to get added", 1000)
+    }, "Waiting for all brokers to get added")
 
     assert(controller.liveBrokers.size == 3)
 
@@ -32,7 +32,7 @@ class ControllerZookeeperFailureTests extends ZookeeperTestHarness {
 
     TestUtils.waitUntilTrue(() ⇒ {
       testSocketServer(broker1).messages.size == 5 && testSocketServer(broker1).toAddresses.asScala.toSet.size == 3
-    }, "waiting for leader and replica requests handled in all brokers", 2000)
+    }, "waiting for leader and replica requests handled in all brokers")
 
 
     broker1.shutdown()

@@ -11,16 +11,16 @@ import org.dist.queue.common.Logging
 import scala.jdk.CollectionConverters._
 import scala.util.control.Breaks._
 
-case class ElectionResult(vote:Vote, count:Int, winningVote:Vote, winningCount:Int, noOfServers:Int) {
+case class ElectionResult(vote: Vote, count: Int, winningVote: Vote, winningCount: Int, noOfServers: Int) {
   def isElected() = {
     winningCount > (noOfServers / 2)
   }
 }
 
-class QuorumConnectionManager {
+class QuorumConnectionManager(config: QuorumPeerConfig) {
   def sendReceiveUdp(xid: Int, electionAddress: InetAddressAndPort): Option[Vote] = {
     val s = new DatagramSocket
-    s.setSoTimeout(200)
+    s.setSoTimeout(config.tickTime * config.initLimit)
     val requestBytes = new Array[Byte](4)
     val requestBuffer = ByteBuffer.wrap(requestBytes)
 
@@ -50,22 +50,22 @@ object ServerState extends Enumeration {
   val LOOKING, FOLLOWING, LEADING = Value
 }
 
-class Elector(noOfServers:Int) extends Logging {
+class Elector(noOfServers: Int) extends Logging {
   def elect(votes: Map[InetAddressAndPort, Vote]): ElectionResult = {
     var result = ElectionResult(Vote(Long.MinValue, Long.MinValue), 0, Vote(Long.MinValue, Long.MinValue), 0, noOfServers)
     val voteCounts = votes.values.groupBy(identity).mapValues(_.size)
     val max: (Vote, Int) = voteCounts.maxBy(tuple ⇒ tuple._2)
 
     votes.values.foreach(v ⇒ {
-        if (v.zxid > result.vote.zxid || (v.zxid == result.vote.zxid && v.id > result.vote.id)) {
-          result = result.copy(vote = v, count = 1)
-        }
+      if (v.zxid > result.vote.zxid || (v.zxid == result.vote.zxid && v.id > result.vote.id)) {
+        result = result.copy(vote = v, count = 1)
+      }
     })
     result.copy(winningVote = max._1, winningCount = max._2)
   }
 }
 
-class LeaderElection(servers:List[QuorumServer], quorumConnectionManager: QuorumConnectionManager, self: QuorumPeer) extends Logging {
+class LeaderElection(servers: List[QuorumServer], quorumConnectionManager: QuorumConnectionManager, self: QuorumPeer) extends Logging {
 
   def lookForLeader() = {
     breakable {
@@ -159,8 +159,8 @@ class ResponderThread(quorumPeer: QuorumPeer) extends Thread("ResponderThread") 
           packet.setLength(b.length)
         }
       }
-    }  catch {
-      case e:Exception ⇒ {
+    } catch {
+      case e: Exception ⇒ {
         e.printStackTrace()
       }
     }
@@ -168,13 +168,15 @@ class ResponderThread(quorumPeer: QuorumPeer) extends Thread("ResponderThread") 
 
 }
 
-class QuorumPeer(val config:QuorumPeerConfig, quorumConnectionManager: QuorumConnectionManager) extends Thread with Logging {
+class QuorumPeer(val config: QuorumPeerConfig, quorumConnectionManager: QuorumConnectionManager) extends Thread with Logging {
   val tick = new AtomicInteger(0)
 
   val myid = config.serverId
   @volatile var state: ServerState.Value = ServerState.LOOKING
   @volatile var currentVote = Vote(myid, getLastLoggedZxid)
   @volatile var running = true
+  var follower: FollowerS = null
+  var leader: Leader = null
 
   new ResponderThread(this).start()
 
@@ -186,7 +188,7 @@ class QuorumPeer(val config:QuorumPeerConfig, quorumConnectionManager: QuorumCon
 
   def getLeaderAddress() = {
     val maybeServer = config.servers.find(server ⇒ server.id == currentVote.id)
-    maybeServer.map(s ⇒ s.serverAddress)
+    maybeServer.map(s ⇒ s.electionAddress)
   }
 
   override def run() = {
@@ -197,7 +199,7 @@ class QuorumPeer(val config:QuorumPeerConfig, quorumConnectionManager: QuorumCon
             val electionResult = new LeaderElection(config.servers, quorumConnectionManager, this).lookForLeader()
 
           } catch {
-            case e:Exception ⇒ {
+            case e: Exception ⇒ {
               e.printStackTrace()
               state = ServerState.LOOKING
             }
@@ -206,11 +208,13 @@ class QuorumPeer(val config:QuorumPeerConfig, quorumConnectionManager: QuorumCon
         case ServerState.LEADING ⇒ {
           info(s"${myid} Leading now")
           try {
-          val leader = new Leader(this)
-          leader.lead()
+            leader = new Leader(this)
+            leader.lead()
+
           } catch {
-            case e:Exception ⇒ error(s"Error while leading ${e}. setting state as looking")
+            case e: Exception ⇒ error(s"Error while leading ${e}. setting state as looking")
           } finally {
+            this.leader = null
             this.state = ServerState.LOOKING
           }
         }
@@ -220,7 +224,7 @@ class QuorumPeer(val config:QuorumPeerConfig, quorumConnectionManager: QuorumCon
             val follower = new FollowerS(this)
             follower.followLeader()
           } catch {
-            case e:Exception ⇒ error(s"Error while following ${e}. setting state as looking")
+            case e: Exception ⇒ error(s"Error while following ${e}. setting state as looking")
           } finally {
             this.state = ServerState.LOOKING
           }
@@ -229,7 +233,7 @@ class QuorumPeer(val config:QuorumPeerConfig, quorumConnectionManager: QuorumCon
     }
   }
 
-  def getLastLoggedZxid():Long = {
+  def getLastLoggedZxid(): Long = {
     0
   }
 }

@@ -8,31 +8,6 @@ import org.dist.queue.common.Logging
 
 import scala.util.control.Breaks
 
-class BinaryOutputArchive(val os: OutputStream) {
-  val ds = new DataOutputStream(os)
-
-  def writeRecord(p: QuorumPacket): Unit = {
-    ds.writeInt(p.recordType)
-    ds.writeLong(p.zxid)
-    ds.writeInt(p.data.size)
-    ds.write(p.data)
-    ds.flush()
-  }
-}
-
-class BinaryInputArchive(val is: InputStream) {
-  val ds = new DataInputStream(is)
-
-  def readRecord(): QuorumPacket = {
-    val recordType = ds.readInt()
-    val zxid = ds.readLong()
-    val dataSize = ds.readInt()
-    val data = new Array[Byte](dataSize)
-    ds.read(data)
-    QuorumPacket(recordType, zxid, data)
-  }
-}
-
 class FollowerHandler(followerSocket: Socket, leader: Leader) extends Thread with Logging {
   val oa = new BinaryOutputArchive(new BufferedOutputStream(followerSocket.getOutputStream))
   val ia = new BinaryInputArchive(new BufferedInputStream(followerSocket.getInputStream()))

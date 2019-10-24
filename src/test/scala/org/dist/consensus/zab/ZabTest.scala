@@ -5,13 +5,12 @@ import org.dist.queue.TestUtils
 import org.dist.util.Networks
 import org.scalatest.FunSuite
 
-class QuorumPeerTest extends FunSuite {
-
-  test("should be in looking state till it either becomes leader or follower") {
+class ZabTest extends FunSuite {
+  test("leader should set new epoc") {
     val address = new Networks().ipv4Address
-    val peerAddr1 = InetAddressAndPort(address, 9998)
-    val peerAddr2 = InetAddressAndPort(address, 9999)
-    val peerAddr3 = InetAddressAndPort(address, 9997)
+    val peerAddr1 = InetAddressAndPort(address, 8080)
+    val peerAddr2 = InetAddressAndPort(address, 8081)
+    val peerAddr3 = InetAddressAndPort(address, 8082)
 
     val serverAddr1 = InetAddressAndPort(address, 9080)
     val serverAddr2 = InetAddressAndPort(address, 9081)
@@ -25,15 +24,26 @@ class QuorumPeerTest extends FunSuite {
     val config2 = QuorumPeerConfig(2, peerAddr2, serverAddr2, serverList, TestUtils.tempDir().getAbsolutePath)
     val peer2 = new QuorumPeer(config2, new QuorumConnectionManager(config2))
 
-    val config3 = QuorumPeerConfig(3, peerAddr3, serverAddr3, serverList, TestUtils.tempDir().getAbsolutePath)
-    val peer3 = new QuorumPeer(config3, new QuorumConnectionManager(config3))
+    val leader = new Leader(peer2)
+    val epoch1 = leader.newEpoch(0)
 
-    peer1.start()
-    peer2.start()
-    peer3.start()
+    assert(epoch1 == 1)
+    val zxid1 = leader.newZxid(epoch1)
 
-    TestUtils.waitUntilTrue(() ⇒ {
-      peer3.state == ServerState.LEADING && peer3.leader != null && peer3.leader.newLeaderProposal.ackCount >= 2
-    }, "Waiting for leader receiving ACKs", 10000)
+    val epoch2 = leader.newEpoch(zxid1)
+    assert(epoch2 == 2)
+
+    val zxid2 = leader.newZxid(epoch2)
+
+    val epoch3 = leader.newEpoch(zxid2)
+    assert(epoch3 == 3)
+
+    val zxid3 = leader.newZxid(epoch3)
+
+    println(zxid1)
+    println(zxid2)
+    println(zxid3)
+
   }
+
 }

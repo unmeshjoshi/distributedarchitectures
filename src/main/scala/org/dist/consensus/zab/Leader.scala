@@ -76,11 +76,16 @@ object Leader {
 
 class SocketConnect {}
 
-case class Request(socketConnect:SocketConnect, requestType:Int, xid:Int, data:Array[Byte])
+case class Request(socketConnect:SocketConnect, requestType:Int, val xid:Int, data:Array[Byte], val sessionId:Long = 0, var txn:SetDataTxn = null, var txnHeader:TxnHeader = null) {
+
+
+}
 
 case class Proposal(val packet: QuorumPacket, var ackCount: Int = 0, val request: Option[Request] = None)
 
 class Leader(self: QuorumPeer) extends Logging {
+  private var zk = new ZookeeperServer(this)
+
   def startForwarding(handler: FollowerHandler, lastSeenZxid: Long) = {
     if (lastProposed > lastSeenZxid) {
       for (p <- toBeApplied.asScala) {
@@ -94,7 +99,7 @@ class Leader(self: QuorumPeer) extends Logging {
       }
       for (p <- outstandingProposals.asScala) {
         if (p.packet.zxid > lastSeenZxid)  //continue todo: continue is not supported
-        handler.queuePacket(p.packet)
+            handler.queuePacket(p.packet)
       }
     }
     followers.add(handler)
@@ -102,8 +107,27 @@ class Leader(self: QuorumPeer) extends Logging {
 
   }
 
+  private def sendPacket(qp: QuorumPacket): Unit = {
+    followers.synchronized {
+      for (f <- followers.asScala) {
+        f.queuePacket(qp)
+      }
+    }
+  }
 
   val toBeApplied = new ConcurrentLinkedQueue[Proposal]
+  var lastCommitted:Long = -1
+  def commit(zxid: Long): Unit = {
+    lastCommitted = zxid
+    val qp = new QuorumPacket(Leader.COMMIT, zxid)
+    sendPacket(qp)
+//    if (pendingSyncs.containsKey(zxid)) {
+//      sendSync(syncHandler.get(pendingSyncs.get(zxid).sessionId), pendingSyncs.get(zxid))
+//      syncHandler.remove(pendingSyncs.get(zxid))
+//      pendingSyncs.remove(zxid)
+//    }
+  }
+
 
   def processAck(zxid: Long, followerSocket: Socket): Unit = this.synchronized {
     if (outstandingProposals.size == 0)
@@ -130,8 +154,8 @@ class Leader(self: QuorumPeer) extends Logging {
           // We don't commit the new leader proposal
           if ((zxid & 0xffffffffL) != 0) {
             if (p.request == null) error("Going to commmit null: " + p)
-//            commit(zxid)
-//            zk.commitProcessor.commit(p.request)
+            commit(zxid)
+            zk.commitProcessor.commit(p.request)
           }
         }
       }
@@ -143,23 +167,21 @@ class Leader(self: QuorumPeer) extends Logging {
   @volatile var lastProposed:Long = 0L
   val config = self.config
 
-  private val leaderLastZxid: Long = 0
-  private val newLeaderProposal =  Proposal(QuorumPacket(Leader.NEWLEADER, leaderLastZxid, Array[Byte]()), 0)
+  val leaderLastZxid: Long = 0
+  val newLeaderProposal =  Proposal(QuorumPacket(Leader.NEWLEADER, leaderLastZxid, Array[Byte]()), 0)
 
 
-  val ss = new ServerSocket(config.serverAddress.port, 100, config.serverAddress.address)
+  val ss = new ServerSocket(config.electionAddress.port, 100, config.electionAddress.address)
   val followers = new util.ArrayList[FollowerHandler]()
   val outstandingProposals = new ConcurrentLinkedQueue[Proposal]
-  private var zk = new LeaderZookeeperServer(self)
 
   def shutdown(str: String) = {
         //TODO
   }
 
   def lead(): Any = {
-    var epoch: Long = self.getLastLoggedZxid >> 32L
-    epoch += 1
-    zk.setZxid(epoch << 32L)
+    var epoch: Long = newEpoch(self.getLastLoggedZxid)
+    zk.setZxid(newZxid(epoch))
     zk.dataTree.lastProcessedZxid = zk.getZxid()
     lastProposed = zk.getZxid()
     if ((newLeaderProposal.packet.zxid & 0xffffffffL) != 0) {
@@ -172,7 +194,7 @@ class Leader(self: QuorumPeer) extends Logging {
     new Thread() {
       override def run(): Unit = {
         try {
-          info(s"Leader listening on ${config.serverAddress.address} and ${config.serverAddress.port}")
+          info(s"Leader listening on ${config.electionAddress.address} and ${config.electionAddress.port}")
           while (true) {
             val s = ss.accept
             s.setSoTimeout(config.tickTime * config.syncLimit)
@@ -216,4 +238,13 @@ class Leader(self: QuorumPeer) extends Logging {
     }
   }
 
+  def newZxid(epoch: Long) = {
+    epoch << 32L
+  }
+
+  def newEpoch(zxid: Long) = {
+    var epoch: Long = zxid >> 32L
+    epoch += 1
+    epoch
+  }
 }
