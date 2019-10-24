@@ -3,7 +3,6 @@ package org.dist.consensus.zab
 import java.io.{ByteArrayOutputStream, File, FileOutputStream}
 import java.util.Random
 
-import org.apache.zookeeper.server.ZooKeeperServer
 import org.dist.queue.common.Logging
 
 class SynRequestProcessor(zks: ZookeeperServer,
@@ -26,13 +25,10 @@ class SynRequestProcessor(zks: ZookeeperServer,
       logStream = new FileOutputStream(new File(zks.dataLogDir(), zks.getLogName(hdr.zxid)))
       logArchive = new BinaryOutputArchive(logStream)
     }
-    val baos = new ByteArrayOutputStream()
-    val boa = new BinaryOutputArchive(baos)
-    hdr.serialize(boa, "TxnHdr")
-    txn.serialize(boa, "Txn")
+
     //serialize hdr
     //serialize txn
-    logArchive.writeBuffer(baos.toByteArray(), "TxnEntry")
+    logArchive.writeBuffer(request.serializeTxn(), "TxnEntry")
     logArchive.write(0x42.toByte, "EOR")
 
     //TODO take snapshot after specified no. of log entries

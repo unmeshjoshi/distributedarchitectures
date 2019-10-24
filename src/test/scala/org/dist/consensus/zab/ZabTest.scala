@@ -39,11 +39,6 @@ class ZabTest extends FunSuite {
     assert(epoch3 == 3)
 
     val zxid3 = leader.newZxid(epoch3)
-
-    println(zxid1)
-    println(zxid2)
-    println(zxid3)
-
   }
 
 }

@@ -1,5 +1,6 @@
 package org.dist.consensus.zab
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, DataInput, DataInputStream, InputStream}
 import java.net.{ServerSocket, Socket}
 import java.util
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -76,14 +77,39 @@ object Leader {
 
 class SocketConnect {}
 
+object Request {
+  def deserializeTxn(is: InputStream) = {
+    val ba = new BinaryInputArchive(new DataInputStream(is))
+    val bytes = ba.readBuffer()
+    val bi = new BinaryInputArchive(new DataInputStream(new ByteArrayInputStream(bytes)))
+    val header = TxnHeader.deserialize(bi, "TxnHdr")
+    val txn = SetDataTxn.deserialize(bi, "Txn")
+    (header, txn)
+  }
+}
+
 case class Request(socketConnect:SocketConnect, requestType:Int, val xid:Int, data:Array[Byte], val sessionId:Long = 0, var txn:SetDataTxn = null, var txnHeader:TxnHeader = null) {
 
+  def serializeTxn() = {
+    val baos = new ByteArrayOutputStream()
+    val boa = new BinaryOutputArchive(baos)
+    txnHeader.serialize(boa, "TxnHdr")
+    txn.serialize(boa, "Txn")
+    baos.toByteArray
+  }
 
 }
 
 case class Proposal(val packet: QuorumPacket, var ackCount: Int = 0, val request: Option[Request] = None)
 
 class Leader(self: QuorumPeer) extends Logging {
+  def propose(request: Request) = {
+    val qp = QuorumPacket(Leader.PROPOSAL, request.txnHeader.zxid, request.serializeTxn())
+    outstandingProposals.add(Proposal(qp))
+    lastProposed = request.txnHeader.zxid
+    sendPacket(qp)
+  }
+
   private var zk = new ZookeeperServer(this)
 
   def startForwarding(handler: FollowerHandler, lastSeenZxid: Long) = {

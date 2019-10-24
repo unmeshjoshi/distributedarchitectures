@@ -31,3 +31,4 @@ shared/.jvm
 bin/
 journal
 snapshots
+*.sc

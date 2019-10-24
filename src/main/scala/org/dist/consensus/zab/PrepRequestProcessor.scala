@@ -63,7 +63,9 @@ class CommitProcessor() extends RequestProcessor {
 class ProposalRequestProcessor(val zks:ZookeeperServer, nextProcessor:RequestProcessor) extends RequestProcessor {
   val syncProcessor = new SynRequestProcessor(zks, new AckProcessor(zks.leader))
   override def processRequest(request: Request): Unit = {
-
+    //propose to all the followers and log and ack itself
+    zks.leader.propose(request)
+    syncProcessor.processRequest(request)
   }
 }
 
