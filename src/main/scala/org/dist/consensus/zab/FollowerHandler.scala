@@ -55,10 +55,14 @@ class FollowerHandler(followerSocket: Socket, leader: Leader) extends Thread wit
 
       while (true) {
         val responsePacket = ia.readRecord()
-        info(s"Received response from ${followerSocket} ${responsePacket}")
+        trace(s"Received response from ${followerSocket} ${responsePacket}")
         responsePacket.recordType match {
           case Leader.ACK ⇒
             leader.processAck(responsePacket.zxid, followerSocket)
+          case Leader.PING ⇒
+            //ignore ping handler
+          case _ ⇒
+            info(s"Handling packet ${responsePacket}")
 
         }
       }
@@ -79,7 +83,7 @@ class FollowerHandler(followerSocket: Socket, leader: Leader) extends Thread wit
         //      ZooTrace.logQuorumPacket(LOG, traceMask, 'o', p);
         //
         try {
-          info(s"Sending packet ${p} from leader to ${followerSocket}")
+          trace(s"Sending packet ${p} from leader to ${followerSocket}")
           oa.writeRecord(p)
 
         } catch {

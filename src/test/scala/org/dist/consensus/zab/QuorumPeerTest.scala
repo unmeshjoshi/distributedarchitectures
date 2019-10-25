@@ -35,5 +35,12 @@ class QuorumPeerTest extends FunSuite {
     TestUtils.waitUntilTrue(() ⇒ {
       peer3.state == ServerState.LEADING && peer3.leader != null && peer3.leader.newLeaderProposal.ackCount >= 2
     }, "Waiting for leader receiving ACKs", 10000)
+
+    TestUtils.waitUntilTrue(() ⇒ {
+      peer3.leader.cnxn.serverSocket != null && peer3.leader.cnxn.serverSocket.isBound
+    }, "Waiting for server to accept client connections")
+
+    println("Sending request to quorum")
+    new Client(config3.serverAddress).setData("/greetPath", "Hello World!")
   }
 }

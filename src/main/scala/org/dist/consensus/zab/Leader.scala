@@ -75,8 +75,6 @@ object Leader {
   private[zab] val SYNC = 7
 }
 
-class SocketConnect {}
-
 object Request {
   def deserializeTxn(is: InputStream) = {
     val ba = new BinaryInputArchive(new DataInputStream(is))
@@ -88,21 +86,26 @@ object Request {
   }
 }
 
-case class Request(socketConnect:SocketConnect, requestType:Int, val xid:Int, data:Array[Byte], val sessionId:Long = 0, var txn:SetDataTxn = null, var txnHeader:TxnHeader = null) {
+case class Request(socketConnect:Socket, requestType:Int, val xid:Int, data:Array[Byte], val sessionId:Long = 0, var txn:SetDataTxn = null, var txnHeader:TxnHeader = null) {
 
   def serializeTxn() = {
     val baos = new ByteArrayOutputStream()
     val boa = new BinaryOutputArchive(baos)
     txnHeader.serialize(boa, "TxnHdr")
     txn.serialize(boa, "Txn")
-    baos.toByteArray
+
+    val stream = new ByteArrayOutputStream()
+    val boa1 = new BinaryOutputArchive(stream)
+    boa1.writeBuffer(baos.toByteArray, "TxnEntry")
+    stream.toByteArray
   }
 
 }
 
-case class Proposal(val packet: QuorumPacket, var ackCount: Int = 0, val request: Option[Request] = None)
+case class Proposal(val packet: QuorumPacket, var ackCount: Int = 0, val request:Request = null)
 
 class Leader(self: QuorumPeer) extends Logging {
+
   def propose(request: Request) = {
     val qp = QuorumPacket(Leader.PROPOSAL, request.txnHeader.zxid, request.serializeTxn())
     outstandingProposals.add(Proposal(qp))
@@ -110,7 +113,9 @@ class Leader(self: QuorumPeer) extends Logging {
     sendPacket(qp)
   }
 
-  private var zk = new ZookeeperServer(this)
+  val zk = new ZookeeperServer(this)
+  zk.setupRequestProcessors()
+  val cnxn: ServerCnxn = new ServerCnxn(self.config.serverAddress, this.zk)
 
   def startForwarding(handler: FollowerHandler, lastSeenZxid: Long) = {
     if (lastProposed > lastSeenZxid) {
@@ -164,7 +169,7 @@ class Leader(self: QuorumPeer) extends Logging {
     }
 
     outstandingProposals.asScala.foreach(p ⇒ {
-      info(s"Handling ACK for zxid ${zxid} for packet ${p}")
+      info(s"Handling ACK for zxid ${zxid} for packet ${p} from ${followerSocket}")
       if (p.packet.zxid == zxid) {
         p.ackCount += 1
         if (p.ackCount > self.config.servers.size / 2) {
@@ -176,10 +181,13 @@ class Leader(self: QuorumPeer) extends Logging {
           //            System.exit(13);
           //          }
           //          outstandingProposals.remove();
-          if (p.request != null) toBeApplied.add(p)
+          if (p.request != null) {
+            toBeApplied.add(p)
+          }
           // We don't commit the new leader proposal
           if ((zxid & 0xffffffffL) != 0) {
             if (p.request == null) error("Going to commmit null: " + p)
+            info(s"Got Quorum for zxid ${zxid}. Sending commit message to all the followers")
             commit(zxid)
             zk.commitProcessor.commit(p.request)
           }
@@ -252,6 +260,8 @@ class Leader(self: QuorumPeer) extends Logging {
     }
 
     info("Leader got ACKs from Quorum of servers. Ready to lead now")
+
+    cnxn.start()
 
     while (true) {
       Thread.sleep(self.config.tickTime / 2)

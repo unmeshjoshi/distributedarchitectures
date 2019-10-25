@@ -10,6 +10,12 @@ import scala.util.Using
 class SocketIO[T](clientSocket: Socket, responseClass: Class[T]) {
   clientSocket.setSoTimeout(5000)
 
+  def readHandleWithSocket(handler:(T, Socket) => Any): Unit = {
+    val responseBytes = read(clientSocket)
+    val message = JsonSerDes.deserialize(responseBytes, responseClass)
+    handler(message, clientSocket)
+  }
+
   def readHandleRespond(handler:T => Any): Unit = {
     Using.resource(clientSocket) { socket =>
       val responseBytes = read(socket)

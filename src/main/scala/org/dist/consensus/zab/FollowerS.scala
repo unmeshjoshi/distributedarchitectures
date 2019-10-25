@@ -1,6 +1,6 @@
 package org.dist.consensus.zab
 
-import java.io.{BufferedInputStream, BufferedOutputStream, IOException}
+import java.io.{BufferedInputStream, BufferedOutputStream, ByteArrayInputStream, IOException}
 import java.net.{InetSocketAddress, Socket}
 
 import org.dist.kvstore.InetAddressAndPort
@@ -9,8 +9,10 @@ import org.dist.queue.common.Logging
 import scala.util.control.Breaks
 
 class FollowerS(val self:QuorumPeer) extends Logging {
-
+  var zk:FollowerZookeeperServer = null
   def followLeader() = {
+    zk = new FollowerZookeeperServer(this)
+
     //setup processing pipeline
     //connect with leader
     // Find the leader by id
@@ -57,19 +59,23 @@ class FollowerS(val self:QuorumPeer) extends Logging {
     };
     //TODO: read further packets to dump snapshot etc..before sending ACK
     val newLeaderZxid =  newLeaderPacket.zxid
-    info("Sending ACK for newLeader request")
+    info(s"Sending ACK for newLeader request from ${self.config.serverId}")
     leaderOs.writeRecord(new QuorumPacket(Leader.ACK, newLeaderZxid & ~ 0xffffffffL))
 
     Breaks.breakable {
       while(self.running) {
-        val packet = leaderIs.readRecord()
-        info(s"Responding to packet ${packet}")
+        val packet: QuorumPacket = leaderIs.readRecord()
         packet.recordType match {
           case Leader.PING ⇒
             val response = packet.copy(data="PingResponse".getBytes())
             leaderOs.writeRecord(response)
+          case Leader.PROPOSAL ⇒
+            val txn: (TxnHeader, SetDataTxn) = Request.deserializeTxn(new ByteArrayInputStream(packet.data))
+            zk.logRequest(txn._1, txn._2)
+          case Leader.COMMIT ⇒
+            zk.commit()
           case _ ⇒ {
-            println(s"responding to ${packet}")
+
           }
         }
       }
