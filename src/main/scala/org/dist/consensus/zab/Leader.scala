@@ -249,14 +249,14 @@ class Leader(self: QuorumPeer) extends Logging {
     newLeaderProposal.packet.zxid = zk.getZxid()
     while (newLeaderProposal.ackCount <= self.config.servers.size / 2) {
       info("Waiting for quorum to send ack for NEWLEADER requests")
-      if (self.tick.get() > self.config.initLimit) { // Followers aren't syncing fast enough,
+      if (self.tick.getAndIncrement() > self.config.initLimit) { // Followers aren't syncing fast enough,
         // renounce leadership!
         shutdown("Waiting for " + (self.config.servers.size / 2) + " followers, only synced with " + newLeaderProposal.ackCount)
         if (followers.size >= self.config.servers.size / 2) warn("Enough followers present. " + "Perhaps the initTicks need to be increased.")
         return
       }
       Thread.sleep(self.config.tickTime)
-      self.tick.incrementAndGet()
+
     }
 
     info("Leader got ACKs from Quorum of servers. Ready to lead now")

@@ -8,5 +8,5 @@ case class QuorumPeerConfig(serverId: Long, electionAddress: InetAddressAndPort,
 
   val tickTime = 100
 
-  val initLimit = 10
+  val initLimit = 50 //keep is large enough
 }

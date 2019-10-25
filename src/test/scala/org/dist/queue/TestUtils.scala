@@ -41,9 +41,9 @@ object TestUtils {
     f
   }
 
-  def tempDir(): File = {
+  def tempDir(prefix:String = "kafka-"): File = {
     val ioDir = System.getProperty("java.io.tmpdir")
-    val f = new File(ioDir, "kafka-" + random.nextInt(1000000))
+    val f = new File(ioDir, prefix + random.nextInt(1000000))
     f.mkdirs()
     f.deleteOnExit()
     f
