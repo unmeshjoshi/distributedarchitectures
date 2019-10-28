@@ -1,6 +1,6 @@
 package org.dist.consensus.zab
 
-import java.io.{ByteArrayOutputStream, File, FileOutputStream}
+import java.io.{File, FileOutputStream}
 import java.util.Random
 
 import org.dist.queue.common.Logging

@@ -10,6 +10,9 @@ import scala.util.control.Breaks
 
 class FollowerS(val self:QuorumPeer) extends Logging {
   var zk:FollowerZookeeperServer = null
+  var leaderOs:BinaryOutputArchive = null
+  var leaderIs:BinaryInputArchive = null
+
   def followLeader() = {
     zk = new FollowerZookeeperServer(this)
 
@@ -42,8 +45,8 @@ class FollowerS(val self:QuorumPeer) extends Logging {
       }
     }
 
-    val leaderOs = new BinaryOutputArchive(new BufferedOutputStream(sock.getOutputStream))
-    val leaderIs = new BinaryInputArchive(new BufferedInputStream(sock.getInputStream()))
+    leaderOs = new BinaryOutputArchive(new BufferedOutputStream(sock.getOutputStream))
+    leaderIs = new BinaryInputArchive(new BufferedInputStream(sock.getInputStream()))
 
     info(s"Connected with leader ${address}. Receiving messages")
 
@@ -80,6 +83,11 @@ class FollowerS(val self:QuorumPeer) extends Logging {
         }
       }
     }
+  }
 
+  def writePacket (pp: QuorumPacket) = {
+    leaderOs.synchronized {
+      leaderOs.writeRecord(pp);
+    }
   }
 }

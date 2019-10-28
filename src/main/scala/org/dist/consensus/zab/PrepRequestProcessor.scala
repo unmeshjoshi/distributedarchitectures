@@ -68,7 +68,7 @@ class CommitProcessor() extends RequestProcessor {
   override def processRequest(request: Request): Unit = {}
 }
 
-class ProposalRequestProcessor(val zks: ZookeeperServer, nextProcessor: RequestProcessor) extends RequestProcessor {
+class ProposalRequestProcessor(val zks: LeaderZookeeperServer, nextProcessor: RequestProcessor) extends RequestProcessor {
   val syncProcessor = new SynRequestProcessor(zks, new AckProcessor(zks.leader))
 
   override def processRequest(request: Request): Unit = {
@@ -78,7 +78,7 @@ class ProposalRequestProcessor(val zks: ZookeeperServer, nextProcessor: RequestP
   }
 }
 
-class PrepRequestProcessor(val zks: ZookeeperServer, nextProcessor: RequestProcessor) extends RequestProcessor {
+class PrepRequestProcessor(val zks: LeaderZookeeperServer, nextProcessor: RequestProcessor) extends RequestProcessor {
   override def processRequest(request: Request): Unit = {
     pRequest(request)
   }

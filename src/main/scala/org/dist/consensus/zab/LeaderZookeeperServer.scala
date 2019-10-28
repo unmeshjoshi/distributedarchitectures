@@ -4,8 +4,15 @@ import java.net.Socket
 
 import org.dist.consensus.zab.api.ClientRequestOrResponse
 
+trait ZookeeperServer {
+  def setupRequestProcessors(): Unit
+  def config():QuorumPeerConfig
+  def dataLogDir() = config().dataDir
+  def getLogName(zxid: Long): String = "log." + java.lang.Long.toHexString(zxid)
+}
 
-class ZookeeperServer(val leader:Leader) {
+
+class LeaderZookeeperServer(val leader:Leader) extends ZookeeperServer {
   def submitRequest(clientRequest: ClientRequestOrResponse, socket: Socket): Any = {
     val json = clientRequest.messageBodyJson
     val request = Request(socket, clientRequest.requestId, clientRequest.correlationId, json.getBytes)
@@ -21,10 +28,6 @@ class ZookeeperServer(val leader:Leader) {
 
   val commitProcessor = new CommitProcessor()
 
-  def dataLogDir() = leader.config.dataDir
-
-  def getLogName(zxid: Long): String = "log." + java.lang.Long.toHexString(zxid)
-
   def getNextZxid() = getZxid() + 1
 
   def getTime() = System.currentTimeMillis
@@ -39,4 +42,5 @@ class ZookeeperServer(val leader:Leader) {
     this.hzxid = zxid
   }
 
+  override def config(): QuorumPeerConfig = leader.config
 }

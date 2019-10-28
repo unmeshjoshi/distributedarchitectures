@@ -86,7 +86,7 @@ object Request {
   }
 }
 
-case class Request(socketConnect:Socket, requestType:Int, val xid:Int, data:Array[Byte], val sessionId:Long = 0, var txn:SetDataTxn = null, var txnHeader:TxnHeader = null) {
+case class Request(socketConnect:Socket, requestType:Int, val xid:Long, data:Array[Byte], val sessionId:Long = 0, var txn:SetDataTxn = null, var txnHeader:TxnHeader = null) {
 
   def serializeTxn() = {
     val baos = new ByteArrayOutputStream()
@@ -113,7 +113,7 @@ class Leader(self: QuorumPeer) extends Logging {
     sendPacket(qp)
   }
 
-  val zk = new ZookeeperServer(this)
+  val zk = new LeaderZookeeperServer(this)
   zk.setupRequestProcessors()
   val cnxn: ServerCnxn = new ServerCnxn(self.config.serverAddress, this.zk)
 

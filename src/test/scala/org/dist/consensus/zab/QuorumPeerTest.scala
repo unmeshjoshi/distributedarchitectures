@@ -42,5 +42,7 @@ class QuorumPeerTest extends FunSuite {
 
     println("Sending request to quorum")
     new Client(config3.serverAddress).setData("/greetPath", "Hello World!")
+
+
   }
 }

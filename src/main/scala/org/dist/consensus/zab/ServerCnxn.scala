@@ -9,7 +9,7 @@ import org.dist.queue.utils.Utils
 import org.dist.util.SocketIO
 
 //handles client communication with zk
-class ServerCnxn(serverAddress:InetAddressAndPort, val zk:ZookeeperServer) extends Thread with Logging {
+class ServerCnxn(serverAddress:InetAddressAndPort, val zk:LeaderZookeeperServer) extends Thread with Logging {
   var serverSocket: ServerSocket = null
 
   override def run() = {
