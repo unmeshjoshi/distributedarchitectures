@@ -1,6 +1,6 @@
 package org.dist.consensus.zab
 
-import java.io.{File, FileInputStream, FileOutputStream}
+import java.io.{ByteArrayInputStream, File, FileInputStream, FileOutputStream}
 
 import org.dist.consensus.zab.api.ClientRequestOrResponse
 import org.dist.queue.TestUtils
@@ -15,22 +15,25 @@ class LogTest extends FunSuite {
     val logArchive = new BinaryOutputArchive(logStream)
 
 
-    writeFewRequests(zxid, logArchive)
+    writeFewRequests(zxid, logArchive, 10)
 
     val logReadStream = new FileInputStream(new File(logDir, logFileName))
     val logReadArchive = new BinaryInputArchive(logReadStream)
-    val txn = logReadArchive.readBuffer()
-    val endMarker = logReadArchive.readByte()
-    assert(endMarker == 'B')
-    
-
+    for (i ← 1 to 10) {
+      val txn = logReadArchive.readBuffer()
+      val endMarker = logReadArchive.readByte()
+      val txnHeaderAndTxn = Request.deserializeTxn(new ByteArrayInputStream(txn))
+      assert(txnHeaderAndTxn._2.path == s"/path/${i}")
+      assert(txnHeaderAndTxn._2.data.sameElements(s"Value${i}".getBytes))
+    }
   }
 
-  private def writeFewRequests(zxid: Int, logArchive: BinaryOutputArchive) = {
-    for(i ← 1 to 10) {
-      val request = Request(null, ClientRequestOrResponse.SetDataKey, 1, Array[Byte]())
+  private def writeFewRequests(zxid: Int, logArchive: BinaryOutputArchive, noOfRequests: Int) = {
+    for (i ← 1 to noOfRequests) {
+      val value = s"Value${i}"
+      val request = Request(null, ClientRequestOrResponse.SetDataKey, 1, value.getBytes())
       request.txnHeader = TxnHeader(request.sessionId, request.xid, zxid, System.currentTimeMillis(), OpsCode.setData)
-      request.txn = SetDataTxn("path", request.data)
+      request.txn = SetDataTxn(s"/path/${i}", request.data)
       logArchive.writeBuffer(request.serializeTxn(), "TxnEntry")
       logArchive.write(0x42.toByte, "EOR")
     }
