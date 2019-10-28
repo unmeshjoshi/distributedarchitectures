@@ -108,7 +108,7 @@ class Leader(self: QuorumPeer) extends Logging {
 
   def propose(request: Request) = {
     val qp = QuorumPacket(Leader.PROPOSAL, request.txnHeader.zxid, request.serializeTxn())
-    outstandingProposals.add(Proposal(qp))
+    outstandingProposals.add(Proposal(qp, ackCount = 0, request))
     lastProposed = request.txnHeader.zxid
     sendPacket(qp)
   }
@@ -180,7 +180,7 @@ class Leader(self: QuorumPeer) extends Logging {
           //              + outstandingProposals.element().packet);
           //            System.exit(13);
           //          }
-          //          outstandingProposals.remove();
+          outstandingProposals.remove();
           if (p.request != null) {
             toBeApplied.add(p)
           }
@@ -191,6 +191,8 @@ class Leader(self: QuorumPeer) extends Logging {
             commit(zxid)
             zk.commitProcessor.commit(p.request)
           }
+
+          info(s"ACK count for ${p} is ${p.ackCount}")
         }
       }
     })
@@ -247,7 +249,7 @@ class Leader(self: QuorumPeer) extends Logging {
 
     newLeaderProposal.ackCount += 1
     newLeaderProposal.packet.zxid = zk.getZxid()
-    while (newLeaderProposal.ackCount <= self.config.servers.size / 2) {
+    while (newLeaderProposal.ackCount == self.config.servers.size) {
       info("Waiting for quorum to send ack for NEWLEADER requests")
       if (self.tick.getAndIncrement() > self.config.initLimit) { // Followers aren't syncing fast enough,
         // renounce leadership!

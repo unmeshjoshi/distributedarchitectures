@@ -76,7 +76,8 @@ class FollowerS(val self:QuorumPeer) extends Logging {
             val txn: (TxnHeader, SetDataTxn) = Request.deserializeTxn(new ByteArrayInputStream(packet.data))
             zk.logRequest(txn._1, txn._2)
           case Leader.COMMIT ⇒
-            zk.commit()
+            val zxid = packet.zxid
+            zk.commit(zxid)
           case _ ⇒ {
 
           }

@@ -63,9 +63,13 @@ class FinalRequestProcessor extends RequestProcessor with Logging {
 }
 
 class CommitProcessor() extends RequestProcessor {
-  def commit(request: Request) = {}
+  def commit(request: Request) = {
 
-  override def processRequest(request: Request): Unit = {}
+  }
+
+  override def processRequest(request: Request): Unit = {
+
+  }
 }
 
 class ProposalRequestProcessor(val zks: LeaderZookeeperServer, nextProcessor: RequestProcessor) extends RequestProcessor {

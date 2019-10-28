@@ -21,9 +21,10 @@ class QuorumPacketSerializationTest extends FunSuite {
   test("should serialize and deserialize multiple quorum packets") {
     val baos = new ByteArrayOutputStream()
     val os = new BinaryOutputArchive(baos)
-    val p1 = QuorumPacket(Leader.NEWLEADER, 0, Array[Byte]())
-    val p2 = QuorumPacket(Leader.PING, 0, Array[Byte]())
-    val p3 = QuorumPacket(Leader.PROPOSAL, 10, "Hello World".getBytes())
+    val zxid = 1 << 32L
+    val p1 = QuorumPacket(Leader.NEWLEADER, zxid, Array[Byte]())
+    val p2 = QuorumPacket(Leader.PING, zxid + 1, Array[Byte]())
+    val p3 = QuorumPacket(Leader.PROPOSAL, zxid + 2, "Hello World".getBytes())
     os.writeRecord(p1)
     os.writeRecord(p2)
     os.writeRecord(p3)
