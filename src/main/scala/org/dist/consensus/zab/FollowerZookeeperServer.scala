@@ -13,7 +13,7 @@ class SendAckRequestProcessor(follower:FollowerS) extends RequestProcessor {
 }
 
 class FollowerZookeeperServer(follower:FollowerS) extends ZookeeperServer with Logging {
-  val commitProcessor = new CommitProcessor()
+  val commitProcessor = new CommitProcessor(this)
   val syncProcessor = new SynRequestProcessor(this, new SendAckRequestProcessor(follower))
   val pendingTxns = new LinkedBlockingQueue[Request]()
 

@@ -1,5 +1,7 @@
 package org.dist.consensus.zab
 
+import org.dist.consensus.zab.api.{ClientRequestOrResponse, SetDataRequest}
+import org.dist.kvstore.JsonSerDes
 import org.dist.queue.common.Logging
 
 object OpsCode {
@@ -62,9 +64,10 @@ class FinalRequestProcessor extends RequestProcessor with Logging {
   }
 }
 
-class CommitProcessor() extends RequestProcessor {
+class CommitProcessor(zk: ZookeeperServer) extends RequestProcessor with Logging {
   def commit(request: Request) = {
-
+    zk.dataTree.processTransaction(request.txnHeader, request.txn)
+    info(s"Datatree is now => ${zk.dataTree.nodes} on ${zk.config().serverId}")
   }
 
   override def processRequest(request: Request): Unit = {
@@ -82,14 +85,19 @@ class ProposalRequestProcessor(val zks: LeaderZookeeperServer, nextProcessor: Re
   }
 }
 
-class PrepRequestProcessor(val zks: LeaderZookeeperServer, nextProcessor: RequestProcessor) extends RequestProcessor {
+class PrepRequestProcessor(val zks: LeaderZookeeperServer, nextProcessor: RequestProcessor) extends RequestProcessor with Logging {
   override def processRequest(request: Request): Unit = {
-    pRequest(request)
+    if (request.requestType == ClientRequestOrResponse.SetDataKey) {
+      val setDataRequest = JsonSerDes.deserialize(request.data, classOf[SetDataRequest])
+      pRequest(request, setDataRequest)
+    }
+    else
+      error(s"Invalid request type ${request.requestType}")
   }
 
-  def pRequest(request: Request) = {
+  def pRequest(request: Request, setDataRequest:SetDataRequest) = {
     val txnHeader = TxnHeader(request.sessionId, request.xid, zks.getNextZxid(), zks.getTime(), OpsCode.setData)
-    val txn = SetDataTxn("path", request.data)
+    val txn = SetDataTxn(setDataRequest.path, setDataRequest.data.getBytes())
     request.txn = txn
     request.txnHeader = txnHeader
     nextProcessor.processRequest(request)

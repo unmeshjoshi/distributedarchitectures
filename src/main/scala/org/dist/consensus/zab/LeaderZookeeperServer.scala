@@ -5,6 +5,7 @@ import java.net.Socket
 import org.dist.consensus.zab.api.ClientRequestOrResponse
 
 trait ZookeeperServer {
+  val dataTree = new DataTree
   def setupRequestProcessors(): Unit
   def config():QuorumPeerConfig
   def dataLogDir() = config().dataDir
@@ -26,7 +27,7 @@ class LeaderZookeeperServer(val leader:Leader) extends ZookeeperServer {
     firstProcessor = new PrepRequestProcessor(this, syncProcessor)
   }
 
-  val commitProcessor = new CommitProcessor()
+  val commitProcessor = new CommitProcessor(this)
 
   def getNextZxid() = getZxid() + 1
 
@@ -36,7 +37,7 @@ class LeaderZookeeperServer(val leader:Leader) extends ZookeeperServer {
 
   protected var hzxid = 0L
 
-  val dataTree = new DataTree
+
 
   def setZxid(zxid: Long) = {
     this.hzxid = zxid
