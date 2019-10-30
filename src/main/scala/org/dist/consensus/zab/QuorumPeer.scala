@@ -227,6 +227,7 @@ class QuorumPeer(val config: QuorumPeerConfig, quorumConnectionManager: QuorumCo
           } catch {
             case e: Exception ⇒ error(s"Error while following ${e}. setting state as looking")
           } finally {
+            this.follower = null
             this.state = ServerState.LOOKING
           }
         }

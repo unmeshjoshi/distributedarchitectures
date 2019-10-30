@@ -46,7 +46,12 @@ class QuorumPeerTest extends FunSuite {
     println("Sending request to quorum")
     new Client(config3.serverAddress).setData("/greetPath", "Hello World!")
 
+    //assert that majority has the data once client gets response
+    assert(leaderHasDataFor(peer3, "/greetPath") &&
+      followerHasDataFor(peer2, "/greetPath") || followerHasDataFor(peer1, "/greetPath"))
 
+
+    //assert all the peers get the data eventually
     TestUtils.waitUntilTrue(()⇒ {
       leaderHasDataFor(peer3, "/greetPath") &&
       followerHasDataFor(peer2, "/greetPath") &&
