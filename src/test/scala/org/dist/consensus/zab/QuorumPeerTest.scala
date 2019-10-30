@@ -13,19 +13,19 @@ class QuorumPeerTest extends FunSuite {
     val peerAddr2 = InetAddressAndPort(address, 9999)
     val peerAddr3 = InetAddressAndPort(address, 9997)
 
-    val serverAddr1 = InetAddressAndPort(address, 9080)
-    val serverAddr2 = InetAddressAndPort(address, 9081)
-    val serverAddr3 = InetAddressAndPort(address, 9082)
+    val addrForClients1 = InetAddressAndPort(address, 9080)
+    val addrForClients2 = InetAddressAndPort(address, 9081)
+    val addrForClients3 = InetAddressAndPort(address, 9082)
 
-    val serverList = List(QuorumServer(1, peerAddr1, serverAddr1), QuorumServer(2, peerAddr2, serverAddr2), QuorumServer(3, peerAddr3, serverAddr3))
+    val serverList = List(QuorumServer(1, peerAddr1, addrForClients1), QuorumServer(2, peerAddr2, addrForClients2), QuorumServer(3, peerAddr3, addrForClients3))
 
-    val config1 = QuorumPeerConfig(1, peerAddr1, serverAddr1, serverList, TestUtils.tempDir().getAbsolutePath)
+    val config1 = QuorumPeerConfig(1, peerAddr1, addrForClients1, serverList, TestUtils.tempDir().getAbsolutePath)
     val peer1 = new QuorumPeer(config1, new QuorumConnectionManager(config1))
 
-    val config2 = QuorumPeerConfig(2, peerAddr2, serverAddr2, serverList, TestUtils.tempDir().getAbsolutePath)
+    val config2 = QuorumPeerConfig(2, peerAddr2, addrForClients2, serverList, TestUtils.tempDir().getAbsolutePath)
     val peer2 = new QuorumPeer(config2, new QuorumConnectionManager(config2))
 
-    val config3 = QuorumPeerConfig(3, peerAddr3, serverAddr3, serverList, TestUtils.tempDir().getAbsolutePath)
+    val config3 = QuorumPeerConfig(3, peerAddr3, addrForClients3, serverList, TestUtils.tempDir().getAbsolutePath)
     val peer3 = new QuorumPeer(config3, new QuorumConnectionManager(config3))
 
     peer1.start()
@@ -36,6 +36,7 @@ class QuorumPeerTest extends FunSuite {
       peer3.state == ServerState.LEADING && peer3.leader != null && peer3.leader.newLeaderProposal.ackCount >= 2
     }, "Waiting for leader receiving ACKs", 10000)
 
+    //peer3 will be leader because it has highest id, and there is no history
     TestUtils.waitUntilTrue(() ⇒ {
       peer3.leader.cnxn.serverSocket != null && peer3.leader.cnxn.serverSocket.isBound
     }, "Waiting for server to accept client connections")
@@ -47,7 +48,6 @@ class QuorumPeerTest extends FunSuite {
 
 
     TestUtils.waitUntilTrue(()⇒ {
-      //peer3 will be leader because it has highest id, and there is no history
       leaderHasDataFor(peer3, "/greetPath") &&
       followerHasDataFor(peer2, "/greetPath") &&
       followerHasDataFor(peer1, "/greetPath")
