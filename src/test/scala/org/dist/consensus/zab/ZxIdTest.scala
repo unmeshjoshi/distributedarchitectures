@@ -5,8 +5,8 @@ import org.dist.queue.TestUtils
 import org.dist.util.Networks
 import org.scalatest.FunSuite
 
-class ZabTest extends FunSuite {
-  test("leader should set new epoc") {
+class ZxIdTest extends FunSuite {
+  test("leader should get and increment epoch from zxid") {
     val address = new Networks().ipv4Address
     val peerAddr1 = InetAddressAndPort(address, 8080)
     val peerAddr2 = InetAddressAndPort(address, 8081)
@@ -37,8 +37,5 @@ class ZabTest extends FunSuite {
 
     val epoch3 = leader.newEpoch(zxid2)
     assert(epoch3 == 3)
-
-    val zxid3 = leader.newZxid(epoch3)
   }
-
 }
