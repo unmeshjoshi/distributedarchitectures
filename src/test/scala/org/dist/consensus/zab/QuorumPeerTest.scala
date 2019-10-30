@@ -7,7 +7,7 @@ import org.scalatest.FunSuite
 
 class QuorumPeerTest extends FunSuite {
 
-  test("should be in looking state till it either becomes leader or follower") {
+  test("should elect leader and commit values after getting ACKs from majority of followers") {
     val address = new Networks().ipv4Address
     val peerAddr1 = InetAddressAndPort(address, 9998)
     val peerAddr2 = InetAddressAndPort(address, 9999)
