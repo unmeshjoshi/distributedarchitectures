@@ -3,7 +3,7 @@ package org.dist.consensus.zab
 import java.net.{DatagramPacket, DatagramSocket, InetSocketAddress}
 import java.nio.ByteBuffer
 import java.util.Random
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.common.Logging
@@ -71,7 +71,7 @@ class LeaderElection(servers: List[QuorumServer], quorumConnectionManager: Quoru
     breakable {
 
       while (true) {
-        self.currentVote = Vote(self.myid, self.getLastLoggedZxid)
+//        self.currentVote.set(Vote(self.myid, self.getLastLoggedZxid))
 
         val votes = getVotesFromPeers
         val electionResult = new Elector(servers.size).elect(votes.asScala.toMap)
@@ -94,7 +94,8 @@ class LeaderElection(servers: List[QuorumServer], quorumConnectionManager: Quoru
   }
 
   private def setCurrentVoteToWouldBeLeaderVote(electionResult: ElectionResult) = {
-    self.currentVote = electionResult.vote
+    info(s"Setting current vote in ${self.config.serverId} to ${electionResult.vote}")
+    self.currentVote.set(electionResult.vote)
   }
 
   private def getVotesFromPeers = {
@@ -109,7 +110,7 @@ class LeaderElection(servers: List[QuorumServer], quorumConnectionManager: Quoru
 
   private def setLeaderOrFollowerState(electionResult: ElectionResult) = {
     //set state as leader
-    self.currentVote = electionResult.winningVote
+    self.currentVote.set(electionResult.winningVote)
     if (electionResult.winningVote.id == self.myid) {
       info(s"Setting ${electionResult.winningVote.id} to be leader")
       self.setPeerState(ServerState.LEADING)
@@ -142,16 +143,16 @@ class ResponderThread(quorumPeer: QuorumPeer) extends Thread("ResponderThread") 
             quorumPeer.state match {
               case ServerState.LOOKING ⇒
                 info(s"${config.serverId} Sending vote while looking " + quorumPeer.currentVote)
-                responseBuffer.putLong(quorumPeer.currentVote.id)
-                responseBuffer.putLong(quorumPeer.currentVote.zxid)
+                responseBuffer.putLong(quorumPeer.currentVote.get().id)
+                responseBuffer.putLong(quorumPeer.currentVote.get().zxid)
               case ServerState.FOLLOWING ⇒
                 info(s"${config.serverId} Sending vote while following " + quorumPeer.currentVote)
-                responseBuffer.putLong(quorumPeer.currentVote.id)
-                responseBuffer.putLong(quorumPeer.currentVote.zxid)
+                responseBuffer.putLong(quorumPeer.currentVote.get().id)
+                responseBuffer.putLong(quorumPeer.currentVote.get().zxid)
               case ServerState.LEADING ⇒
                 info(s"${config.serverId} Sending vote while leading " + quorumPeer.currentVote)
-                responseBuffer.putLong(quorumPeer.currentVote.id)
-                responseBuffer.putLong(quorumPeer.currentVote.zxid)
+                responseBuffer.putLong(quorumPeer.currentVote.get().id)
+                responseBuffer.putLong(quorumPeer.currentVote.get().zxid)
             }
             packet.setData(b)
             udpSocket.send(packet)
@@ -173,7 +174,7 @@ class QuorumPeer(val config: QuorumPeerConfig, quorumConnectionManager: QuorumCo
 
   val myid = config.serverId
   @volatile var state: ServerState.Value = ServerState.LOOKING
-  @volatile var currentVote = Vote(myid, getLastLoggedZxid)
+  val currentVote = new AtomicReference(Vote(myid, getLastLoggedZxid))
   @volatile var running = true
   var follower: FollowerS = null
   var leader: Leader = null
@@ -187,7 +188,7 @@ class QuorumPeer(val config: QuorumPeerConfig, quorumConnectionManager: QuorumCo
   }
 
   def getLeaderAddress() = {
-    val maybeServer = config.servers.find(server ⇒ server.id == currentVote.id)
+    val maybeServer = config.servers.find(server ⇒ server.id == currentVote.get().id)
     maybeServer.map(s ⇒ s.electionAddress)
   }
 
@@ -221,7 +222,7 @@ class QuorumPeer(val config: QuorumPeerConfig, quorumConnectionManager: QuorumCo
         case ServerState.FOLLOWING ⇒ {
           info(s"${myid} Following now")
           try {
-            val follower = new FollowerS(this)
+            follower = new FollowerS(this)
             follower.followLeader()
           } catch {
             case e: Exception ⇒ error(s"Error while following ${e}. setting state as looking")

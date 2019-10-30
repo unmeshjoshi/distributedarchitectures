@@ -29,6 +29,14 @@ class LeaderElectionTest extends FunSuite {
     assert(result.isElected())
   }
 
+ test("should set current vote to peer with highest server id if no zxid") {
+    val server1 = InetAddressAndPort.create("10.10.10.10", 8000)
+    val server2 = InetAddressAndPort.create("10.10.10.11", 8000)
+    val server3 = InetAddressAndPort.create("10.10.10.12", 8000)
+    val result = new Elector(3).elect(Map(server1 → Vote(1, 0), server2 → Vote(2, 0), server3 → Vote(3, 0)))
+    assert(result.vote.id == 3)
+  }
+
   test("should not elect leader if votes less than quorum") {
     val server1 = InetAddressAndPort.create("10.10.10.10", 8000)
     val result = new Elector(3).elect(Map(server1 → Vote(3, 0)))

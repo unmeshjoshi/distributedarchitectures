@@ -40,9 +40,26 @@ class QuorumPeerTest extends FunSuite {
       peer3.leader.cnxn.serverSocket != null && peer3.leader.cnxn.serverSocket.isBound
     }, "Waiting for server to accept client connections")
 
+
+
     println("Sending request to quorum")
     new Client(config3.serverAddress).setData("/greetPath", "Hello World!")
 
 
+    TestUtils.waitUntilTrue(()⇒ {
+      //peer3 will be leader because it has highest id, and there is no history
+      leaderHasDataFor(peer3, "/greetPath") &&
+      followerHasDataFor(peer2, "/greetPath") &&
+      followerHasDataFor(peer1, "/greetPath")
+    }, "Waiting till the value is committed")
+  }
+
+  private def leaderHasDataFor(peer: QuorumPeer, key:String) = {
+    peer.leader.zk.dataTree.nodes.containsKey(key)
+  }
+
+  private def followerHasDataFor(peer: QuorumPeer, key:String) = {
+    info(s"Checking for ${peer.config.serverId}" )
+    peer.follower != null && peer.follower.zk.dataTree.nodes.containsKey(key)
   }
 }

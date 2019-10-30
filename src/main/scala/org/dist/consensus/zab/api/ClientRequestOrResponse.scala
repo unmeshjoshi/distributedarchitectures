@@ -10,6 +10,4 @@ case class GetDataRequest(path:String)
 case class SetDataResponse(path:String)
 case class GetDataResponse(data:String)
 
-case class ClientRequestOrResponse(val requestId: Short, val messageBodyJson: String, val correlationId: Int) {
-
-}
+case class ClientRequestOrResponse(val requestId: Short, val messageBodyJson: String, val correlationId: Int)
