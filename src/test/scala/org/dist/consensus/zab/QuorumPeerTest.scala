@@ -46,7 +46,7 @@ class QuorumPeerTest extends FunSuite {
     println("Sending request to quorum")
     new Client(config3.serverAddress).setData("/greetPath", "Hello World!")
 
-    //assert that majority has the data once client gets response
+    //assert that majority has the data once client gets response. At this point its committed
     assert(leaderHasDataFor(peer3, "/greetPath") &&
       followerHasDataFor(peer2, "/greetPath") || followerHasDataFor(peer1, "/greetPath"))
 
@@ -56,7 +56,7 @@ class QuorumPeerTest extends FunSuite {
       leaderHasDataFor(peer3, "/greetPath") &&
       followerHasDataFor(peer2, "/greetPath") &&
       followerHasDataFor(peer1, "/greetPath")
-    }, "Waiting till the value is committed")
+    }, "Waiting till the value reaches all peers")
   }
 
   private def leaderHasDataFor(peer: QuorumPeer, key:String) = {
