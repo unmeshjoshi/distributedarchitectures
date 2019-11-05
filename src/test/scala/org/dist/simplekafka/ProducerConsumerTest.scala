@@ -8,7 +8,7 @@ import org.dist.util.Networks
 
 class ProducerConsumerTest extends ZookeeperTestHarness with Logging {
 
-  test("should produce and consumer messages from three broker cluster") {
+  test("should produce and consumer messages from five broker cluster") {
     val broker1 = newBroker(1)
     val broker2 = newBroker(2)
     val broker3 = newBroker(3)

@@ -18,5 +18,4 @@ class RackUnawareStrategyTest extends FunSuite {
     assert(2 == endpoints.size)
     println(endpoints)
   }
-
 }
