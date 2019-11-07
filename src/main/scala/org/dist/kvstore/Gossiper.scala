@@ -109,7 +109,7 @@ class Gossiper(private[kvstore] val generationNbr: Int,
 
   def resusitate(addr: InetAddressAndPort, localState: EndPointState) = {
     logger.debug("Attempting to resusitate " + addr)
-    isAlive(addr, localState, true)
+    markLiveOrUnreachable(addr, localState, true)
     logger.debug("EndPoint " + addr + " is now UP")
   }
 
@@ -142,12 +142,12 @@ class Gossiper(private[kvstore] val generationNbr: Int,
     logger.info("Node " + ep + " has now joined.")
     /* Mark this endpoint as "live" */
     endpointStatemap.put(ep, epState)
-    isAlive(ep, epState, true)
+    markLiveOrUnreachable(ep, epState, true)
     logger.info(s"Enpoint State Map for ${localEndPoint} is ${endpointStatemap}")
     /* Notify interested parties about endpoint state change */ doNotifications(ep, epState)
   }
 
-  private[kvstore] def isAlive(addr: InetAddressAndPort, epState: EndPointState, value: Boolean): Unit = {
+  private[kvstore] def markLiveOrUnreachable(addr: InetAddressAndPort, epState: EndPointState, value: Boolean): Unit = {
     if (value) {
       liveEndpoints.add(addr)
       unreachableEndpoints.remove(addr)

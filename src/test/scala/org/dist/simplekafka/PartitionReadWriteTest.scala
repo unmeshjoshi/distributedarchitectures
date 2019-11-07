@@ -27,9 +27,12 @@ class PartitionReadWriteTest extends FunSuite {
     val partition = new Partition(config1, TopicAndPartition("topic1", 0))
     val offset1 = partition.append("key1", "message1")
     val offset2 = partition.append("key2", "message2")
+    val offset3 = partition.append("key3", "message3")
     val messages: Seq[partition.Row] = partition.read(offset2)
-    assert(messages.size == 1)
+    assert(messages.size == 2)
     assert(messages(0).key == "key2")
     assert(messages(0).value == "message2")
+    assert(messages(1).key == "key3")
+    assert(messages(1).value == "message3")
   }
 }
