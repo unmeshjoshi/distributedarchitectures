@@ -144,7 +144,8 @@ class Gossiper(private[kvstore] val generationNbr: Int,
     endpointStatemap.put(ep, epState)
     markLiveOrUnreachable(ep, epState, true)
     logger.info(s"Enpoint State Map for ${localEndPoint} is ${endpointStatemap}")
-    /* Notify interested parties about endpoint state change */ doNotifications(ep, epState)
+    /* Notify interested parties about endpoint state change */
+    doNotifications(ep, epState)
   }
 
   private[kvstore] def markLiveOrUnreachable(addr: InetAddressAndPort, epState: EndPointState, value: Boolean): Unit = {

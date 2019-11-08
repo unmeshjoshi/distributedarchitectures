@@ -24,11 +24,22 @@ object JsonSerDes {
     objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     val module = new SimpleModule()
     module.addKeyDeserializer(classOf[TopicAndPartition], new TopicAndPartitionKeyDeserializer())
+    module.addKeyDeserializer(classOf[InetAddressAndPort], new InetAddressAndPortKeyDeserializer())
     objectMapper.registerModule(module)
     objectMapper.registerModule(DefaultScalaModule)
     objectMapper.readValue(json, clazz)
   }
 
+
+  class InetAddressAndPortKeyDeserializer extends KeyDeserializer {
+    override def deserializeKey(key: String, ctxt: DeserializationContext): AnyRef = {
+      if (key.startsWith("[") && key.endsWith("]")) {
+        val parts = key.substring(1, key.length - 1).split(',')
+        InetAddressAndPort.create(parts(0), parts(1).toInt)
+      } else
+        throw new IllegalArgumentException(s"${key} is not valid InetAddressAndPort")
+    }
+  }
 
   class TopicAndPartitionKeyDeserializer extends KeyDeserializer {
     override def deserializeKey(key: String, ctxt: DeserializationContext): AnyRef = {
