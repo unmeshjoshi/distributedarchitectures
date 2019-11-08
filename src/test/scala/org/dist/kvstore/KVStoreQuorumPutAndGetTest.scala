@@ -38,7 +38,7 @@ class KVStoreQuorumPutAndGetTest extends FunSuite {
       node2.tokenMetadata.cloneTokenEndPointMap.size() == 4 &&
       node3.tokenMetadata.cloneTokenEndPointMap.size() == 4 &&
       node4.tokenMetadata.cloneTokenEndPointMap.size() == 4
-    }, "Waiting till metadata is propogated to all the servers", 2000)
+    }, "Waiting till metadata is propogated to all the servers", 10000)
 
     val client = new Client(node1ClientEndpoint)
     val mutationResponses: Seq[RowMutationResponse] = client.put("table1", "key1", "value1")

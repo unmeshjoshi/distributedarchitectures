@@ -16,7 +16,7 @@ class SimpleKafkaApi(config: Config, replicaManager: ReplicaManager) {
   def handle(request: RequestOrResponse): RequestOrResponse = {
     request.requestId match {
       case RequestKeys.LeaderAndIsrKey => {
-        val leaderAndReplicasRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes(), classOf[LeaderAndReplicaRequest])
+        val leaderAndReplicasRequest: LeaderAndReplicaRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes(), classOf[LeaderAndReplicaRequest])
         leaderAndReplicasRequest.leaderReplicas.foreach(leaderAndReplicas ⇒ {
           val topicAndPartition = leaderAndReplicas.topicPartition
           val leader = leaderAndReplicas.partitionStateInfo.leader

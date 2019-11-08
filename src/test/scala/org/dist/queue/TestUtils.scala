@@ -74,7 +74,7 @@ object TestUtils {
     while (true) {
       if (condition())
         return
-      if (System.currentTimeMillis() > startTime + DEFAULT_MAX_WAIT_MS)
+      if (System.currentTimeMillis() > startTime + waitTimeMs)
         fail(msg)
       Thread.sleep(waitTimeMs.min(pause))
     }
