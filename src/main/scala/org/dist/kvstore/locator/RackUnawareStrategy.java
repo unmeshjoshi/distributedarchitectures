@@ -21,6 +21,7 @@ public class RackUnawareStrategy extends AbstractStrategy
 {   
     /* Use this flag to check if initialization is in order. */
     private AtomicBoolean initialized_ = new AtomicBoolean(false);
+    private int replicationFactor = 2;
 
     public RackUnawareStrategy(TokenMetadata tokenMetadata)
     {
@@ -69,7 +70,7 @@ public class RackUnawareStrategy extends AbstractStrategy
 
 
     private int getReplicationFactor() {
-        return 2;
+        return replicationFactor;
 
     }
 

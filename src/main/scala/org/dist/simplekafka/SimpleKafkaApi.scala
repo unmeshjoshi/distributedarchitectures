@@ -28,7 +28,7 @@ class SimpleKafkaApi(config: Config, replicaManager: ReplicaManager) {
         RequestOrResponse(RequestKeys.LeaderAndIsrKey, "", request.correlationId)
       }
       case RequestKeys.UpdateMetadataKey ⇒ {
-        val updateMetadataRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes(), classOf[UpdateMetadataRequest])
+        val updateMetadataRequest: UpdateMetadataRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes(), classOf[UpdateMetadataRequest])
         aliveBrokers = updateMetadataRequest.aliveBrokers
         updateMetadataRequest.leaderReplicas.foreach(leaderReplica ⇒ {
           leaderCache.put(leaderReplica.topicPartition, leaderReplica.partitionStateInfo)

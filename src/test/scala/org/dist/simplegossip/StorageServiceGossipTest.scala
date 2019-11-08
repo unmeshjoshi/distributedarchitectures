@@ -1,7 +1,5 @@
 package org.dist.simplegossip
 
-import java.net.InetAddress
-
 import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.TestUtils
 import org.dist.util.Networks
@@ -9,8 +7,7 @@ import org.scalatest.FunSuite
 
 import scala.jdk.CollectionConverters._
 
-class StorageServiceTest extends FunSuite {
-
+class StorageServiceGossipTest extends FunSuite {
   test("should gossip state to all the nodes in the cluster") {
     val localIp = new Networks().ipv4Address
     val seed = InetAddressAndPort(localIp, 8080)
@@ -29,5 +26,10 @@ class StorageServiceTest extends FunSuite {
       //serverCount + 1 seed
       storages.asScala.toList.map(s ⇒ s.gossiper.endpointStatemap.size() == serverCount + 1).reduce(_ && _)
     }, "Waiting for all the endpoints to be available on all nodes", 15000)
+
+
+    storages.asScala.foreach(s ⇒ {
+      assert(s1.gossiper.endpointStatemap.values().contains(s.gossiper.token))
+    })
   }
 }

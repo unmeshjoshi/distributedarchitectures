@@ -49,7 +49,6 @@ class Gossiper(val seed:InetAddressAndPort,
     Message(header, JsonSerDes.serialize(digestAck))
   }
 
-
   def examineGossiper(digestList: util.List[GossipDigest], deltaGossipDigest: util.ArrayList[GossipDigest], deltaEndPointStates: util.HashMap[InetAddressAndPort, BigInteger]) = {
     for (gDigest <- digestList.asScala) {
       val endpointState = endpointStatemap.get(gDigest.endPoint)
@@ -60,7 +59,6 @@ class Gossiper(val seed:InetAddressAndPort,
       }
     }
   }
-
 
   /* Request all the state for the endpoint in the gDigest */
   private def requestAll(gDigest: GossipDigest, deltaGossipDigestList: util.List[GossipDigest]): Unit = {
@@ -144,6 +142,9 @@ class Gossiper(val seed:InetAddressAndPort,
       val index = if (size == 1) 0
       else random.nextInt(size)
       val to = liveEndPoints.get(index)
+
+      info(s"Sending gossip message from ${localEndPoint} to ${to}")
+
       messagingService.sendTcpOneWay(message, to)
       seed == to
     }
