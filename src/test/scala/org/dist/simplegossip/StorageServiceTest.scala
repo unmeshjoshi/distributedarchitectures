@@ -7,23 +7,27 @@ import org.dist.queue.TestUtils
 import org.dist.util.Networks
 import org.scalatest.FunSuite
 
+import scala.jdk.CollectionConverters._
+
 class StorageServiceTest extends FunSuite {
 
   test("should gossip state to all the nodes in the cluster") {
     val localIp = new Networks().ipv4Address
     val seed = InetAddressAndPort(localIp, 8080)
     val s1 = new StorageService(seed, seed)
-    val s2 = new StorageService(seed, InetAddressAndPort(localIp, 8081))
-    val s3 = new StorageService(seed, InetAddressAndPort(localIp, 8082))
-
     s1.start()
-    s2.start()
-    s3.start()
 
+    val storages = new java.util.ArrayList[StorageService]()
+    val basePort = 8081
+    val serverCount = 10
+    for(i ← 1 to serverCount) {
+      val storage = new StorageService(seed, InetAddressAndPort(localIp, basePort + i))
+      storage.start()
+      storages.add(storage)
+    }
     TestUtils.waitUntilTrue(()⇒{
-      s1.gossiper.endpointStatemap.size() == 3 &&
-        s2.gossiper.endpointStatemap.size() == 3 &&
-      s3.gossiper.endpointStatemap.size() == 3
-    }, "Waiting for all the endpoints to be available on all nodes")
+      //serverCount + 1 seed
+      storages.asScala.toList.map(s ⇒ s.gossiper.endpointStatemap.size() == serverCount + 1).reduce(_ && _)
+    }, "Waiting for all the endpoints to be available on all nodes", 15000)
   }
 }
