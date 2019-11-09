@@ -8,8 +8,8 @@ import org.apache.zookeeper.Watcher.Event.KeeperState
 import org.dist.kvstore.JsonSerDes
 import org.dist.queue.common.Logging
 import org.dist.queue.server.Config
+import org.dist.queue.utils.ZkUtils.Broker
 import org.dist.queue.utils.{ZKStringSerializer, ZkUtils}
-import org.dist.queue.utils.ZkUtils.{Broker, BrokerTopicsPath, createParentPath, getTopicPath}
 
 import scala.jdk.CollectionConverters._
 
@@ -18,24 +18,39 @@ trait ZookeeperClient {
   def shutdown()
 
   def setPartitionReplicasForTopic(topicName: String, partitionReplicas: Set[PartitionReplicas])
+
+  def setPartitionLeaderForTopic(topicName: String, leaderAndReplicas: List[LeaderAndReplicas])
+
   def getAllBrokerIds(): Set[Int]
+
   def getAllBrokers(): Set[Broker]
+
+  def getPartitionReplicaLeaderInfo(topicName: String): List[LeaderAndReplicas]
+
+  def getTopics(): List[String]
+
   def getBrokerInfo(brokerId: Int): Broker
+
   def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas]
+
   def subscribeTopicChangeListener(listener: IZkChildListener): Option[List[String]]
+
   def subscribeBrokerChangeListener(listener: IZkChildListener): Option[List[String]]
-  def subscribeControllerChangeListner(controller:Controller): Unit
+
+  def subscribeControllerChangeListner(controller: Controller): Unit
 
   def registerSelf()
+
   def tryCreatingControllerPath(data: String)
 }
 
-case class ControllerExistsException(controllerId:String) extends RuntimeException
+case class ControllerExistsException(controllerId: String) extends RuntimeException
 
-private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperClient {
+private[simplekafka] class ZookeeperClientImpl(config: Config) extends ZookeeperClient {
   val BrokerTopicsPath = "/brokers/topics"
   val BrokerIdsPath = "/brokers/ids"
   val ControllerPath = "/controller"
+  val ReplicaLeaderElectionPath = "/topics/replica/leader"
 
 
   private val zkClient = new ZkClient(config.zkConnect, config.zkSessionTimeoutMs, config.zkConnectionTimeoutMs, ZKStringSerializer)
@@ -53,16 +68,20 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
 
   def getAllBrokers(): Set[Broker] = {
     zkClient.getChildren(BrokerIdsPath).asScala.map(brokerId => {
-      val data:String = zkClient.readData(getBrokerPath(brokerId.toInt))
+      val data: String = zkClient.readData(getBrokerPath(brokerId.toInt))
       JsonSerDes.deserialize(data.getBytes, classOf[Broker])
     }).toSet
   }
 
   def getBrokerInfo(brokerId: Int): Broker = {
-    val data:String = zkClient.readData(getBrokerPath(brokerId))
+    val data: String = zkClient.readData(getBrokerPath(brokerId))
     JsonSerDes.deserialize(data.getBytes, classOf[Broker])
   }
 
+  def getPartitionReplicaLeaderInfo(topicName: String): List[LeaderAndReplicas] = {
+      val leaderAndReplicas: String = zkClient.readData(getReplicaLeaderElectionPath(topicName))
+      JsonSerDes.deserialize[List[LeaderAndReplicas]](leaderAndReplicas.getBytes, new TypeReference[List[LeaderAndReplicas]]() {})
+  }
 
 
   override def registerSelf(): Unit = {
@@ -71,11 +90,11 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
   }
 
   override def getPartitionAssignmentsFor(topicName: String): List[PartitionReplicas] = {
-    val partitionAssignments:String = zkClient.readData(getTopicPath(topicName))
-    JsonSerDes.deserialize[List[PartitionReplicas]](partitionAssignments.getBytes, new TypeReference[List[PartitionReplicas]](){})
+    val partitionAssignments: String = zkClient.readData(getTopicPath(topicName))
+    JsonSerDes.deserialize[List[PartitionReplicas]](partitionAssignments.getBytes, new TypeReference[List[PartitionReplicas]]() {})
   }
 
-  def subscribeTopicChangeListener(listener: IZkChildListener):Option[List[String]] = {
+  def subscribeTopicChangeListener(listener: IZkChildListener): Option[List[String]] = {
     val result = zkClient.subscribeChildChanges(BrokerTopicsPath, listener)
     Option(result).map(_.asScala.toList)
   }
@@ -96,11 +115,13 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
   def getAllTopics() = {
     val topics = zkClient.getChildren(BrokerTopicsPath).asScala
     topics.map(topicName => {
-      val partitionAssignments:String = zkClient.readData(getTopicPath(topicName))
-      val partitionReplicas:List[PartitionReplicas] = JsonSerDes.deserialize[List[PartitionReplicas]](partitionAssignments.getBytes, new TypeReference[List[PartitionReplicas]](){})
+      val partitionAssignments: String = zkClient.readData(getTopicPath(topicName))
+      val partitionReplicas: List[PartitionReplicas] = JsonSerDes.deserialize[List[PartitionReplicas]](partitionAssignments.getBytes, new TypeReference[List[PartitionReplicas]]() {})
       (topicName, partitionReplicas)
     }).toMap
   }
+
+  def getTopics() = zkClient.getChildren(BrokerTopicsPath).asScala.toList
 
   def createEphemeralPath(client: ZkClient, path: String, data: String): Unit = {
     try {
@@ -124,7 +145,7 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
     }
   }
 
-  private def getBrokerPath(id:Int) = {
+  private def getBrokerPath(id: Int) = {
     BrokerIdsPath + "/" + id
   }
 
@@ -161,21 +182,21 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
     try {
       createEphemeralPath(zkClient, ControllerPath, controllerId)
     } catch {
-      case e:ZkNodeExistsException => {
-        val existingControllerId:String = zkClient.readData(ControllerPath)
+      case e: ZkNodeExistsException => {
+        val existingControllerId: String = zkClient.readData(ControllerPath)
         throw new ControllerExistsException(existingControllerId)
       }
     }
   }
 
-  override def subscribeControllerChangeListner(controller:Controller): Unit = {
+  override def subscribeControllerChangeListner(controller: Controller): Unit = {
     zkClient.subscribeDataChanges(ControllerPath, new ControllerChangeListener(controller))
   }
 
   override def shutdown(): Unit = zkClient.close()
 
 
-  class ControllerChangeListener(controller:Controller) extends IZkDataListener {
+  class ControllerChangeListener(controller: Controller) extends IZkDataListener {
     override def handleDataChange(dataPath: String, data: Any): Unit = {
       val existingControllerId:String = zkClient.readData(dataPath)
       controller.setCurrent(existingControllerId.toInt)
@@ -183,6 +204,27 @@ private[simplekafka] class ZookeeperClientImpl(config:Config) extends ZookeeperC
 
     override def handleDataDeleted(dataPath: String): Unit = {
       controller.elect()
+      if (controller.currentLeader.equals(controller.brokerId)) {
+        controller.electNewLeaderForPartition();
+      }
+    }
+  }
+
+  def getReplicaLeaderElectionPath(topicName: String) = {
+    ReplicaLeaderElectionPath + "/" + topicName
+  }
+
+  override def setPartitionLeaderForTopic(topicName: String, leaderAndReplicas: List[LeaderAndReplicas]): Unit = {
+
+    val leaderReplicaSerializer = JsonSerDes.serialize(leaderAndReplicas)
+    val path = getReplicaLeaderElectionPath(topicName);
+
+    try {
+      ZkUtils.updatePersistentPath(zkClient,path, leaderReplicaSerializer)
+    } catch {
+      case e: Throwable => {
+        println("Exception while writing data to partition leader data" + e)
+      }
     }
   }
 }
