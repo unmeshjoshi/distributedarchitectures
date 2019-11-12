@@ -13,8 +13,8 @@ class GossiperTestBuilder(val seeds:Set[InetAddressAndPort] = Set(InetAddressAnd
 
   private val gossiper = new Gossiper(1, localEndpoint, DatabaseConfiguration(seeds), executor, messagingService)
 
-  def withEndpointState(host:String, port:Int, hearBeatVersion:Int=0, applicationStates:Map[ApplicationState, VersionedValue]) = {
-    val ep = EndPointState(HeartBeatState(1, hearBeatVersion), applicationStates.asJava)
+  def withEndpointState(host: String, port: Int, hearBeatVersion: Int = 0, applicationStates: Map[ApplicationState, VersionedValue], generation: Int) = {
+    val ep = EndPointState(HeartBeatState(generation, hearBeatVersion), applicationStates.asJava)
     gossiper.endpointStatemap.put(InetAddressAndPort.create(host, port), ep)
     this
   }

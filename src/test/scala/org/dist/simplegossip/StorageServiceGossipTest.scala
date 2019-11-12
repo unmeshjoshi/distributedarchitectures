@@ -17,16 +17,15 @@ class StorageServiceGossipTest extends FunSuite {
     val storages = new java.util.ArrayList[StorageService]()
     val basePort = 8081
     val serverCount = 10
-    for(i ← 1 to serverCount) {
+    for (i ← 1 to serverCount) {
       val storage = new StorageService(seed, InetAddressAndPort(localIp, basePort + i))
       storage.start()
       storages.add(storage)
     }
-    TestUtils.waitUntilTrue(()⇒{
+    TestUtils.waitUntilTrue(() ⇒ {
       //serverCount + 1 seed
       storages.asScala.toList.map(s ⇒ s.gossiper.endpointStatemap.size() == serverCount + 1).reduce(_ && _)
     }, "Waiting for all the endpoints to be available on all nodes", 15000)
-
 
     storages.asScala.foreach(s ⇒ {
       assert(s1.gossiper.endpointStatemap.values().contains(s.gossiper.token))

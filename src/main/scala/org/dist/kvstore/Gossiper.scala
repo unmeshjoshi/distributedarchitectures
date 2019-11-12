@@ -187,8 +187,8 @@ class Gossiper(private[kvstore] val generationNbr: Int,
           val localGeneration = endpointState.heartBeatState.generation
           val maxLocalVersion = endpointState.getMaxEndPointStateVersion()
           if (remoteGeneration == localGeneration && maxRemoteVersion == maxLocalVersion) {
-            Breaks.break()
-          } //todo: continue is not supported}
+            Breaks.break() //todo: continue is not supported}
+          }
           if (remoteGeneration > localGeneration)
           /* we request everything from the gossiper */
             requestAll(gDigest, deltaGossipDigestList, remoteGeneration)

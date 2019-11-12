@@ -172,6 +172,4 @@ class Gossiper(val seed:InetAddressAndPort,
       digests.asScala.toList.asJava
     }
   }
-
-
 }

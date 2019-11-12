@@ -71,8 +71,6 @@ class LeaderElection(servers: List[QuorumServer], quorumConnectionManager: Quoru
     breakable {
 
       while (true) {
-//        self.currentVote.set(Vote(self.myid, self.getLastLoggedZxid))
-
         val votes = getVotesFromPeers
         val electionResult = new Elector(servers.size).elect(votes.asScala.toMap)
 
