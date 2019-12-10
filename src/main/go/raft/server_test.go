@@ -12,17 +12,24 @@ func TestAppendLogThroughChannelIncrementsIndexSequentially(t *testing.T) {
 	s1, _ := NewServer("1", createTempLogDir(t), "http://121.0.0.1:8000")
 	s1.StartAsLeader()
 
-	s1.Do(&testCommand{X: "test1"})
-	s1.Do(&testCommand{X: "test2"})
+	go s1.Do(&testCommand{X: "test1"})
+	go s1.Do(&testCommand{X: "test2"})
+
+	waitForLogEntries(s1)
 
 	firstEntry := s1.log.entries[0]
 	assert.Equal(t, uint64(1), firstEntry.Index())
 
 	secondEntry := s1.log.entries[1]
 	assert.Equal(t, uint64(2), secondEntry.Index())
+}
 
-	s1.Do(&testCommand{X: "test3"})
-	assert.Equal(t, uint64(3), s1.log.currentIndex())
+func waitForLogEntries(s1 *server) {
+	for {
+		if len(s1.log.entries) == 2 {
+			break
+		}
+	}
 }
 
 type testCommand struct {
