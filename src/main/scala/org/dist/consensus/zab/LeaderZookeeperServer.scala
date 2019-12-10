@@ -25,6 +25,7 @@ class LeaderZookeeperServer(val leader:Leader) extends ZookeeperServer {
     val finalProcessor = new FinalRequestProcessor()
     val syncProcessor = new ProposalRequestProcessor(this, finalProcessor)
     firstProcessor = new PrepRequestProcessor(this, syncProcessor)
+    firstProcessor.asInstanceOf[PrepRequestProcessor].start()
   }
 
   val commitProcessor = new CommitProcessor(this)

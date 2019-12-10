@@ -1,5 +1,7 @@
 package org.dist.consensus.zab
 
+import java.util.concurrent.LinkedBlockingQueue
+
 import org.dist.consensus.zab.api.{ClientRequestOrResponse, SetDataRequest}
 import org.dist.kvstore.JsonSerDes
 import org.dist.queue.common.Logging
@@ -92,14 +94,21 @@ class ProposalRequestProcessor(val zks: LeaderZookeeperServer, nextProcessor: Re
   }
 }
 
-class PrepRequestProcessor(val zks: LeaderZookeeperServer, nextProcessor: RequestProcessor) extends RequestProcessor with Logging {
-  override def processRequest(request: Request): Unit = {
+private class PrepRequestProcessor(val zks: LeaderZookeeperServer, nextProcessor: RequestProcessor) extends Thread with RequestProcessor with Logging  {
+  private val submittedRequests = new LinkedBlockingQueue[Request]
+
+  override def run(): Unit = {
+    val request = submittedRequests.take()
     if (request.requestType == ClientRequestOrResponse.SetDataKey) {
       val setDataRequest = JsonSerDes.deserialize(request.data, classOf[SetDataRequest])
       pRequest(request, setDataRequest)
     }
     else
       error(s"Invalid request type ${request.requestType}")
+  }
+
+  override def processRequest(request: Request): Unit = {
+    submittedRequests.put(request)
   }
 
   def pRequest(request: Request, setDataRequest: SetDataRequest) = {
