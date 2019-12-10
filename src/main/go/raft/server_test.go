@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestChannel(t *testing.T) {
+func TestAppendLogThroughChannelIncrementsIndexSequentially(t *testing.T) {
 
 	s1, _ := NewServer("1", createTempLogDir(t), "http://121.0.0.1:8000")
 	s1.StartAsLeader()
