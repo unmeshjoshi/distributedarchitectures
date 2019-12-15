@@ -39,6 +39,5 @@ class StorageServiceGossipTest extends FunSuite {
     val mutationResponses: Seq[RowMutationResponse] = client.put("table1", "key1", "value1")
     assert(mutationResponses.size == 2)
     assert(mutationResponses.map(m => m.success).toSet == Set(true))
-
   }
 }

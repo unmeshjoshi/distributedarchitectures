@@ -2,11 +2,14 @@ package org.dist.simplegossip
 
 import java.math.BigInteger
 import java.util
-import java.util.{ArrayList, Collections, List, Map}
 
 import org.apache.log4j.Logger
 import org.dist.kvstore.locator.RackUnawareStrategy
-import org.dist.kvstore.{FBUtilities, GuidGenerator, InetAddressAndPort, RowMutation, TokenMetadata}
+import org.dist.kvstore._
+
+case class Table(name:String, kv:util.Map[String, String]) {
+  def put(key:String, value:String) = kv.put(key, value)
+}
 
 class StorageService(seed:InetAddressAndPort, clientListenAddress:InetAddressAndPort, val localEndPoint:InetAddressAndPort) {
   val ReplicationFactor = 2
@@ -18,16 +21,14 @@ class StorageService(seed:InetAddressAndPort, clientListenAddress:InetAddressAnd
 
   private val logger = Logger.getLogger(classOf[StorageService])
 
-  val tables = new util.HashMap[String, Map[String, String]]()
+  val tables = new util.HashMap[String, Table]()
   def apply(rowMutation: RowMutation) = {
-    var kv: util.Map[String, String] = tables.get(rowMutation.table)
-    if (kv == null) {
-      kv = new util.HashMap[String, String]
-      tables.put(rowMutation.table, kv)
+    var table = tables.get(rowMutation.table)
+    if (table == null) {
+      table = new Table(rowMutation.table, new util.HashMap[String, String]())
+      tables.put(rowMutation.table, table)
     }
-    val value = kv.get(rowMutation.key)
-    kv.put(rowMutation.key, rowMutation.value)
-
+    table.put(rowMutation.key, rowMutation.value)
     true
   }
 
