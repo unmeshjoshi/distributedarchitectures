@@ -5,7 +5,7 @@ import java.util
 
 import org.apache.log4j.Logger
 import org.dist.kvstore.locator.RackUnawareStrategy
-import org.dist.kvstore._
+import org.dist.kvstore.{FBUtilities, GuidGenerator, InetAddressAndPort, RowMutation, TokenMetadata}
 
 case class Table(name:String, kv:util.Map[String, String]) {
   def put(key:String, value:String) = kv.put(key, value)
