@@ -49,7 +49,6 @@ class SequenceFile {
       val currentOffset = offset.incrementAndGet()
       offsetIndexes.put(currentOffset, keyIndex)
       currentOffset
-
     }
 
     def getIndexFor(key: String) = keyIndexes.get(key)

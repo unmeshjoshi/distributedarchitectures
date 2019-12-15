@@ -5,7 +5,7 @@ import java.util
 import java.util.concurrent.{ConcurrentHashMap, ScheduledThreadPoolExecutor, TimeUnit}
 import java.util.{Collections, Random}
 
-import org.dist.kvstore.{GossipDigest, GossipDigestSyn, Header, InetAddressAndPort, JsonSerDes, Message, Stage, Verb}
+import org.dist.kvstore.{GossipDigest, GossipDigestSyn, Header, InetAddressAndPort, JsonSerDes, Message, Stage, TokenMetadata, Verb}
 import org.dist.queue.common.Logging
 
 import scala.jdk.CollectionConverters._
@@ -13,7 +13,13 @@ import scala.jdk.CollectionConverters._
 class Gossiper(val seed:InetAddressAndPort,
                val localEndPoint:InetAddressAndPort,
                val token:BigInteger,
+               val tokenMetadata:TokenMetadata,
                val executor: ScheduledThreadPoolExecutor = new ScheduledThreadPoolExecutor(1)) extends Logging {
+
+  var messagingService:MessagingService = _
+  def setMessageService(messagingService:MessagingService): Unit = {
+    this.messagingService = messagingService
+  }
 
   def makeGossipDigestAck2Message(deltaEpStateMap: util.HashMap[InetAddressAndPort, BigInteger]) = {
     val gossipDigestAck2 = GossipDigestAck2(deltaEpStateMap.asScala.toMap)
@@ -28,6 +34,7 @@ class Gossiper(val seed:InetAddressAndPort,
   def handleNewJoin(ep: InetAddressAndPort, remoteToken: BigInteger) = {
     this.liveEndpoints.add(ep)
     this.endpointStatemap.put(ep, remoteToken)
+    tokenMetadata.update(remoteToken, ep)
     info(s"${ep} joined ${localEndPoint} ")
   }
 
@@ -73,7 +80,6 @@ class Gossiper(val seed:InetAddressAndPort,
   }
 
 
-  val messagingService = new MessagingService(this)
   private val random: Random = new Random
   val liveEndpoints: util.List[InetAddressAndPort] = new util.ArrayList[InetAddressAndPort]
   val unreachableEndpoints: util.List[InetAddressAndPort] = new util.ArrayList[InetAddressAndPort]
