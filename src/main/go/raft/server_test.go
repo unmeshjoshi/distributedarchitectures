@@ -57,8 +57,9 @@ func Exist(name string) bool {
 	return err == nil
 }
 
-func (t *testCommand) CommandName() string {
-	return "testCommand"
+func (t *testCommand) CommandName() *string {
+	commandName := "testCommand"
+	return &commandName
 }
 
 func submitRequests(s1 *server) {

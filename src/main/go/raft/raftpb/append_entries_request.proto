@@ -1,0 +1,12 @@
+package raftpb;
+
+import "log_entry.proto";
+
+message AppendEntriesRequest {
+	required uint64 Term=1;
+	required uint64 PrevLogIndex=2;
+	required uint64 PrevLogTerm=3;
+	required uint64 CommitIndex=4;
+	required string LeaderName=5;
+	repeated LogEntry Entries=6;
+}

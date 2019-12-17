@@ -8,7 +8,7 @@ import (
 )
 
 type LogEntry struct {
-	pb		*raftpb.Entry
+	pb		*raftpb.LogEntry
 	Position	int64	// position in the log file
 	log		*Log
 	event		*ev
@@ -24,19 +24,19 @@ type ev struct {
 
 
 func (e *LogEntry) Index() uint64 {
-	return e.pb.Index
+	return e.pb.GetIndex()
 }
 
 func (e *LogEntry) Term() uint64 {
-	return e.pb.Term
+	return e.pb.GetTerm()
 }
 
 func (e *LogEntry) CommandName() string {
-	return e.pb.Type.String()
+	return e.pb.GetCommandName()
 }
 
 func (e *LogEntry) Command() []byte {
-	return e.pb.Data
+	return e.pb.GetCommand()
 }
 
 // Encodes the log entry to a buffer. Returns the number of bytes

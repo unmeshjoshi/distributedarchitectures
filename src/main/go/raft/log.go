@@ -206,7 +206,7 @@ func (l *Log) ApplyFunc(entry *LogEntry, command []byte) (interface{}, error){
 }
 
 type Command interface {
-	CommandName() string
+	CommandName() *string
 }
 
 // Creates a new log entry associated with a log.
@@ -224,11 +224,11 @@ func newLogEntry(log *Log, event *ev, index uint64, term uint64, command Command
 	//	}
 	//}
 
-	pb := &raftpb.Entry{
-		Index:       index,
-		Term:        term,
-		Type: raftpb.EntryNormal,
-		Data:     buf.Bytes(),
+	pb := &raftpb.LogEntry{
+		Index:       &index,
+		Term:        &term,
+		CommandName:command.CommandName(),
+		Command:     buf.Bytes(),
 	}
 
 	e := &LogEntry{
