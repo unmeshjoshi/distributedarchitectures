@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"bufio"
 	"bytes"
 	"consensus/raft/raftpb"
 	"errors"
@@ -51,7 +52,7 @@ func (l *Log) open(path string) error {
 		entry, _ := newLogEntry(l, nil, 0, 0, nil)
 		entry.Position, _ = l.file.Seek(0, os.SEEK_CUR)
 
-		n, err := entry.Decode(l.file)
+		n, err := entry.ReadFrom(l.file)
 		if err != nil {
 			if err == io.EOF {
 				debugln("open.log.append: finish ")
@@ -121,8 +122,8 @@ func (l *Log) appendEntry(entry *LogEntry) error {
 	}
 
 	// Make sure the term and index are greater than the previous.
-	if len(l.entries) > 0 {
-		lastEntry := l.entries[len(l.entries)-1]
+	if l.hasEntries() {
+		lastEntry := l.lastEntry()
 		if entry.Term() < lastEntry.Term() {
 			return fmt.Errorf("raft.Log: Cannot append entry with earlier term (%x:%x <= %x:%x)", entry.Term(), entry.Index(), lastEntry.Term(), lastEntry.Index())
 		} else if entry.Term() == lastEntry.Term() && entry.Index() <= lastEntry.Index() {
@@ -135,7 +136,7 @@ func (l *Log) appendEntry(entry *LogEntry) error {
 	entry.Position = position
 
 	// Write to storage.
-	if _, err := entry.Encode(l.file); err != nil {
+	if _, err := entry.WriteTo(l.file); err != nil {
 		return err
 	}
 
@@ -143,6 +144,15 @@ func (l *Log) appendEntry(entry *LogEntry) error {
 	l.entries = append(l.entries, entry)
 
 	return nil
+}
+
+func (l *Log) lastEntry() *LogEntry {
+	lastEntry := l.entries[len(l.entries)-1]
+	return lastEntry
+}
+
+func (l *Log) hasEntries() bool {
+	return len(l.entries) > 0
 }
 
 
@@ -185,7 +195,7 @@ func (l *Log) setCommitIndex(index uint64) error {
 		// Update commit index.
 		l.commitIndex = entry.Index()
 
-		// Decode the command.
+		// ReadFrom the command.
 		command:= entry.Command()
 
 		// Apply the changes to the state machine and store the error code.
@@ -205,6 +215,202 @@ func (l *Log) ApplyFunc(entry *LogEntry, command []byte) (interface{}, error){
 	return "", nil
 }
 
+
+// Retrieves a list of entries after a given index as well as the term of the
+// index provided. A nil list of entries is returned if the index no longer
+// exists because a snapshot was made.
+func (l *Log) getEntriesAfter(index uint64, maxLogEntriesPerRequest uint64) ([]*LogEntry, uint64) {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+
+	// Return nil if index is before the start of the log.
+	if index < l.startIndex {
+		traceln("log.entriesAfter.before: ", index, " ", l.startIndex)
+		return nil, 0
+	}
+
+	// Return an error if the index doesn't exist.
+	if index > (uint64(len(l.entries)) + l.startIndex) {
+		panic(fmt.Sprintf("raft: Index is beyond end of log: %v %v", len(l.entries), index))
+	}
+
+	// If we're going from the beginning of the log then return the whole log.
+	if index == l.startIndex {
+		traceln("log.entriesAfter.beginning: ", index, " ", l.startIndex)
+		return l.entries, l.startTerm
+	}
+
+	traceln("log.entriesAfter.partial: ", index, " ", l.entries[len(l.entries)-1].Index())
+
+	entries := l.entries[index-l.startIndex:]
+	length := len(entries)
+
+	traceln("log.entriesAfter: startIndex:", l.startIndex, " length", len(l.entries))
+
+	if uint64(length) < maxLogEntriesPerRequest {
+		// Determine the term at the given entry and return a subslice.
+		return entries, l.entries[index-1-l.startIndex].Term()
+	} else {
+		return entries[:maxLogEntriesPerRequest], l.entries[index-1-l.startIndex].Term()
+	}
+}
+
+
+// The last committed index in the log.
+func (l *Log) CommitIndex() uint64 {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+	return l.commitIndex
+}
+
+
+// Truncates the log to the given index and term. This only works if the log
+// at the index has not been committed.
+func (l *Log) truncate(index uint64, term uint64) error {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	debugln("log.truncate: ", index)
+
+	// Do not allow committed entries to be truncated.
+	if index < l.commitIndex {
+		debugln("log.truncate.before")
+		return fmt.Errorf("raft.Log: Index is already committed (%v): (IDX=%v, TERM=%v)", l.commitIndex, index, term)
+	}
+
+	// Do not truncate past end of entries.
+	if index > l.startIndex+uint64(len(l.entries)) {
+		debugln("log.truncate.after")
+		return fmt.Errorf("raft.Log: Entry index does not exist (MAX=%v): (IDX=%v, TERM=%v)", len(l.entries), index, term)
+	}
+
+	// If we're truncating everything then just clear the entries.
+	if index == l.startIndex {
+		debugln("log.truncate.clear")
+		l.file.Truncate(0)
+		l.file.Seek(0, os.SEEK_SET)
+
+		// notify clients if this node is the previous leader
+		for _, entry := range l.entries {
+			if entry.event != nil {
+				entry.event.c <- errors.New("command failed to be committed due to node failure")
+			}
+		}
+
+		l.entries = []*LogEntry{}
+	} else {
+		// Do not truncate if the entry at index does not have the matching term.
+		entry := l.entries[index-l.startIndex-1]
+		if len(l.entries) > 0 && entry.Term() != term {
+			debugln("log.truncate.termMismatch")
+			return fmt.Errorf("raft.Log: Entry at index does not have matching term (%v): (IDX=%v, TERM=%v)", entry.Term(), index, term)
+		}
+
+		// Otherwise truncate up to the desired entry.
+		if index < l.startIndex+uint64(len(l.entries)) {
+			debugln("log.truncate.finish")
+			position := l.entries[index-l.startIndex].Position
+			l.file.Truncate(position)
+			l.file.Seek(position, os.SEEK_SET)
+
+			// notify clients if this node is the previous leader
+			for i := index - l.startIndex; i < uint64(len(l.entries)); i++ {
+				entry := l.entries[i]
+				if entry.event != nil {
+					entry.event.c <- errors.New("command failed to be committed due to node failure")
+				}
+			}
+
+			l.entries = l.entries[0 : index-l.startIndex]
+		}
+	}
+
+	return nil
+}
+
+
+// Appends a series of entries to the log.
+func (l *Log) appendEntries(entries []*raftpb.LogEntry) error {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	startPosition, _ := l.file.Seek(0, os.SEEK_CUR)
+
+	w := bufio.NewWriter(l.file)
+
+	var size int64
+	var err error
+	// Append each entry but exit if we hit an error.
+	for i := range entries {
+		logEntry := &LogEntry{
+			log:      l,
+			Position: startPosition,
+			pb:       entries[i],
+		}
+
+		if size, err = l.writeEntry(logEntry, w); err != nil {
+			return err
+		}
+
+		startPosition += size
+	}
+	w.Flush()
+	err = l.sync()
+
+	if err != nil {
+		panic(err)
+	}
+
+	return nil
+}
+
+// appendEntry with Buffered io
+func (l *Log) writeEntry(entry *LogEntry, w io.Writer) (int64, error) {
+	if l.file == nil {
+		return -1, errors.New("raft.Log: Log is not open")
+	}
+
+	// Make sure the term and index are greater than the previous.
+	if len(l.entries) > 0 {
+		lastEntry := l.entries[len(l.entries)-1]
+		if entry.Term() < lastEntry.Term() {
+			return -1, fmt.Errorf("raft.Log: Cannot append entry with earlier term (%x:%x <= %x:%x)", entry.Term(), entry.Index(), lastEntry.Term(), lastEntry.Index())
+		} else if entry.Term() == lastEntry.Term() && entry.Index() <= lastEntry.Index() {
+			return -1, fmt.Errorf("raft.Log: Cannot append entry with earlier index in the same term (%x:%x <= %x:%x)", entry.Term(), entry.Index(), lastEntry.Term(), lastEntry.Index())
+		}
+	}
+
+	// Write to storage.
+	size, err := entry.WriteTo(w)
+	if err != nil {
+		return -1, err
+	}
+
+	// Append to entries list if stored on disk.
+	l.entries = append(l.entries, entry)
+
+	return int64(size), nil
+}
+
+func (l *Log) sync() error {
+	return l.file.Sync()
+}
+
+
+// Retrieves the last index and term that has been appended to the log.
+func (l *Log) lastInfo() (index uint64, term uint64) {
+	l.mutex.RLock()
+	defer l.mutex.RUnlock()
+
+	// If we don't have any entries then just return zeros.
+	if len(l.entries) == 0 {
+		return l.startIndex, l.startTerm
+	}
+
+	// Return the last index & term
+	entry := l.entries[len(l.entries)-1]
+	return entry.Index(), entry.Term()
+}
+
 type Command interface {
 	CommandName() *string
 }
@@ -216,11 +422,11 @@ func newLogEntry(log *Log, event *ev, index uint64, term uint64, command Command
 	//if command != nil {
 	//	commandName = command.CommandName()
 	//	if encoder, ok := command.(CommandEncoder); ok {
-	//		if err := encoder.Encode(&buf); err != nil {
+	//		if err := encoder.WriteTo(&buf); err != nil {
 	//			return nil, err
 	//		}
 	//	} else {
-	//		json.NewEncoder(&buf).Encode(command)
+	//		json.NewEncoder(&buf).WriteTo(command)
 	//	}
 	//}
 
