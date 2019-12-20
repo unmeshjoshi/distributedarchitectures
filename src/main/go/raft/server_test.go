@@ -58,7 +58,7 @@ func Exist(name string) bool {
 }
 
 func (t *testCommand) CommandName() *string {
-	commandName := "testCommand"
+	commandName := t.X
 	return &commandName
 }
 
@@ -88,11 +88,23 @@ func TestLeaderAppendEntriesWithEmptyLog(t *testing.T) {
 	s2.StartAsFollower()
 	s3.StartAsFollower()
 
-	send, err := s1.send(&testCommand{X: "test1"})
+	//send few commands which get replicated on all the servers
+	sendCommand(s1, &testCommand{X: "test1"}, t)
+	sendCommand(s1, &testCommand{X: "test2"}, t)
+	sendCommand(s1, &testCommand{X: "test3"}, t)
+	sendCommand(s1, &testCommand{X: "test4"}, t)
 
+	assert.Equal(t, s1.log.currentIndex(), uint64(5))
+	assert.Equal(t, s2.log.currentIndex(), uint64(5))
+	assert.Equal(t, s3.log.currentIndex(), uint64(5))
+
+	assert.Equal(t, s1.log.commitIndex, uint64(5)) //first is a no-op command
+}
+
+func sendCommand(s *server, c Command, t *testing.T) {
+	send, err := s.send(c)
 	assert.Equal(t, err, nil)
 	assert.Equal(t, send, "")
-
 }
 
 

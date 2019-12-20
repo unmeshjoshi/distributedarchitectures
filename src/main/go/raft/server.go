@@ -63,6 +63,7 @@ func NewServer(name string, path string,  connectionString string, transporter T
 		c:                       make(chan *ev, 256),
 		transporter: transporter,
 		heartbeatInterval: time.Second * 1,
+		maxLogEntriesPerRequest:20,
 	}
 	lookup[name] = s
 	return s, nil
