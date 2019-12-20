@@ -1,7 +1,6 @@
 package raft
 
 import (
-	"fmt"
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
@@ -88,10 +87,12 @@ func TestLeaderAppendEntriesWithEmptyLog(t *testing.T) {
 	s1.StartAsLeader()
 	s2.StartAsFollower()
 	s3.StartAsFollower()
-	
-	s1.send(&testCommand{X: "test1"})
 
-	fmt.Println(s1.path, s2.path, s3.path)
+	send, err := s1.send(&testCommand{X: "test1"})
+
+	assert.Equal(t, err, nil)
+	assert.Equal(t, send, "")
+
 }
 
 
