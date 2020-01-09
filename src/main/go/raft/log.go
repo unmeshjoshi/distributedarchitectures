@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"consensus/raft/raftpb"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -418,22 +419,16 @@ type Command interface {
 // Creates a new log entry associated with a log.
 func newLogEntry(log *Log, event *ev, index uint64, term uint64, command Command) (*LogEntry, error) {
 	var buf bytes.Buffer
-	//var commandName string
-	//if command != nil {
-	//	commandName = command.CommandName()
-	//	if encoder, ok := command.(CommandEncoder); ok {
-	//		if err := encoder.WriteTo(&buf); err != nil {
-	//			return nil, err
-	//		}
-	//	} else {
-	//		json.NewEncoder(&buf).WriteTo(command)
-	//	}
-	//}
-
+	json.NewEncoder(&buf).Encode(command)
+	name := ""
+	nameAddr := &name
+	if (command != nil) {
+		nameAddr = command.CommandName()
+	}
 	pb := &raftpb.LogEntry{
 		Index:       &index,
 		Term:        &term,
-		CommandName:command.CommandName(),
+		CommandName:nameAddr,
 		Command:     buf.Bytes(),
 	}
 

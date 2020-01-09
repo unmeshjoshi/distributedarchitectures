@@ -104,6 +104,7 @@ private[simplekafka] class ZookeeperClientImpl(config: Config) extends Zookeeper
     Option(result).map(_.asScala.toList)
   }
 
+  //broker/ids/1 {host:10.0.0.1, port:8080}
   @VisibleForTesting
   def registerBroker(broker: Broker) = {
     val brokerData = JsonSerDes.serialize(broker)

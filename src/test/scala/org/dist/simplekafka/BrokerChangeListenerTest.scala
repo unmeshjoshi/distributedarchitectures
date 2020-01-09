@@ -26,7 +26,4 @@ class BrokerChangeListenerTest extends ZookeeperTestHarness {
 
     assert(controller.liveBrokers.size == 3)
   }
-
-
-
 }

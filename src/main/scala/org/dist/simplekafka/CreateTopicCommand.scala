@@ -15,7 +15,7 @@ class CreateTopicCommand(zookeeperClient:ZookeeperClient, partitionAssigner:Repl
     val brokerIds = zookeeperClient.getAllBrokerIds()
     //get list of brokers
     //assign replicas to partition
-    val partitionReplicas = assignReplicasToBrokers(brokerIds.toList, noOfPartitions, replicationFactor)
+    val partitionReplicas: Set[PartitionReplicas] = assignReplicasToBrokers(brokerIds.toList, noOfPartitions, replicationFactor)
     // register topic with partition assignments to zookeeper
     zookeeperClient.setPartitionReplicasForTopic(topicName, partitionReplicas)
 

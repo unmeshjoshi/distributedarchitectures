@@ -98,7 +98,7 @@ func TestLeaderAppendEntriesWithEmptyLog(t *testing.T) {
 	assert.Equal(t, s2.log.currentIndex(), uint64(5))
 	assert.Equal(t, s3.log.currentIndex(), uint64(5))
 
-	assert.Equal(t, s1.log.commitIndex, uint64(5)) //first is a no-op command
+	assert.Equal(t, s1.log.commitIndex, uint64(5)) //first is a no-op command send by leaders to followers after it starts working as leader
 }
 
 func sendCommand(s *server, c Command, t *testing.T) {
