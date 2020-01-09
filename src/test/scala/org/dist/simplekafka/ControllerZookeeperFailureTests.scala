@@ -28,12 +28,14 @@ class ControllerZookeeperFailureTests extends ZookeeperTestHarness {
     assert(controller.liveBrokers.size == 3)
 
     val createCommandTest = new CreateTopicCommand(broker1.zookeeperClient)
-    createCommandTest.createTopic("topic1", 2, 1)
+    createCommandTest.createTopic("topic1", 2, 2)
 
     TestUtils.waitUntilTrue(() ⇒ {
-      testSocketServer(broker1).messages.size == 5 && testSocketServer(broker1).toAddresses.asScala.toSet.size == 3
+      println(testSocketServer(broker1).messages.size)
+      testSocketServer(broker1).messages.size == 6 && testSocketServer(broker1).toAddresses.asScala.toSet.size == 3
     }, "waiting for leader and replica requests handled in all brokers")
 
+    println("old partitionReplicaLeaderInfo:::"+ broker2.zookeeperClient.getPartitionReplicaLeaderInfo("topic1"))
 
     broker1.shutdown()
 
@@ -41,10 +43,17 @@ class ControllerZookeeperFailureTests extends ZookeeperTestHarness {
       broker2.controller.currentLeader != 1 && broker3.controller.currentLeader != 1
     }, "Waiting till new leader is elected")
 
+    print("leader partition after shutdown:" + broker2.controller.zookeeperClient.getPartitionReplicaLeaderInfo("topic1"))
+
     assert(broker2.controller.currentLeader == broker3.controller.currentLeader && broker2.controller.currentLeader != 1)
 
     val reelectedController = allBrokers.filter(b ⇒ b.config.brokerId == broker2.controller.currentLeader).head
     assert(reelectedController.controller.liveBrokers.size == 2)
+
+    val partitionReplicaLeaderInfo:List[LeaderAndReplicas] = broker2.zookeeperClient.getPartitionReplicaLeaderInfo("topic1");
+    partitionReplicaLeaderInfo.foreach(leaderAndReplicas => {
+      assert(leaderAndReplicas.partitionStateInfo.leader.id != 1)
+    })
   }
 
   def testSocketServer(server: Server) = {
