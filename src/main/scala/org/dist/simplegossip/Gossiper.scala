@@ -156,20 +156,23 @@ class Gossiper(val seed:InetAddressAndPort,
     }
 
 
+    def localDigest() = {
+      var epState = endpointStatemap.get(localEndPoint)
+      GossipDigest(localEndPoint, 1, 1)
+    }
+
     def makeRandomGossipDigest() = {
       //FIXME Figure out why duplicates getting added here
       val digests = new util.HashSet[GossipDigest]()
       /* Add the local endpoint state */
-      var epState = endpointStatemap.get(localEndPoint)
-      val localDigest = GossipDigest(localEndPoint, 1, 1)
 
-      digests.add(localDigest)
+      digests.add(localDigest())
 
       val endpoints = new util.ArrayList[InetAddressAndPort](liveEndpoints)
       Collections.shuffle(endpoints, random)
 
       for (liveEndPoint <- endpoints.asScala) {
-        epState = endpointStatemap.get(liveEndPoint)
+        val epState = endpointStatemap.get(liveEndPoint)
         if (epState != null) {
           digests.add(GossipDigest(liveEndPoint, 1, 1))
         }
