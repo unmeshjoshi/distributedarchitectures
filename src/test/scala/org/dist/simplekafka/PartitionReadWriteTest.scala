@@ -1,5 +1,6 @@
 package org.dist.simplekafka
 
+import akka.actor.ActorSystem
 import org.dist.queue.TestUtils
 import org.dist.queue.common.TopicAndPartition
 import org.dist.queue.server.Config
@@ -7,6 +8,8 @@ import org.dist.util.Networks
 import org.scalatest.FunSuite
 
 class PartitionReadWriteTest extends FunSuite {
+  implicit val partitionActorSystem = ActorSystem("partitionActorSystem")
+
   test("should write and read messages in partition") {
     val config1 = Config(1, new Networks().hostname(), TestUtils.choosePort(), "", List(TestUtils.tempDir().getAbsolutePath))
 

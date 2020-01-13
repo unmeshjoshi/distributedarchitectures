@@ -74,7 +74,8 @@ class TcpListener(localEp: InetAddressAndPort, kafkaApis: SimpleKafkaApi, socket
       while (true) {
         val socket = serverSocket.accept()
         new SocketIO(socket, classOf[RequestOrResponse]).readHandleRespond((request) ⇒ {
-          kafkaApis.handle(request)
+          val response = kafkaApis.handle(request)
+          response
         })
       }
     }

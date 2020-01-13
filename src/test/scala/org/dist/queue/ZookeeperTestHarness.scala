@@ -1,5 +1,6 @@
 package org.dist.queue
 
+import akka.actor.ActorSystem
 import org.I0Itec.zkclient.ZkClient
 import org.dist.queue.utils.ZKStringSerializer
 import org.scalatest.{BeforeAndAfter, BeforeAndAfterEach, FunSuite}
@@ -14,6 +15,7 @@ trait ZookeeperTestHarness extends FunSuite with BeforeAndAfterEach {
   var zkClient: ZkClient = null
   val zkConnectionTimeout = 10000
   val zkSessionTimeout = 15000
+  implicit val partitionActorSystem = ActorSystem("partitionActorSystem")
 
   override def beforeEach() = {
     zookeeper = new EmbeddedZookeeper(zkConnect)

@@ -47,7 +47,7 @@ class SimpleKafkaApi(config: Config, replicaManager: ReplicaManager) {
       case RequestKeys.ProduceKey ⇒ {
         val produceRequest: ProduceRequest = JsonSerDes.deserialize(request.messageBodyJson.getBytes(), classOf[ProduceRequest])
         val partition = replicaManager.getPartition(produceRequest.topicAndPartition)
-        val offset = partition.append(produceRequest.key, produceRequest.message)
+        val offset = partition.append2(produceRequest.key, produceRequest.message)
         RequestOrResponse(RequestKeys.ProduceKey, JsonSerDes.serialize(ProduceResponse(offset)), request.correlationId)
       }
       case RequestKeys.FetchKey ⇒ {

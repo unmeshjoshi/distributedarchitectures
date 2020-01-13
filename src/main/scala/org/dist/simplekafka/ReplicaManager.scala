@@ -2,10 +2,11 @@ package org.dist.simplekafka
 
 import java.util
 
+import akka.actor.ActorSystem
 import org.dist.queue.common.TopicAndPartition
 import org.dist.queue.server.Config
 
-class ReplicaManager(config:Config) {
+class ReplicaManager(config:Config)(implicit actorSystem:ActorSystem) {
   val allPartitions = new util.HashMap[TopicAndPartition, Partition]()
 
   def makeFollower(topicAndPartition: TopicAndPartition, leaderId:Int) = {

@@ -19,4 +19,5 @@ object Libs {
   val `jamm` = "com.github.jbellis" % "jamm" % "0.3.3"
   val `mockito` = "org.mockito" %% "mockito-scala" % "1.5.16"
   val `pcj` = "pcj" % "pcj" % "1.2"
+  val `akka-stream-typed` = "com.typesafe.akka" %% "akka-stream-typed" % "2.6.1"
 }

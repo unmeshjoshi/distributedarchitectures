@@ -1,5 +1,6 @@
 package org.dist.simplekafka
 
+import akka.actor.ActorSystem
 import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.common.Logging
 import org.dist.queue.server.Config
@@ -62,9 +63,11 @@ class ProducerConsumerTest extends ZookeeperTestHarness with Logging {
     broker1.socketServer.kafkaApis.aliveBrokers.size
   }
 
+
   private def newBroker(brokerId: Int) = {
     val config = Config(brokerId, new Networks().hostname(), TestUtils.choosePort(), zkConnect, List(TestUtils.tempDir().getAbsolutePath))
     val zookeeperClient: ZookeeperClientImpl = new ZookeeperClientImpl(config)
+
     val replicaManager = new ReplicaManager(config)
     val socketServer1 = new SimpleSocketServer(config.brokerId, config.hostName, config.port, new SimpleKafkaApi(config, replicaManager))
     val controller = new Controller(zookeeperClient, config.brokerId, socketServer1)

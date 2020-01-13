@@ -2,13 +2,18 @@ package org.dist.simplekafka
 
 import java.io._
 
+import akka.actor.{ActorRef, ActorSystem}
+import akka.stream.OverflowStrategy
+import akka.stream.scaladsl.Source
 import org.dist.queue.common.TopicAndPartition
 import org.dist.queue.server.Config
-import scala.jdk.CollectionConverters._
 
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Promise}
+import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
-class Partition(config:Config, topicAndPartition: TopicAndPartition) {
+class Partition(config:Config, topicAndPartition: TopicAndPartition) (implicit system:ActorSystem) {
   val LogFileSuffix = ".log"
   val logFile =
     new File(config.logDirs(0), topicAndPartition.topic + "-" + topicAndPartition.partition + LogFileSuffix)
@@ -24,6 +29,21 @@ class Partition(config:Config, topicAndPartition: TopicAndPartition) {
 
   def makeLeader() = {
 
+  }
+
+
+  val source: Source[(String, String, Promise[Int]), ActorRef] = Source.actorRef(100, OverflowStrategy.dropHead)
+  private val (actorRef, s) = source.preMaterialize()
+
+  s.runForeach({ case (k, v, p) ⇒
+    val index = append(k, v)
+    p.success(index)
+  })
+
+  def append2(key: String, message: String) = {
+    val p = Promise[Int]()
+    actorRef ! (key, message, p)
+    Await.result(p.future, 1.second)
   }
 
   def append(key:String, message:String) = {
