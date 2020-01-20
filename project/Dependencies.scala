@@ -17,6 +17,7 @@ object Dependencies {
     Libs.`googleGuava`,
     Libs.`jamm`,
     Libs.`pcj`,
+    Libs.`commons-codec`,
     Libs.`akka-stream-typed`,
     Libs.`scalaTest` % Test,
     Libs.`mockito` % Test
