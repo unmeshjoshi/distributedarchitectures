@@ -12,13 +12,17 @@ class VersionedMapTest extends FunSuite {
   }
 
   test("should put versioned entry for new key") {
+    val currentTime = System.currentTimeMillis()
+
     val client = new Client[String, String]()
     val version: Version = client.put("newKey", "newValue")
 
     assert("newValue" == client.get("newKey").value)
-    assert(new VectorClock().incremented(1, System.currentTimeMillis()) == client.get("newKey").version)
 
-    client.put("newKey", "anotherValue")
-    assert(new VectorClock().incremented(1, System.currentTimeMillis()).incremented(1, System.currentTimeMillis()) == client.get("newKey").version)
+    val clock = new VectorClock()
+    assert(clock.incremented(1, currentTime) == client.get("newKey").version)
+
+    client.put("newKey", "anotherValue") //
+    assert(clock.incremented(1, currentTime).incremented(1, currentTime) == client.get("newKey").version)
   }
 }
