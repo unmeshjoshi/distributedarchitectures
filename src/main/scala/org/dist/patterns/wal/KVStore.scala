@@ -6,18 +6,15 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 class KVStore(walDir:File) {
+
   def get(key: String): Option[String] = kv.get(key)
 
   val kv = new mutable.HashMap[String, String]()
-  var lastLogEntry:Long = 0
   val wal = Wal.create(walDir)
 
-  init()
-
-  def init() = {
-    val entries: ListBuffer[LogEntry] = wal.readAll()
+  def applyLog() = {
+    val entries: ListBuffer[WalEntry] = wal.readAll()
     entries.foreach(entry ⇒ {
-      lastLogEntry = entry.entryId
       val command = SetValueCommand.deserialize(new ByteArrayInputStream(entry.data))
       kv.put(command.key, command.value
       )
@@ -30,10 +27,7 @@ class KVStore(walDir:File) {
   }
 
   def put(key:String, value:String): Unit = {
-    val nextLogEntry = lastLogEntry + 1
-    val logEntry = LogEntry(nextLogEntry, SetValueCommand(key, value).serialize())
-    wal.writeEntry(logEntry)
-    lastLogEntry = nextLogEntry
+    wal.writeEntry(SetValueCommand(key, value).serialize())
 
     kv.put(key, value)
   }

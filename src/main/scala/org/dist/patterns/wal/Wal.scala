@@ -1,81 +1,89 @@
 package org.dist.patterns.wal
 
 import java.io.{File, RandomAccessFile}
+import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
+
+import scala.collection.mutable
 
 object Wal {
   val logSuffix = ".log"
   val logPrefix = "wal"
   val firstLogId = 0
+  val sizeOfInt = 4
+  val sizeOfLong = 8
 
   def create(walDir:File): Wal = {
     val newLogFile = new File(walDir, logFileName())
-    val channel = new RandomAccessFile(newLogFile, "rw").getChannel
+    val file = new RandomAccessFile(newLogFile, "rw")
+    val channel = file.getChannel
     new Wal(channel)
   }
 
   def logFileName() = s"${logPrefix}-${firstLogId}${logSuffix}"
-}
 
-class Wal(logChannel:FileChannel) {
-  def writeEntry(logEntry:LogEntry) = {
-    val entrySize = logEntry.data.length + 16 //4 bytes for record length + 4 bytes for type + 8 bytes entry id + data size
-    val buffer = newBuffer(entrySize)
-    buffer.clear()
-    buffer.putInt(entrySize - 4)
-    buffer.putInt(0) //normal entry
-    buffer.putLong(logEntry.entryId) //entryId
-    buffer.put(logEntry.data)
-    buffer.flip()
-    while (buffer.hasRemaining) {
-      logChannel.write(buffer)
-    }
-    logChannel.force(true)
-    logChannel.position()
-    println(s"Wrote ${logChannel.size()}")
-  }
 
   import java.nio.ByteBuffer
   def newBuffer(size:Int) = {
     val buf = ByteBuffer.allocate(size)
     buf.clear
   }
+}
 
-  def close() = logChannel.close()
+class Wal(fileChannel:FileChannel) {
+  def truncate(logIndex: Long) = {
+    val filePosition: Option[Long] = entryOffsets.get(logIndex)
+    filePosition.map(position ⇒ {
+      fileChannel.truncate(position)
+      fileChannel.force(true)
+      position
+    }).orElse(Some(0L))
+
+  }
+
+  val entryOffsets = new mutable.HashMap[Long, Long]()
+  var lastLogEntryId = 0L
+
+  def writeEntry(bytes: Array[Byte]): Unit = {
+    val logEntryId = lastLogEntryId + 1
+    val logEntry = WalEntry(logEntryId, bytes)
+    val filePosition = writeEntry(logEntry)
+    lastLogEntryId = logEntryId
+    entryOffsets.put(logEntryId, filePosition)
+  }
+
+  private def writeEntry(logEntry:WalEntry) = {
+    val buffer = logEntry.serialize()
+    writeToChannel(buffer)
+  }
+
+  private def writeToChannel(buffer: ByteBuffer) = {
+    buffer.flip()
+    while (buffer.hasRemaining) {
+      fileChannel.write(buffer)
+    }
+    fileChannel.force(true)
+    fileChannel.position()
+  }
+
+  def close() = fileChannel.close()
 
 
   def readAll() = {
-    val entries = new scala.collection.mutable.ListBuffer[LogEntry]
-    var bytesRead = 0L
-    while(bytesRead < logChannel.size()) {
-      val entryLengthFieldSize = 4
-      val entrySizeBuffer = readFromChannel(entryLengthFieldSize)
-      entrySizeBuffer.flip()
-      val entrySize = entrySizeBuffer.getInt()
+    //start from the beginning
+    fileChannel.position(0)
 
-      val entryTypeBuffer = readFromChannel(4)
-      entryTypeBuffer.flip()
-      val entryType = entryTypeBuffer.getInt()
-
-      val entryIdBuffer = readFromChannel(8)
-      entryIdBuffer.flip()
-      val entryId = entryIdBuffer.getLong()
-      val dataSize = entrySize - ( 4 + 8)
-
-      val walEntryData = readFromChannel(dataSize)
-      walEntryData.flip()
-      entries += LogEntry(entryId, walEntryData.array())
-      bytesRead  = bytesRead + entrySize + entryLengthFieldSize
+    val entries = new scala.collection.mutable.ListBuffer[WalEntry]
+    var totalBytesRead = 0L
+    val deser = new WalEntryDeserializer(fileChannel)
+    while(totalBytesRead < fileChannel.size()) {
+      val (logEntry, bytesRead, position) = deser.deserialize()
+      entries += logEntry
+      totalBytesRead  = totalBytesRead + bytesRead
+      entryOffsets.put(logEntry.entryId, position)
     }
+    lastLogEntryId = if (entries.isEmpty) 0 else entries.last.entryId
     entries
   }
-
-  private def readFromChannel(size:Int) = {
-    val sizeBuffer = newBuffer(size)
-    sizeBuffer.clear()
-    while (logChannel.read(sizeBuffer) > 0) {}
-    sizeBuffer
-  }
-
 
 }

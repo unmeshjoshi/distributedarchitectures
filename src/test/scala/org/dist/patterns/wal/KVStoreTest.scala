@@ -24,9 +24,11 @@ class KVStoreTest extends FunSuite {
     kv.close
 
     val kv2 = new KVStore(walDir)
+    kv2.applyLog()
+
     assert(Some("testValue") == kv2.get("testKey"))
     assert(Some("testValue2") == kv2.get("testKey2"))
-    assert(kv2.lastLogEntry == 2)
+    assert(kv2.wal.lastLogEntryId == 2)
   }
 
   test("should initialize lastLogIndex from wal") {
@@ -38,17 +40,17 @@ class KVStoreTest extends FunSuite {
     kv.close
 
     val kv2 = new KVStore(walDir)
-    assert(kv2.lastLogEntry == 2)
+    kv2.applyLog()
+    assert(kv2.wal.lastLogEntryId == 2)
   }
 
-  test("should increment lastLogEntry after every mutation") {
+  test("should increment lastLogEntryId after every mutation") {
     val walDir = TestUtils.tempDir("waltest")
     val kv = new KVStore(walDir)
     kv.put("testKey", "testValue")
-    assert(kv.lastLogEntry == 1)
+    assert(kv.wal.lastLogEntryId == 1)
 
     kv.put("testKey2", "testValue2")
-    assert(kv.lastLogEntry == 2)
+    assert(kv.wal.lastLogEntryId == 2)
   }
-
 }
