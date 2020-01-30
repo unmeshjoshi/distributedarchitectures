@@ -5,6 +5,10 @@ import java.io.File
 import org.dist.patterns.wal.{Wal, WalEntry}
 
 class ReplicatedWal(walDir:File) {
+  def entries(from: Long, to: Long) = {
+    wal.entries(from, to)
+  }
+
   val wal = Wal.create(walDir)
 
   var highWaterMark = 0L
@@ -21,7 +25,7 @@ class ReplicatedWal(walDir:File) {
     wal.truncate(entryId)
   }
 
-  def append(bytes: Array[Byte]) = {
+  def append(bytes: Array[Byte]):Long = {
     wal.writeEntry(bytes)
   }
 

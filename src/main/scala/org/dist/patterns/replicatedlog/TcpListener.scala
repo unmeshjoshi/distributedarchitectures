@@ -31,7 +31,17 @@ class TcpListener(localEp: InetAddressAndPort, server: Server) extends Thread wi
             val vote = VoteResponse(server.currentVote.get().id, server.currentVote.get().zxid)
             info(s"Responding vote response from ${server.myid} be ${server.currentVote}")
             RequestOrResponse(RequestKeys.RequestVoteKey, JsonSerDes.serialize(vote), request.correlationId)
+
+
+          } else if (request.requestId == RequestKeys.AppendEntriesKey) {
+
+            val appendEntries = JsonSerDes.deserialize(request.messageBodyJson.getBytes(), classOf[AppendEntriesRequest])
+            val appendEntriesResponse = server.handleAppendEntries(appendEntries)
+            info(s"Responding AppendEntriesResponse from ${server.myid} be ${appendEntriesResponse}")
+            RequestOrResponse(RequestKeys.AppendEntriesKey, JsonSerDes.serialize(appendEntriesResponse), request.correlationId)
+
           } else throw new RuntimeException("UnknownRequest")
+
         })
       }
     }

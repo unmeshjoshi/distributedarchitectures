@@ -7,7 +7,7 @@ class WalEntryDeserializer(logChannel: FileChannel) {
   val intBuffer = Wal.newBuffer(Wal.sizeOfInt)
   val longBuffer = Wal.newBuffer(Wal.sizeOfLong)
 
-  def deserialize() = {
+  def readEntry() = {
     val entrySize: Int = readInt
     val entryType: Int = readInt
     val entryId: Long = readLong

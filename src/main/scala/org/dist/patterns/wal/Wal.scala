@@ -42,17 +42,20 @@ class Wal(fileChannel:FileChannel) {
   }
 
   val entryOffsets = new mutable.HashMap[Long, Long]()
+  entryOffsets.put(0, 0)
+
   var lastLogEntryId = 0L
 
-  def writeEntry(bytes: Array[Byte]): Unit = {
+  def writeEntry(bytes: Array[Byte]):Long = {
     val logEntryId = lastLogEntryId + 1
     val logEntry = WalEntry(logEntryId, bytes)
     val filePosition = writeEntry(logEntry)
     lastLogEntryId = logEntryId
     entryOffsets.put(logEntryId, filePosition)
+    logEntryId
   }
 
-  private def writeEntry(logEntry:WalEntry) = {
+  private def writeEntry(logEntry:WalEntry):Long = {
     val buffer = logEntry.serialize()
     writeToChannel(buffer)
   }
@@ -68,7 +71,6 @@ class Wal(fileChannel:FileChannel) {
 
   def close() = fileChannel.close()
 
-
   def readAll() = {
     //start from the beginning
     fileChannel.position(0)
@@ -77,7 +79,7 @@ class Wal(fileChannel:FileChannel) {
     var totalBytesRead = 0L
     val deser = new WalEntryDeserializer(fileChannel)
     while(totalBytesRead < fileChannel.size()) {
-      val (logEntry, bytesRead, position) = deser.deserialize()
+      val (logEntry, bytesRead, position) = deser.readEntry()
       entries += logEntry
       totalBytesRead  = totalBytesRead + bytesRead
       entryOffsets.put(logEntry.entryId, position)
@@ -86,4 +88,18 @@ class Wal(fileChannel:FileChannel) {
     entries
   }
 
+  def entries(from: Long, to: Long) = {
+    val entries = new scala.collection.mutable.ListBuffer[WalEntry]
+    var totalBytesRead = 0L
+    val deser = new WalEntryDeserializer(fileChannel)
+    val startOffset: Option[Long] = entryOffsets.get(from)
+    fileChannel.position(startOffset.get)
+    var (logEntry, bytesRead, position) = deser.readEntry()
+    entries += logEntry
+    while(logEntry.entryId != to) {
+      var (logEntry, bytesRead, position) = deser.readEntry()
+      entries += logEntry
+    }
+    entries
+  }
 }
