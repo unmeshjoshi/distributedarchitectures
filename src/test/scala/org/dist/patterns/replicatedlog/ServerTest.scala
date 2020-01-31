@@ -7,7 +7,7 @@ import org.scalatest.FunSuite
 
 class ServerTest extends FunSuite {
 
-  test("should elect leader") {
+  test("should elect leader with max id if there are no log entries") {
     val address = new Networks().ipv4Address
     val peerAddr1 = InetAddressAndPort(address, 9998)
     val peerAddr2 = InetAddressAndPort(address, 9999)
@@ -69,7 +69,14 @@ class ServerTest extends FunSuite {
       }, "Waiting for leader to be selected")
 
       peer3.put("testKey", "testValue")
+      peer3.put("testKey1", "testValue1")
+
 
       assert(Some("testValue") == peer3.get("testKey"))
+      assert(Some("testValue1") == peer3.get("testKey1"))
+
+      TestUtils.waitUntilTrue(()⇒ {
+        (Some("testValue") == peer2.get("testKey")) && (Some("testValue") == peer1.get("testKey"))
+      }, "Waiting till entries are propagated to all the servers")
   }
 }

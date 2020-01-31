@@ -25,12 +25,14 @@ case class Config(serverId: Long, serverAddress: InetAddressAndPort, peerConfig:
 
 class Server(config:Config) extends Thread with Logging {
 
-
   def handleAppendEntries(appendEntryRequest: AppendEntriesRequest)  = {
     if (this.wal.lastLogEntryId >= appendEntryRequest.xid) {
       AppendEntriesResponse(this.wal.lastLogEntryId, false)
     } else {
       this.wal.append(appendEntryRequest.data)
+      if (this.commitIndex < appendEntryRequest.commitIndex) {
+        updateCommitIndexAndApplyEntries(appendEntryRequest.commitIndex)
+      }
       AppendEntriesResponse(this.wal.lastLogEntryId, true)
     }
   }
@@ -59,7 +61,7 @@ class Server(config:Config) extends Thread with Logging {
   def updateCommitIndexAndApplyEntries(index:Long) = {
     val previousCommitIndex = commitIndex
     commitIndex = index
-    info(s"Applying wal entries from ${previousCommitIndex} to ${commitIndex}")
+    info(s"Applying wal entries in ${myid} from ${previousCommitIndex} to ${commitIndex}")
     val entries = wal.entries(previousCommitIndex, commitIndex)
     applyEntries(entries)
   }
@@ -116,7 +118,7 @@ class Server(config:Config) extends Thread with Logging {
 
 }
 
-case class AppendEntriesRequest(xid:Long, data:Array[Byte])
+case class AppendEntriesRequest(xid:Long, data:Array[Byte], commitIndex:Long)
 case class AppendEntriesResponse(xid:Long, success:Boolean)
 
 class Leader(allServers:List[Peer], client:Client, self:Server) extends Logging {
@@ -138,7 +140,7 @@ class Leader(allServers:List[Peer], client:Client, self:Server) extends Logging 
     val localServer = allServers.filter(p ⇒ p.id == self.myid)(0)
     localServer.matchIndex = lastEntryId
 
-    val appendEntries = JsonSerDes.serialize(AppendEntriesRequest(lastEntryId, data))
+    val appendEntries = JsonSerDes.serialize(AppendEntriesRequest(lastEntryId, data, self.commitIndex))
     val request = RequestOrResponse(RequestKeys.AppendEntriesKey, appendEntries, 0)
     val peers = self.peers()
     val responses: Seq[(Peer, AppendEntriesResponse)] = peers.map(peer ⇒ {
