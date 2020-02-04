@@ -77,14 +77,15 @@ func (u *unstable) stableTo(i, t uint64) {
 	if !ok {
 		return
 	}
+	println(gt)
 	// if i < offset, term is matched with the snapshot
 	// only update the unstable entries if term is matched with
 	// an unstable entry.
-	if gt == t && i >= u.offset {
-		u.entries = u.entries[i+1-u.offset:]
-		u.offset = i + 1
-		u.shrinkEntriesArray()
-	}
+	//if gt == t && i >= u.offset {
+	//	u.entries = u.entries[i+1-u.offset:]
+	//	u.offset = i + 1
+	//	u.shrinkEntriesArray()
+	//}
 }
 
 // shrinkEntriesArray discards the underlying array used by the entries slice

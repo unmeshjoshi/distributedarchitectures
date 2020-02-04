@@ -79,4 +79,8 @@ class ServerTest extends FunSuite {
         (Some("testValue") == peer2.get("testKey")) && (Some("testValue") == peer1.get("testKey"))
       }, "Waiting till entries are propagated to all the servers")
   }
+
+  test("Should start heartbeat timer once selected as leader") {
+
+  }
 }

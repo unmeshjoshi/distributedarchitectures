@@ -7,7 +7,7 @@ import scala.collection.mutable
 
 class WalTest extends FunSuite {
 
-  test("should write and read log entries to wal") {
+  test("should write and read log entries from wal") {
     val walDir = TestUtils.tempDir("waltest")
     val wal = Wal.create(walDir)
     wal.writeEntry("test content".getBytes())

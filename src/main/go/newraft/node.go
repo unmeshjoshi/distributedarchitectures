@@ -147,6 +147,32 @@ type node struct {
 	rn *RawNode
 }
 
+
+type Peer struct {
+	ID      uint64
+	Context []byte
+}
+
+// StartNode returns a new Node given configuration and a list of raft peers.
+// It appends a ConfChangeAddNode entry for each given peer to the initial log.
+//
+// Peers must not be zero length; call RestartNode in that case.
+func StartNode(c *Config, peers []Peer) Node {
+	if len(peers) == 0 {
+		panic("no peers given; use RestartNode instead")
+	}
+	rn, err := NewRawNode(c)
+	if err != nil {
+		panic(err)
+	}
+	rn.Bootstrap(peers)
+
+	n := newNode(rn)
+
+	go n.run()
+	return &n
+}
+
 func newNode(rn *RawNode) node {
 	return node{
 		propc:      make(chan msgWithResult),
@@ -176,4 +202,306 @@ func MustSync(st, prevst pb.HardState, entsnum int) bool {
 	// votedFor
 	// log entries[]
 	return entsnum != 0 || st.Vote != prevst.Vote || st.Term != prevst.Term
+}
+
+
+func (n *node) Stop() {
+	select {
+	case n.stop <- struct{}{}:
+		// Not already stopped, so trigger it
+	case <-n.done:
+		// Node has already been stopped - no need to do anything
+		return
+	}
+	// Block until the stop has been acknowledged by run()
+	<-n.done
+}
+
+func (n *node) run() {
+	var propc chan msgWithResult
+	var readyc chan Ready
+	var advancec chan struct{}
+	var rd Ready
+
+	r := n.rn.raft
+
+	lead := None
+
+	for {
+		if advancec != nil {
+			readyc = nil
+		} else if n.rn.HasReady() {
+			// Populate a Ready. Note that this Ready is not guaranteed to
+			// actually be handled. We will arm readyc, but there's no guarantee
+			// that we will actually send on it. It's possible that we will
+			// service another channel instead, loop around, and then populate
+			// the Ready again. We could instead force the previous Ready to be
+			// handled first, but it's generally good to emit larger Readys plus
+			// it simplifies testing (by emitting less frequently and more
+			// predictably).
+			rd = n.rn.readyWithoutAccept()
+			readyc = n.readyc
+		}
+
+		if lead != r.lead {
+			if r.hasLeader() {
+				if lead == None {
+					r.logger.Infof("raft.node: %x elected leader %x at term %d", r.id, r.lead, r.Term)
+				} else {
+					r.logger.Infof("raft.node: %x changed leader from %x to %x at term %d", r.id, lead, r.lead, r.Term)
+				}
+				propc = n.propc
+			} else {
+				r.logger.Infof("raft.node: %x lost leader %x at term %d", r.id, lead, r.Term)
+				propc = nil
+			}
+			lead = r.lead
+		}
+
+		select {
+		// TODO: maybe buffer the config propose if there exists one (the way
+		// described in raft dissertation)
+		// Currently it is dropped in Step silently.
+		case pm := <-propc:
+			m := pm.m
+			m.From = r.id
+			err := r.Step(m)
+			if pm.result != nil {
+				pm.result <- err
+				close(pm.result)
+			}
+		case m := <-n.recvc:
+			// filter out response message from unknown From.
+			if pr := r.prs.Progress[m.From]; pr != nil || !IsResponseMsg(m.Type) {
+				r.Step(m)
+			}
+		case cc := <-n.confc:
+			_, okBefore := r.prs.Progress[r.id]
+			cs := r.applyConfChange(cc)
+			// If the node was removed, block incoming proposals. Note that we
+			// only do this if the node was in the config before. Nodes may be
+			// a member of the group without knowing this (when they're catching
+			// up on the log and don't have the latest config) and we don't want
+			// to block the proposal channel in that case.
+			//
+			// NB: propc is reset when the leader changes, which, if we learn
+			// about it, sort of implies that we got readded, maybe? This isn't
+			// very sound and likely has bugs.
+			if _, okAfter := r.prs.Progress[r.id]; okBefore && !okAfter {
+				var found bool
+				for _, sl := range [][]uint64{cs.Voters, cs.VotersOutgoing} {
+					for _, id := range sl {
+						if id == r.id {
+							found = true
+						}
+					}
+				}
+				if !found {
+					propc = nil
+				}
+			}
+			select {
+			case n.confstatec <- cs:
+			case <-n.done:
+			}
+		case <-n.tickc:
+			n.rn.Tick()
+		case readyc <- rd:
+			n.rn.acceptReady(rd)
+			advancec = n.advancec
+		case <-advancec:
+			n.rn.Advance(rd)
+			rd = Ready{}
+			advancec = nil
+		case c := <-n.status:
+			c <- getStatus(r)
+		case <-n.stop:
+			close(n.done)
+			return
+		}
+	}
+}
+
+// Tick increments the internal logical clock for this Node. Election timeouts
+// and heartbeat timeouts are in units of ticks.
+func (n *node) Tick() {
+	select {
+	case n.tickc <- struct{}{}:
+	case <-n.done:
+	default:
+		n.rn.raft.logger.Warningf("%x (leader %v) A tick missed to fire. Node blocks too long!", n.rn.raft.id, n.rn.raft.id == n.rn.raft.lead)
+	}
+}
+
+func (n *node) Campaign(ctx context.Context) error { return n.step(ctx, pb.Message{Type: pb.MsgHup}) }
+
+func (n *node) Propose(ctx context.Context, data []byte) error {
+	return n.stepWait(ctx, pb.Message{Type: pb.MsgProp, Entries: []pb.Entry{{Data: data}}})
+}
+
+func (n *node) Step(ctx context.Context, m pb.Message) error {
+	// ignore unexpected local messages receiving over network
+	if IsLocalMsg(m.Type) {
+		// TODO: return an error?
+		return nil
+	}
+	return n.step(ctx, m)
+}
+
+func confChangeToMsg(c pb.ConfChangeI) (pb.Message, error) {
+	typ, data, err := pb.MarshalConfChange(c)
+	if err != nil {
+		return pb.Message{}, err
+	}
+	return pb.Message{Type: pb.MsgProp, Entries: []pb.Entry{{Type: typ, Data: data}}}, nil
+}
+
+func (n *node) ProposeConfChange(ctx context.Context, cc pb.ConfChangeI) error {
+	msg, err := confChangeToMsg(cc)
+	if err != nil {
+		return err
+	}
+	return n.Step(ctx, msg)
+}
+
+func (n *node) step(ctx context.Context, m pb.Message) error {
+	return n.stepWithWaitOption(ctx, m, false)
+}
+
+func (n *node) stepWait(ctx context.Context, m pb.Message) error {
+	return n.stepWithWaitOption(ctx, m, true)
+}
+
+// Step advances the state machine using msgs. The ctx.Err() will be returned,
+// if any.
+func (n *node) stepWithWaitOption(ctx context.Context, m pb.Message, wait bool) error {
+	if m.Type != pb.MsgProp {
+		select {
+		case n.recvc <- m:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-n.done:
+			return ErrStopped
+		}
+	}
+	ch := n.propc
+	pm := msgWithResult{m: m}
+	if wait {
+		pm.result = make(chan error, 1)
+	}
+	select {
+	case ch <- pm:
+		if !wait {
+			return nil
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-n.done:
+		return ErrStopped
+	}
+	select {
+	case err := <-pm.result:
+		if err != nil {
+			return err
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-n.done:
+		return ErrStopped
+	}
+	return nil
+}
+
+func (n *node) Ready() <-chan Ready { return n.readyc }
+
+func (n *node) Advance() {
+	select {
+	case n.advancec <- struct{}{}:
+	case <-n.done:
+	}
+}
+
+func (n *node) ApplyConfChange(cc pb.ConfChangeI) *pb.ConfState {
+	var cs pb.ConfState
+	select {
+	case n.confc <- cc.AsV2():
+	case <-n.done:
+	}
+	select {
+	case cs = <-n.confstatec:
+	case <-n.done:
+	}
+	return &cs
+}
+
+func (n *node) Status() Status {
+	c := make(chan Status)
+	select {
+	case n.status <- c:
+		return <-c
+	case <-n.done:
+		return Status{}
+	}
+}
+
+func (n *node) ReportUnreachable(id uint64) {
+	select {
+	case n.recvc <- pb.Message{Type: pb.MsgUnreachable, From: id}:
+	case <-n.done:
+	}
+}
+
+func (n *node) ReportSnapshot(id uint64, status SnapshotStatus) {
+	rej := status == SnapshotFailure
+
+	select {
+	case n.recvc <- pb.Message{Type: pb.MsgSnapStatus, From: id, Reject: rej}:
+	case <-n.done:
+	}
+}
+
+func (n *node) TransferLeadership(ctx context.Context, lead, transferee uint64) {
+	select {
+	// manually set 'from' and 'to', so that leader can voluntarily transfers its leadership
+	case n.recvc <- pb.Message{Type: pb.MsgTransferLeader, From: transferee, To: lead}:
+	case <-n.done:
+	case <-ctx.Done():
+	}
+}
+
+func (n *node) ReadIndex(ctx context.Context, rctx []byte) error {
+	return n.step(ctx, pb.Message{Type: pb.MsgReadIndex, Entries: []pb.Entry{{Data: rctx}}})
+}
+
+func newReady(r *raft, prevSoftSt *SoftState, prevHardSt pb.HardState) Ready {
+	rd := Ready{
+		Entries:          r.raftLog.unstableEntries(),
+		CommittedEntries: r.raftLog.nextEnts(),
+		Messages:         r.msgs,
+	}
+	if softSt := r.softState(); !softSt.equal(prevSoftSt) {
+		rd.SoftState = softSt
+	}
+	if hardSt := r.hardState(); !isHardStateEqual(hardSt, prevHardSt) {
+		rd.HardState = hardSt
+	}
+	if r.raftLog.unstable.snapshot != nil {
+		rd.Snapshot = *r.raftLog.unstable.snapshot
+	}
+	rd.MustSync = MustSync(r.hardState(), prevHardSt, len(rd.Entries))
+	return rd
+}
+
+// appliedCursor extracts from the Ready the highest index the client has
+// applied (once the Ready is confirmed via Advance). If no information is
+// contained in the Ready, returns zero.
+func (rd Ready) appliedCursor() uint64 {
+	if n := len(rd.CommittedEntries); n > 0 {
+		return rd.CommittedEntries[n-1].Index
+	}
+	if index := rd.Snapshot.Metadata.Index; index > 0 {
+		return index
+	}
+	return 0
 }

@@ -29,7 +29,7 @@ message SnapshotMetadata {
 
 message Snapshot {
 	optional bytes            data     = 1;
-	optional SnapshotMetadata metadata = 2;
+	optional SnapshotMetadata metadata = 2[(gogoproto.nullable) = false];
 }
 
 enum MessageType {

@@ -1,6 +1,19 @@
 package newraft
 
-import pb "consensus/newraft/raftpb"
+import (
+	pb "consensus/newraft/raftpb"
+	"consensus/newraft/tracker"
+	"errors"
+)
+
+
+// ErrStepLocalMsg is returned when try to step a local raft message
+var ErrStepLocalMsg = errors.New("raft: cannot step raft local message")
+
+// ErrStepPeerNotFound is returned when try to step a response message
+// but there is no peer found in raft.prs for that node.
+var ErrStepPeerNotFound = errors.New("raft: cannot step as peer not found")
+
 
 // RawNode is a thread-unsafe Node.
 // The methods of this struct correspond to the methods of Node and are described
@@ -32,4 +45,245 @@ func NewRawNode(config *Config) (*RawNode, error) {
 // Tick advances the internal logical clock by a single tick.
 func (rn *RawNode) Tick() {
 	rn.raft.tick()
+}
+
+// TickQuiesced advances the internal logical clock by a single tick without
+// performing any other state machine processing. It allows the caller to avoid
+// periodic heartbeats and elections when all of the peers in a Raft group are
+// known to be at the same state. Expected usage is to periodically invoke Tick
+// or TickQuiesced depending on whether the group is "active" or "quiesced".
+//
+// WARNING: Be very careful about using this method as it subverts the Raft
+// state machine. You should probably be using Tick instead.
+func (rn *RawNode) TickQuiesced() {
+	rn.raft.electionElapsed++
+}
+
+// Campaign causes this RawNode to transition to candidate state.
+func (rn *RawNode) Campaign() error {
+	return rn.raft.Step(pb.Message{
+		Type: pb.MsgHup,
+	})
+}
+
+// Propose proposes data be appended to the raft log.
+func (rn *RawNode) Propose(data []byte) error {
+	return rn.raft.Step(pb.Message{
+		Type: pb.MsgProp,
+		From: rn.raft.id,
+		Entries: []pb.Entry{
+			{Data: data},
+		}})
+}
+
+// ProposeConfChange proposes a config change. See (Node).ProposeConfChange for
+// details.
+func (rn *RawNode) ProposeConfChange(cc pb.ConfChangeI) error {
+	m, err := confChangeToMsg(cc)
+	if err != nil {
+		return err
+	}
+	return rn.raft.Step(m)
+}
+
+// ApplyConfChange applies a config change to the local node.
+func (rn *RawNode) ApplyConfChange(cc pb.ConfChangeI) *pb.ConfState {
+	cs := rn.raft.applyConfChange(cc.AsV2())
+	return &cs
+}
+
+// Step advances the state machine using the given message.
+func (rn *RawNode) Step(m pb.Message) error {
+	// ignore unexpected local messages receiving over network
+	if IsLocalMsg(m.Type) {
+		return ErrStepLocalMsg
+	}
+	if pr := rn.raft.prs.Progress[m.From]; pr != nil || !IsResponseMsg(m.Type) {
+		return rn.raft.Step(m)
+	}
+	return ErrStepPeerNotFound
+}
+
+// Ready returns the outstanding work that the application needs to handle. This
+// includes appending and applying entries or a snapshot, updating the HardState,
+// and sending messages. The returned Ready() *must* be handled and subsequently
+// passed back via Advance().
+func (rn *RawNode) Ready() Ready {
+	rd := rn.readyWithoutAccept()
+	rn.acceptReady(rd)
+	return rd
+}
+
+// readyWithoutAccept returns a Ready. This is a read-only operation, i.e. there
+// is no obligation that the Ready must be handled.
+func (rn *RawNode) readyWithoutAccept() Ready {
+	return newReady(rn.raft, rn.prevSoftSt, rn.prevHardSt)
+}
+
+// acceptReady is called when the consumer of the RawNode has decided to go
+// ahead and handle a Ready. Nothing must alter the state of the RawNode between
+// this call and the prior call to Ready().
+func (rn *RawNode) acceptReady(rd Ready) {
+	if rd.SoftState != nil {
+		rn.prevSoftSt = rd.SoftState
+	}
+	//if len(rd.ReadStates) != 0 {
+	//	rn.raft.readStates = nil
+	//}
+	rn.raft.msgs = nil
+}
+
+// HasReady called when RawNode user need to check if any Ready pending.
+// Checking logic in this method should be consistent with Ready.containsUpdates().
+func (rn *RawNode) HasReady() bool {
+	r := rn.raft
+	if !r.softState().equal(rn.prevSoftSt) {
+		return true
+	}
+	if hardSt := r.hardState(); !IsEmptyHardState(hardSt) && !isHardStateEqual(hardSt, rn.prevHardSt) {
+		return true
+	}
+	if r.raftLog.unstable.snapshot != nil && !IsEmptySnap(*r.raftLog.unstable.snapshot) {
+		return true
+	}
+	if len(r.msgs) > 0 || len(r.raftLog.unstableEntries()) > 0 || r.raftLog.hasNextEnts() {
+		return true
+	}
+	//if len(r.readStates) != 0 {
+	//	return true
+	//}
+	return false
+}
+
+// Advance notifies the RawNode that the application has applied and saved progress in the
+// last Ready results.
+func (rn *RawNode) Advance(rd Ready) {
+	if !IsEmptyHardState(rd.HardState) {
+		rn.prevHardSt = rd.HardState
+	}
+	rn.raft.advance(rd)
+}
+
+// Status returns the current status of the given group. This allocates, see
+// BasicStatus and WithProgress for allocation-friendlier choices.
+func (rn *RawNode) Status() Status {
+	status := getStatus(rn.raft)
+	return status
+}
+
+// BasicStatus returns a BasicStatus. Notably this does not contain the
+// Progress map; see WithProgress for an allocation-free way to inspect it.
+func (rn *RawNode) BasicStatus() BasicStatus {
+	return getBasicStatus(rn.raft)
+}
+
+// ProgressType indicates the type of replica a Progress corresponds to.
+type ProgressType byte
+
+const (
+	// ProgressTypePeer accompanies a Progress for a regular peer replica.
+	ProgressTypePeer ProgressType = iota
+	// ProgressTypeLearner accompanies a Progress for a learner replica.
+	ProgressTypeLearner
+)
+
+// WithProgress is a helper to introspect the Progress for this node and its
+// peers.
+func (rn *RawNode) WithProgress(visitor func(id uint64, typ ProgressType, pr tracker.Progress)) {
+	rn.raft.prs.Visit(func(id uint64, pr *tracker.Progress) {
+		typ := ProgressTypePeer
+		if pr.IsLearner {
+			typ = ProgressTypeLearner
+		}
+		p := *pr
+		p.Inflights = nil
+		visitor(id, typ, p)
+	})
+}
+
+// ReportUnreachable reports the given node is not reachable for the last send.
+func (rn *RawNode) ReportUnreachable(id uint64) {
+	_ = rn.raft.Step(pb.Message{Type: pb.MsgUnreachable, From: id})
+}
+
+// ReportSnapshot reports the status of the sent snapshot.
+func (rn *RawNode) ReportSnapshot(id uint64, status SnapshotStatus) {
+	rej := status == SnapshotFailure
+
+	_ = rn.raft.Step(pb.Message{Type: pb.MsgSnapStatus, From: id, Reject: rej})
+}
+
+// TransferLeader tries to transfer leadership to the given transferee.
+func (rn *RawNode) TransferLeader(transferee uint64) {
+	_ = rn.raft.Step(pb.Message{Type: pb.MsgTransferLeader, From: transferee})
+}
+
+// ReadIndex requests a read state. The read state will be set in ready.
+// Read State has a read index. Once the application advances further than the read
+// index, any linearizable read requests issued before the read request can be
+// processed safely. The read state will have the same rctx attached.
+func (rn *RawNode) ReadIndex(rctx []byte) {
+	_ = rn.raft.Step(pb.Message{Type: pb.MsgReadIndex, Entries: []pb.Entry{{Data: rctx}}})
+}
+
+
+
+// Bootstrap initializes the RawNode for first use by appending configuration
+// changes for the supplied peers. This method returns an error if the Storage
+// is nonempty.
+//
+// It is recommended that instead of calling this method, applications bootstrap
+// their state manually by setting up a Storage that has a first index > 1 and
+// which stores the desired ConfState as its InitialState.
+func (rn *RawNode) Bootstrap(peers []Peer) error {
+	if len(peers) == 0 {
+		return errors.New("must provide at least one peer to Bootstrap")
+	}
+	lastIndex, err := rn.raft.raftLog.storage.LastIndex()
+	if err != nil {
+		return err
+	}
+
+	if lastIndex != 0 {
+		return errors.New("can't bootstrap a nonempty Storage")
+	}
+
+	// We've faked out initial entries above, but nothing has been
+	// persisted. Start with an empty HardState (thus the first Ready will
+	// emit a HardState update for the app to persist).
+	rn.prevHardSt = emptyState
+
+	// TODO(tbg): remove StartNode and give the application the right tools to
+	// bootstrap the initial membership in a cleaner way.
+	rn.raft.becomeFollower(1, None)
+	ents := make([]pb.Entry, len(peers))
+	for i, peer := range peers {
+		cc := pb.ConfChange{Type: pb.ConfChangeAddNode, NodeID: peer.ID, Context: peer.Context}
+		data, err := cc.Marshal()
+		if err != nil {
+			return err
+		}
+
+		ents[i] = pb.Entry{Type: pb.EntryConfChange, Term: 1, Index: uint64(i + 1), Data: data}
+	}
+	rn.raft.raftLog.append(ents...)
+
+	// Now apply them, mainly so that the application can call Campaign
+	// immediately after StartNode in tests. Note that these nodes will
+	// be added to raft twice: here and when the application's Ready
+	// loop calls ApplyConfChange. The calls to addNode must come after
+	// all calls to raftLog.append so progress.next is set after these
+	// bootstrapping entries (it is an error if we try to append these
+	// entries since they have already been committed).
+	// We do not set raftLog.applied so the application will be able
+	// to observe all conf changes via Ready.CommittedEntries.
+	//
+	// TODO(bdarnell): These entries are still unstable; do we need to preserve
+	// the invariant that committed < unstable?
+	rn.raft.raftLog.committed = uint64(len(ents))
+	//rn.raft.raftLog.applied = rn.raft.raftLog.committed
+	for _, peer := range peers {
+		rn.raft.applyConfChange(pb.ConfChange{NodeID: peer.ID, Type: pb.ConfChangeAddNode}.AsV2())
+	}
+	return nil
 }

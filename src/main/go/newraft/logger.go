@@ -43,11 +43,15 @@ var (
 	raftLogger    = Logger(defaultLogger)
 )
 
+func RaftLogger() Logger {
+	return raftLogger
+}
+
 const (
 	calldepth = 2
 )
 
-// DefaultLogger is a default implementation of the Logger interface.
+// DefaultLogger is a default implementation of the lg interface.
 type DefaultLogger struct {
 	*log.Logger
 	debug bool

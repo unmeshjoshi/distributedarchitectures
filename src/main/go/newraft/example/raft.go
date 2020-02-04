@@ -3,8 +3,11 @@ package example
 import (
 	"consensus/newraft"
 	"consensus/newraft/raftpb"
+	wal "consensus/newraft/wal"
 )
 
+//	TickMs:                     100,
+//		ElectionMs:                 1000,
 // A key-value stream backed by raft
 type raftNode struct {
 	proposeC    <-chan string            // proposed messages (k,v)
