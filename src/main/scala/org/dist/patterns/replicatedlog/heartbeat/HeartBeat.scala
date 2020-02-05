@@ -1,6 +1,6 @@
 package org.dist.patterns.replicatedlog.heartbeat
 
-import java.util.concurrent.{ScheduledThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{Future, ScheduledFuture, ScheduledThreadPoolExecutor, TimeUnit}
 
 import org.dist.queue.common.Logging
 
@@ -14,10 +14,10 @@ class HeartBeat {
   val executor = new ScheduledThreadPoolExecutor(1);
 
 
-  var scheduledGossipTask = new HeartBeatTask()
+  var scheduledGossipTask:ScheduledFuture[_] = _
 
   def start(): Unit = {
-    scheduledGossipTask = executor.scheduleWithFixedDelay(scheduledGossipTask, 100, 100, TimeUnit.MILLISECONDS)
+    scheduledGossipTask = executor.scheduleWithFixedDelay(new HeartBeatTask(), 100, 100, TimeUnit.MILLISECONDS)
 
   }
 

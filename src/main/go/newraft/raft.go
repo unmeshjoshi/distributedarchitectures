@@ -2,6 +2,7 @@ package newraft
 
 import (
 	"consensus/kvstore/types"
+	"consensus/newraft/confchange"
 	"consensus/newraft/quorum"
 	pb "consensus/newraft/raftpb"
 	"consensus/newraft/tracker"
@@ -1262,8 +1263,25 @@ func (r *raft) reduceUncommittedSize(ents []pb.Entry) {
 
 
 func (r *raft) applyConfChange(cc pb.ConfChangeV2) pb.ConfState {
-	confState := pb.ConfState{}
-	return confState
+	cfg, prs, err := func() (tracker.Config, tracker.ProgressMap, error) {
+		changer := confchange.Changer{
+			Tracker:   r.prs,
+			LastIndex: r.raftLog.lastIndex(),
+		}
+		if cc.LeaveJoint() {
+			return changer.LeaveJoint()
+		} else if autoLeave, ok := cc.EnterJoint(); ok {
+			return changer.EnterJoint(autoLeave, cc.Changes...)
+		}
+		return changer.Simple(cc.Changes...)
+	}()
+
+	if err != nil {
+		// TODO(tbg): return the error to the caller.
+		panic(err)
+	}
+
+	return r.switchToConfig(cfg, prs)
 }
 
 func numOfPendingConf(ents []pb.Entry) int {
@@ -1315,4 +1333,62 @@ func (r *raft) advance(rd Ready) {
 	if !IsEmptySnap(rd.Snapshot) {
 		r.raftLog.stableSnapTo(rd.Snapshot.Metadata.Index)
 	}
+}
+
+
+// switchToConfig reconfigures this node to use the provided configuration. It
+// updates the in-memory state and, when necessary, carries out additional
+// actions such as reacting to the removal of nodes or changed quorum
+// requirements.
+//
+// The inputs usually result from restoring a ConfState or applying a ConfChange.
+func (r *raft) switchToConfig(cfg tracker.Config, prs tracker.ProgressMap) pb.ConfState {
+	r.prs.Config = cfg
+	r.prs.Progress = prs
+
+	r.logger.Infof("%x switched to configuration %s", r.id, r.prs.Config)
+	cs := r.prs.ConfState()
+	pr, ok := r.prs.Progress[r.id]
+
+	// Update whether the node itself is a learner, resetting to false when the
+	// node is removed.
+	r.isLearner = ok && pr.IsLearner
+
+	if (!ok || r.isLearner) && r.state == StateLeader {
+		// This node is leader and was removed or demoted. We prevent demotions
+		// at the time writing but hypothetically we handle them the same way as
+		// removing the leader: stepping down into the next Term.
+		//
+		// TODO(tbg): step down (for sanity) and ask follower with largest Match
+		// to TimeoutNow (to avoid interruption). This might still drop some
+		// proposals but it's better than nothing.
+		//
+		// TODO(tbg): test this branch. It is untested at the time of writing.
+		return cs
+	}
+
+	// The remaining steps only make sense if this node is the leader and there
+	// are other nodes.
+	if r.state != StateLeader || len(cs.Voters) == 0 {
+		return cs
+	}
+
+	if r.maybeCommit() {
+		// If the configuration change means that more entries are committed now,
+		// broadcast/append to everyone in the updated config.
+		r.bcastAppend()
+	} else {
+		// Otherwise, still probe the newly added replicas; there's no reason to
+		// let them wait out a heartbeat interval (or the next incoming
+		// proposal).
+		r.prs.Visit(func(id uint64, pr *tracker.Progress) {
+			r.maybeSendAppend(id, false /* sendIfEmpty */)
+		})
+	}
+	// If the the leadTransferee was removed, abort the leadership transfer.
+	if _, tOK := r.prs.Progress[r.leadTransferee]; !tOK && r.leadTransferee != 0 {
+		r.abortLeaderTransfer()
+	}
+
+	return cs
 }

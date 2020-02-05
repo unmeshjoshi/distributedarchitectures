@@ -24,28 +24,7 @@ case class Peer(id:Int, address:InetAddressAndPort, var matchIndex:Long = 0) {
 case class Config(serverId: Long, serverAddress: InetAddressAndPort, peerConfig:List[Peer], walDir:File) {}
 
 class Server(config:Config) extends Thread with Logging {
-
-  def handleAppendEntries(appendEntryRequest: AppendEntriesRequest)  = {
-    if (this.wal.lastLogEntryId >= appendEntryRequest.xid) {
-      AppendEntriesResponse(this.wal.lastLogEntryId, false)
-    } else {
-      this.wal.append(appendEntryRequest.data)
-      if (this.commitIndex < appendEntryRequest.commitIndex) {
-        updateCommitIndexAndApplyEntries(appendEntryRequest.commitIndex)
-      }
-      AppendEntriesResponse(this.wal.lastLogEntryId, true)
-    }
-  }
-
   val kv = new mutable.HashMap[String, String]()
-
-  def applyEntries(entries: ListBuffer[WalEntry]) = {
-    entries.foreach(entry ⇒ {
-      val command = SetValueCommand.deserialize(new ByteArrayInputStream(entry.data))
-      info(s"Setting ${command.key} => ${command.value}")
-      kv.put(command.key, command.value)
-    })
-  }
 
   def put(key:String, value:String) = {
     if (leader == null) throw new RuntimeException("Can not propose to non leader")
@@ -57,16 +36,6 @@ class Server(config:Config) extends Thread with Logging {
   }
 
   def get(key: String) = kv.get(key)
-
-  def updateCommitIndexAndApplyEntries(index:Long) = {
-    val previousCommitIndex = commitIndex
-    commitIndex = index
-    info(s"Applying wal entries in ${myid} from ${previousCommitIndex} to ${commitIndex}")
-    val entries = wal.entries(previousCommitIndex, commitIndex)
-    applyEntries(entries)
-  }
-
-
 
   var commitIndex:Long = 0
 
@@ -116,6 +85,34 @@ class Server(config:Config) extends Thread with Logging {
 
   var leader:Leader = _
 
+
+  def handleAppendEntries(appendEntryRequest: AppendEntriesRequest)  = {
+    if (this.wal.lastLogEntryId >= appendEntryRequest.xid) {
+      AppendEntriesResponse(this.wal.lastLogEntryId, false)
+    } else {
+      this.wal.append(appendEntryRequest.data)
+      if (this.commitIndex < appendEntryRequest.commitIndex) {
+        updateCommitIndexAndApplyEntries(appendEntryRequest.commitIndex)
+      }
+      AppendEntriesResponse(this.wal.lastLogEntryId, true)
+    }
+  }
+
+  def applyEntries(entries: ListBuffer[WalEntry]) = {
+    entries.foreach(entry ⇒ {
+      val command = SetValueCommand.deserialize(new ByteArrayInputStream(entry.data))
+      info(s"Setting ${command.key} => ${command.value}")
+      kv.put(command.key, command.value)
+    })
+  }
+
+  def updateCommitIndexAndApplyEntries(index:Long) = {
+    val previousCommitIndex = commitIndex
+    commitIndex = index
+    info(s"Applying wal entries in ${myid} from ${previousCommitIndex} to ${commitIndex}")
+    val entries = wal.entries(previousCommitIndex, commitIndex)
+    applyEntries(entries)
+  }
 }
 
 case class AppendEntriesRequest(xid:Long, data:Array[Byte], commitIndex:Long)

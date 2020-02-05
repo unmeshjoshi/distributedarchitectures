@@ -9,9 +9,10 @@ class ServerTest extends FunSuite {
 
   test("should elect leader with max id if there are no log entries") {
     val address = new Networks().ipv4Address
-    val peerAddr1 = InetAddressAndPort(address, 9998)
-    val peerAddr2 = InetAddressAndPort(address, 9999)
-    val peerAddr3 = InetAddressAndPort(address, 9997)
+    val ports = TestUtils.choosePorts(3)
+    val peerAddr1 = InetAddressAndPort(address, ports(0))
+    val peerAddr2 = InetAddressAndPort(address, ports(1))
+    val peerAddr3 = InetAddressAndPort(address, ports(2))
 
 
     val serverList = List(Peer(1, peerAddr1), Peer(2, peerAddr2), Peer(3, peerAddr3))

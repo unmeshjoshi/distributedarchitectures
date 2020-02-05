@@ -6,11 +6,22 @@ import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
 
 class KVStore(walDir:File) {
+  val kv = new mutable.HashMap[String, String]()
+  val wal = Wal.create(walDir)
+
+
+  def put(key:String, value:String): Unit = {
+    wal.writeEntry(SetValueCommand(key, value).serialize())
+
+    kv.put(key, value)
+  }
 
   def get(key: String): Option[String] = kv.get(key)
 
-  val kv = new mutable.HashMap[String, String]()
-  val wal = Wal.create(walDir)
+  def close = {
+    wal.close()
+    kv.clear()
+  }
 
   def applyLog() = {
     val entries: ListBuffer[WalEntry] = wal.readAll()
@@ -21,14 +32,4 @@ class KVStore(walDir:File) {
     })
   }
 
-  def close = {
-    wal.close()
-    kv.clear()
-  }
-
-  def put(key:String, value:String): Unit = {
-    wal.writeEntry(SetValueCommand(key, value).serialize())
-
-    kv.put(key, value)
-  }
 }
