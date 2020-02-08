@@ -25,10 +25,12 @@ object GossipTestApp extends App {
   private val node4ClientEndpoint = InetAddressAndPort(localIpAddress, 9004)
   val node4 = new StorageService(node4ClientEndpoint, node4Endpoint, DatabaseConfiguration(Set(node1Endpoint), createDbDir("node3")))
 
+
   node1.start()
   node2.start()
   node3.start()
   node4.start()
+
 
   println("Waiting for gossip to settle")
   Thread.sleep(5000)

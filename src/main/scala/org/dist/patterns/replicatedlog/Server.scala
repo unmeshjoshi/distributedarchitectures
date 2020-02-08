@@ -24,6 +24,10 @@ case class Peer(id:Int, address:InetAddressAndPort, var matchIndex:Long = 0) {
 case class Config(serverId: Long, serverAddress: InetAddressAndPort, peerConfig:List[Peer], walDir:File) {}
 
 class Server(config:Config) extends Thread with Logging {
+  val myid = config.serverId
+
+  var commitIndex:Long = 0
+
   val kv = new mutable.HashMap[String, String]()
 
   def put(key:String, value:String) = {
@@ -36,10 +40,6 @@ class Server(config:Config) extends Thread with Logging {
   }
 
   def get(key: String) = kv.get(key)
-
-  var commitIndex:Long = 0
-
-  val myid = config.serverId
   def setPeerState(newState: ServerState.Value): Unit = {
     state = newState
   }
@@ -133,33 +133,53 @@ class Leader(allServers:List[Peer], client:Client, self:Server) extends Logging 
 
   def propose(setValueCommand:SetValueCommand) = {
     val data = setValueCommand.serialize()
-    lastEntryId = self.wal.append(data)
-    val localServer = allServers.filter(p ⇒ p.id == self.myid)(0)
-    localServer.matchIndex = lastEntryId
 
-    val appendEntries = JsonSerDes.serialize(AppendEntriesRequest(lastEntryId, data, self.commitIndex))
-    val request = RequestOrResponse(RequestKeys.AppendEntriesKey, appendEntries, 0)
-    val peers = self.peers()
-    val responses: Seq[(Peer, AppendEntriesResponse)] = peers.map(peer ⇒ {
-      val response = client.sendReceive(request, peer.address)
-      val appendEntriesResponse = JsonSerDes.deserialize(response.messageBodyJson.getBytes(), classOf[AppendEntriesResponse])
-      (peer, appendEntriesResponse)
-    })
+    appendToLocalLog(data)
 
-    updatePeerMatchIndexes(responses)
+    broadCastAppendEntries(data)
+  }
 
-    val appendEntryResponses = responses.map(t ⇒ t._2)
-
+  private def findMaxIndexWithQuorum = {
     val matchIndexes = allServers.map(p ⇒ p.matchIndex)
     val sorted: Seq[Long] = matchIndexes.sorted
     val matchIndexAtQuorum = sorted((allServers.size - 1) / 2)
+    matchIndexAtQuorum
+  }
 
-    info(s"Peer match indexes are at ${allServers}")
-    info(s"CommitIndex from quorum is ${matchIndexAtQuorum}")
+  private def broadCastAppendEntries(data: Array[Byte]) = {
+    val request = appendEntriesRequestFor(data)
+    val peers = self.peers()
 
-    if (self.commitIndex < matchIndexAtQuorum) {
-      self.updateCommitIndexAndApplyEntries(matchIndexAtQuorum)
-    }
+    //TODO: Happens synchronously for demo. Has to be async with each peer having its own thread
+    peers.map(peer ⇒ {
+      val response = client.sendReceive(request, peer.address)
+      val appendEntriesResponse = JsonSerDes.deserialize(response.messageBodyJson.getBytes(), classOf[AppendEntriesResponse])
+
+      peer.matchIndex = appendEntriesResponse.xid
+
+      val matchIndexAtQuorum = findMaxIndexWithQuorum
+
+
+      info(s"Peer match indexes are at ${allServers}")
+      info(s"CommitIndex from quorum is ${matchIndexAtQuorum}")
+
+      if (self.commitIndex < matchIndexAtQuorum) {
+        self.updateCommitIndexAndApplyEntries(matchIndexAtQuorum)
+      }
+
+    })
+  }
+
+  private def appendEntriesRequestFor(data: Array[Byte]) = {
+    val appendEntries = JsonSerDes.serialize(AppendEntriesRequest(lastEntryId, data, self.commitIndex))
+    val request = RequestOrResponse(RequestKeys.AppendEntriesKey, appendEntries, 0)
+    request
+  }
+
+  private def appendToLocalLog(data:Array[Byte]) = {
+    lastEntryId = self.wal.append(data)
+    val localServer = allServers.filter(p ⇒ p.id == self.myid)(0)
+    localServer.matchIndex = lastEntryId
   }
 }
 

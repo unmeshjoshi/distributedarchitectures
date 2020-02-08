@@ -70,15 +70,9 @@ class ServerTest extends FunSuite {
       }, "Waiting for leader to be selected")
 
       peer3.put("testKey", "testValue")
-      peer3.put("testKey1", "testValue1")
 
 
       assert(Some("testValue") == peer3.get("testKey"))
-      assert(Some("testValue1") == peer3.get("testKey1"))
-
-      TestUtils.waitUntilTrue(()⇒ {
-        (Some("testValue") == peer2.get("testKey")) && (Some("testValue") == peer1.get("testKey"))
-      }, "Waiting till entries are propagated to all the servers")
   }
 
   test("Should start heartbeat timer once selected as leader") {
