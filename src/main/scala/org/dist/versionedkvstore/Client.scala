@@ -5,15 +5,17 @@ import java.util
 import org.dist.queue.common.Logging
 import scala.jdk.CollectionConverters._
 
-class Client[K, V] extends Logging {
+class FailureDetector[K, V] {
+  def isAvailable(node:Node[K, V]): Unit = {
+    return true
+  }
+}
+
+class Client[K, V](nodes:List[Node[K, V]], failureDetector:FailureDetector[K, V]) extends Logging {
   val metadataRefreshAttempts: Int = 2
 
-  val node1 = new Node[K, V](1, List(1, 2, 3).asJava)
-  val node2 = new Node[K, V](2, List(4, 5, 6).asJava)
-  val node3 = new Node[K, V](3, List(7, 8, 9).asJava)
-
   def put(key: K, value: V): Version = {
-    val master = node1 //assume node1 is always the master and node2 is replica
+    val master = nodes(0) //assume node1 is always the master and node2 is replica
     val version = getVersionForPut(key)
     val versioned = Versioned.value(value, version)
     val versionedClock = versioned.getVersion.asInstanceOf[VectorClock]
@@ -36,7 +38,7 @@ class Client[K, V] extends Logging {
   def get(key: K): Versioned[V] = {
     for (attempts <- 0 until this.metadataRefreshAttempts) {
       try {
-        val items: util.List[Versioned[V]] = node1.get(key)
+        val items: util.List[Versioned[V]] = nodes(0).get(key)
         val resolvedItems = new VectorClockInconsistencyResolver[V]().resolveConflicts(items)
         return getItemOrThrow(key,resolvedItems)
       } catch {
@@ -53,7 +55,6 @@ class Client[K, V] extends Logging {
   }
 
   def getVersionWithResolution(key: K) = {
-    val nodes = List[Node[K, V]](node1, node2)
     val versions = nodes.flatMap(n ⇒ n.getVersions(key).asScala)
     if (versions.isEmpty) null
     else if (versions.size == 1) versions(0)

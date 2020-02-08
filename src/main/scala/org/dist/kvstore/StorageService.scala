@@ -41,9 +41,9 @@ class StorageService(clientListenAddress:InetAddressAndPort, controlListenAddres
    * param @ key - key for which we need to find the endpoint return value -
    * the endpoint responsible for this key
    */
-  def getNStorageEndPointMap(key: String): Array[InetAddressAndPort] = {
+  def getNStorageEndPointMap(key: String): util.Map[InetAddressAndPort, InetAddressAndPort]= {
     val token: BigInteger = hash(key)
-    nodePicker.getStorageEndPoints(token)
+    nodePicker.getHintedStorageEndPoints(token)
   }
 
   /**

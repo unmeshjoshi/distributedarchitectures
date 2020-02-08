@@ -1,8 +1,7 @@
 package org.dist.versionedkvstore
 
-import java.util
-
 import org.scalatest.FunSuite
+import scala.jdk.CollectionConverters._
 
 class VersionedMapTest extends FunSuite {
 
@@ -14,15 +13,20 @@ class VersionedMapTest extends FunSuite {
   test("should put versioned entry for new key") {
     val currentTime = System.currentTimeMillis()
 
-    val client = new Client[String, String]()
+    val node1 = new Node[String, String](1, List(1, 2, 3).asJava)
+    val node2 = new Node[String, String](2, List(4, 5, 6).asJava)
+    val node3 = new Node[String, String](3, List(7, 8, 9).asJava)
+
+    val client = new Client[String, String](List(node1, node2, node3),new FailureDetector[String, String]())
     val version: Version = client.put("newKey", "newValue")
 
     assert("newValue" == client.get("newKey").value)
 
-    val clock = new VectorClock()
-    assert(clock.incremented(1, currentTime) == client.get("newKey").version)
+    val newClock = new VectorClock()
+    val clock1 = newClock.incremented(1, currentTime)
+    assert(clock1 == client.get("newKey").version)
 
     client.put("newKey", "anotherValue") //
-    assert(clock.incremented(1, currentTime).incremented(1, currentTime) == client.get("newKey").version)
+    assert(clock1.incremented(1, currentTime) == client.get("newKey").version)
   }
 }

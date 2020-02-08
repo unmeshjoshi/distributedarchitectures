@@ -5,9 +5,12 @@ import java.util.{Collections, Map}
 
 import scala.jdk.CollectionConverters._
 
-case class EndPointState(heartBeatState: HeartBeatState,
+case class EndPointState(var heartBeatState: HeartBeatState,
                          applicationStates:Map[ApplicationState, VersionedValue] = new util.EnumMap[ApplicationState, VersionedValue](classOf[ApplicationState]),
-                         updateTimestamp:Long = System.nanoTime()) {
+                         updateTimestamp:Long = System.nanoTime(),
+                         isAlive:Boolean = true,
+                         updateTimeStamp:Long = System.currentTimeMillis()) {
+
   def addApplicationState(key: ApplicationState, value: VersionedValue): EndPointState = {
     addApplicationStates(Collections.singletonMap(key, value))
   }
@@ -34,5 +37,9 @@ case class EndPointState(heartBeatState: HeartBeatState,
     val maxVersion = versions.get(versions.size - 1)
     versions.clear()
     maxVersion
+  }
+
+  def markSuspected(): EndPointState = {
+    this.copy(isAlive = false)
   }
 }

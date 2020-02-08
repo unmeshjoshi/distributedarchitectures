@@ -5,7 +5,7 @@ import java.util
 import java.util.concurrent.{ConcurrentHashMap, ScheduledThreadPoolExecutor, TimeUnit}
 import java.util.{Collections, Random}
 
-import org.dist.kvstore.{GossipDigest, GossipDigestSyn, Header, InetAddressAndPort, JsonSerDes, Message, Stage, TokenMetadata, Verb}
+import org.dist.kvstore.{EndPointState, GossipDigest, GossipDigestSyn, Header, InetAddressAndPort, JsonSerDes, Message, Stage, TokenMetadata, Verb}
 import org.dist.queue.common.Logging
 
 import scala.jdk.CollectionConverters._

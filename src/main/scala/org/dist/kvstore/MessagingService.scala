@@ -3,6 +3,7 @@ package org.dist.kvstore
 import java.net.{InetSocketAddress, ServerSocket, Socket}
 import java.util
 
+import org.dist.queue.common.Logging
 import org.dist.util.SocketIO
 import org.slf4j.LoggerFactory
 
@@ -60,6 +61,7 @@ class TcpListener(localEp: InetAddressAndPort, storageService: StorageService, g
       val deltaGossipDigest = new util.ArrayList[GossipDigest]()
       val deltaEndPointStates = new util.HashMap[InetAddressAndPort, EndPointState]()
       gossiper.examineGossiper(gossipDigestSyn.gDigests, deltaGossipDigest, deltaEndPointStates)
+      gossiper.notifyFailureDetector(gossipDigestSyn.gDigests)
 
       val synAckMessage = new gossiper.GossipSynAckMessageBuilder().makeGossipDigestAckMessage(deltaGossipDigest, deltaEndPointStates)
       messagingService.sendTcpOneWay(synAckMessage, synMessage.header.from)
@@ -107,7 +109,7 @@ trait MessageResponseHandler {
 }
 
 
-class MessagingService(storageService: StorageService) {
+class MessagingService(storageService: StorageService) extends Logging {
   val callbackMap = new util.HashMap[String, MessageResponseHandler]()
   var gossiper: Gossiper = _
 
@@ -126,8 +128,12 @@ class MessagingService(storageService: StorageService) {
   }
 
   def sendTcpOneWay(message: Message, to: InetAddressAndPort) = {
-    val clientSocket = new Socket(to.address, to.port)
-    new SocketIO[Message](clientSocket, classOf[Message]).write(message)
+    try {
+      val clientSocket = new Socket(to.address, to.port)
+      new SocketIO[Message](clientSocket, classOf[Message]).write(message)
+    } catch {
+      case e:Exception ⇒ error(s"Error connecting to ${to}. It might be down")
+    }
   }
 
   def sendUdpOneWay(message: Message, to: InetAddressAndPort) = {

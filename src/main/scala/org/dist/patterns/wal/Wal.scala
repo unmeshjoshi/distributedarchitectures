@@ -23,9 +23,8 @@ object Wal {
   def logFileName() = s"${logPrefix}-${firstLogId}${logSuffix}"
 
 
-  import java.nio.ByteBuffer
-  def newBuffer(size:Int) = {
-    val buf = ByteBuffer.allocate(size)
+  def newBuffer(size:Int):ByteBuffer = {
+    val buf: ByteBuffer = ByteBuffer.allocate(size)
     buf.clear
   }
 }

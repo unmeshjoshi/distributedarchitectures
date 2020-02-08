@@ -1,12 +1,15 @@
 package org.dist.kvstore
 
 import java.net.{InetSocketAddress, ServerSocket, Socket}
+import java.util
+import java.util.Map
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.{Condition, Lock, ReentrantLock}
 
 import org.dist.util.SocketIO
 import org.slf4j.LoggerFactory
+
 import scala.jdk.CollectionConverters._
 
 
@@ -50,9 +53,10 @@ class TcpClientRequestListner(localEp: InetAddressAndPort, storageService:Storag
   class RowMutationHandler(storageService: StorageService) {
     def handleMessage(rowMutationMessage: Message) = {
       val rowMutation = JsonSerDes.deserialize(rowMutationMessage.payloadJson.getBytes, classOf[RowMutation])
-      val serversHostingKey = storageService.getNStorageEndPointMap(rowMutation.key)
-      val quorumResponseHandler = new QuorumResponseHandler(serversHostingKey.size, new WriteResponseResolver())
-      messagingService.sendRR(rowMutationMessage, serversHostingKey.toList, quorumResponseHandler)
+      val endpointMap = storageService.getNStorageEndPointMap(rowMutation.key)
+
+      val quorumResponseHandler = new QuorumResponseHandler(endpointMap.values().size(), new WriteResponseResolver())
+           messagingService.sendRR(rowMutationMessage, endpointMap.values().asScala.toList, quorumResponseHandler)
       quorumResponseHandler.get()
     }
   }

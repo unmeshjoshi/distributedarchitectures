@@ -35,6 +35,8 @@ class StorageServiceGossipTest extends FunSuite {
       assert(s1.gossiper.endpointStatemap.values().contains(s.gossiper.token))
     })
 
+    Thread.sleep(10000)
+
     val client = new Client(clientListenAddress)
     val mutationResponses: Seq[RowMutationResponse] = client.put("table1", "key1", "value1")
     assert(mutationResponses.size == 2)
