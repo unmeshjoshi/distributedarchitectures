@@ -53,6 +53,13 @@ class ProducerConsumerTest extends ZookeeperTestHarness with Logging {
     assert(messages.get("key1") == "message1")
     assert(messages.get("key2") == "message2")
     assert(messages.get("key3") == "message3")
+
+    // Clean up
+    broker1.shutdown()
+    broker2.shutdown()
+    broker3.shutdown()
+    broker4.shutdown()
+    broker5.shutdown()
   }
 
   private def leaderCache(broker: Server) = {

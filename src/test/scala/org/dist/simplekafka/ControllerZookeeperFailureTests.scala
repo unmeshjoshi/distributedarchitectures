@@ -54,6 +54,10 @@ class ControllerZookeeperFailureTests extends ZookeeperTestHarness {
     partitionReplicaLeaderInfo.foreach(leaderAndReplicas => {
       assert(leaderAndReplicas.partitionStateInfo.leader.id != 1)
     })
+
+    // Clean up
+    broker2.shutdown()
+    broker3.shutdown()
   }
 
   def testSocketServer(server: Server) = {
