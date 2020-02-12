@@ -1,6 +1,7 @@
 package org.dist.patterns.replicatedlog
 
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
+import org.dist.patterns.replicatedlog.heartbeat.Peer
 import org.dist.queue.TestUtils
 import org.dist.util.Networks
 import org.scalatest.FunSuite

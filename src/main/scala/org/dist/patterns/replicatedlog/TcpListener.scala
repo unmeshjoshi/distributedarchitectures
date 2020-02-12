@@ -35,7 +35,7 @@ class SingularUpdateQueue(handler:RequestOrResponse => RequestOrResponse) extend
 }
 
 
-class TcpListener(localEp: InetAddressAndPort, server: Server) extends Thread with Logging {
+class TcpListener(localEp: InetAddressAndPort, handler: RequestOrResponse ⇒ RequestOrResponse) extends Thread with Logging {
   val isRunning = new AtomicBoolean(true)
   var serverSocket: ServerSocket = null
 
@@ -43,23 +43,7 @@ class TcpListener(localEp: InetAddressAndPort, server: Server) extends Thread wi
     Utils.swallow(serverSocket.close())
   }
 
-  val workQueue = new SingularUpdateQueue((request:RequestOrResponse) ⇒ {
-    if (request.requestId == RequestKeys.RequestVoteKey) {
-      val vote = VoteResponse(server.currentVote.get().id, server.currentVote.get().zxid)
-      info(s"Responding vote response from ${server.myid} be ${server.currentVote}")
-      RequestOrResponse(RequestKeys.RequestVoteKey, JsonSerDes.serialize(vote), request.correlationId)
-
-
-    } else if (request.requestId == RequestKeys.AppendEntriesKey) {
-
-      val appendEntries = JsonSerDes.deserialize(request.messageBodyJson.getBytes(), classOf[AppendEntriesRequest])
-      val appendEntriesResponse = server.handleAppendEntries(appendEntries)
-      info(s"Responding AppendEntriesResponse from ${server.myid} be ${appendEntriesResponse}")
-      RequestOrResponse(RequestKeys.AppendEntriesKey, JsonSerDes.serialize(appendEntriesResponse), request.correlationId)
-
-    } else throw new RuntimeException("UnknownRequest")
-
-  })
+  val workQueue = new SingularUpdateQueue(handler)
 
   workQueue.start()
 

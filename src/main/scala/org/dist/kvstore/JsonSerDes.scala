@@ -18,6 +18,10 @@ object JsonSerDes {
     objectMapper.writeValueAsString(obj)
   }
 
+  def deserialize[T](json:String, clazz:Class[T]):T = {
+    deserialize(json.getBytes(), clazz)
+  }
+
   def deserialize[T](json:Array[Byte], clazz:Class[T]):T = {
     val objectMapper = new ObjectMapper() with ScalaObjectMapper
     objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
@@ -52,6 +56,9 @@ object JsonSerDes {
   }
 
 
+  def deserialize[T](json:String, typeRef:TypeReference[T]):T = {
+    deserialize(json.getBytes(), typeRef)
+  }
   def deserialize[T](json:Array[Byte], typeRef:TypeReference[T]):T = {
     val objectMapper = new ObjectMapper() with ScalaObjectMapper
     objectMapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);

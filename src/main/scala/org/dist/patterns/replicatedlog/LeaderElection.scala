@@ -5,6 +5,7 @@ import java.net.Socket
 import org.dist.consensus.zab.{ElectionResult, Elector, Vote}
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.patterns.replicatedlog.api.{RequestKeys, VoteRequest, VoteResponse}
+import org.dist.patterns.replicatedlog.heartbeat.Peer
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.common.Logging
 import org.dist.util.SocketIO
