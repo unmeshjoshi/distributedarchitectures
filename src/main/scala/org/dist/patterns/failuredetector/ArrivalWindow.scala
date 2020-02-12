@@ -43,7 +43,7 @@ class ArrayBackedBoundedStats(val sizeInt: Int) {
 object ArrivalWindow {
 
   private def getMaxInterval: Long = {
-    PhiChiFailureDetector.INITIAL_VALUE_NANOS
+    PhiChiAccrualFailureDetector.INITIAL_VALUE_NANOS
   }
 }
 
@@ -71,7 +71,7 @@ class ArrivalWindow[T](val size: Int) extends Logging {
     else { // We use a very large initial interval since the "right" average depends on the cluster size
       // and it's better to err high (false negatives, which will be corrected by waiting a bit longer)
       // than low (false positives, which cause "flapping").
-      arrivalIntervals.add(PhiChiFailureDetector.INITIAL_VALUE_NANOS)
+      arrivalIntervals.add(PhiChiAccrualFailureDetector.INITIAL_VALUE_NANOS)
     }
     tLast = value
   }

@@ -4,7 +4,7 @@ import java.util
 import java.util.concurrent.TimeUnit
 
 
-object PhiChiFailureDetector {
+object PhiChiAccrualFailureDetector {
   val INITIAL_VALUE_NANOS: Long = TimeUnit.NANOSECONDS.convert(getInitialValue, TimeUnit.MILLISECONDS)
 
   private def getInitialValue = {
@@ -13,7 +13,7 @@ object PhiChiFailureDetector {
   }
 }
 
-class PhiChiFailureDetector[T] extends FailureDetector[T] {
+class PhiChiAccrualFailureDetector[T] extends FailureDetector[T] {
   private val arrivalSamples = new util.Hashtable[T, ArrivalWindow[T]]
   private val SAMPLE_SIZE = 1000
   private val phiSuspectThreshold_ = 5

@@ -39,7 +39,7 @@ class FailureDetectorTests extends FunSuite {
     val receiverIp = InetAddressAndPort.create(localHost, TestUtils.choosePort())
 
     val sender = new Sender(1, List(Peer(2, receiverIp)))
-    val receiver = new Receiver(receiverIp, List(Peer(1, senderIp)), new PhiChiFailureDetector[Int]())
+    val receiver = new Receiver(receiverIp, List(Peer(1, senderIp)), new PhiChiAccrualFailureDetector[Int]())
 
     sender.start()
     receiver.start()

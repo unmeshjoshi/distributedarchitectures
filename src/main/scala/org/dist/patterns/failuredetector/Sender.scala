@@ -39,10 +39,6 @@ case class HeartBeatRequest(serverId:Int, counter:Int)
 case class HeartBeatResponse(success:Boolean)
 
 class Sender(id:Int, peers:List[Peer]) extends Logging {
-  def stop() = {
-    peerProxies.foreach(p ⇒ p.stop())
-  }
-
   var counter = 0
   val client = new Client()
   val peerProxies = peers.map(p ⇒ PeerProxy(p, client, 0, sendHeartBeat))
@@ -51,6 +47,9 @@ class Sender(id:Int, peers:List[Peer]) extends Logging {
     peerProxies.foreach(p ⇒ p.start())
   }
 
+  def stop() = {
+    peerProxies.foreach(p ⇒ p.stop())
+  }
 
   def sendHeartBeat(peerProxy:PeerProxy) = {
     counter = counter + 1
