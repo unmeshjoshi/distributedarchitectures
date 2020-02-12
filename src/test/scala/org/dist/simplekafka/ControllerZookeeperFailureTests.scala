@@ -58,6 +58,7 @@ class ControllerZookeeperFailureTests extends ZookeeperTestHarness {
     // Clean up
     broker2.shutdown()
     broker3.shutdown()
+    Thread.sleep(1000)
   }
 
   def testSocketServer(server: Server) = {
