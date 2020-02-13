@@ -33,7 +33,7 @@ class FailureDetectorTests extends FunSuite {
   }
 
 
-  test("PhiChiFailure Detector should detect liveness with heatbeat") {
+  test("Phi Accrual Failure Detector should detect liveness with heatbeat") {
     val localHost = new Networks().hostname()
     val senderIp = InetAddressAndPort.create(localHost, TestUtils.choosePort())
     val receiverIp = InetAddressAndPort.create(localHost, TestUtils.choosePort())
