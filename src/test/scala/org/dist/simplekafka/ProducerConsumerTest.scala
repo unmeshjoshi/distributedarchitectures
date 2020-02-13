@@ -60,7 +60,7 @@ class ProducerConsumerTest extends ZookeeperTestHarness with Logging {
     broker3.shutdown()
     broker4.shutdown()
     broker5.shutdown()
-    Thread.sleep(1000)
+    Thread.sleep(1000)  // Delay for brokers to finish shutting down.
   }
 
   private def leaderCache(broker: Server) = {

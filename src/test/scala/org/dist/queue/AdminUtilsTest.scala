@@ -14,8 +14,8 @@ import scala.collection.{Map, mutable}
 class AdminUtilsTest extends ZookeeperTestHarness {
 
   test("should create assign replicas to topic partitions") {
-    val value: collection.Map[Int, collection.Seq[Int]] = AdminUtils.assignReplicasToBrokers(Seq(0, 1), 1, 1)
-    assert(value(0) == List(1))
+    val value: collection.Map[Int, collection.Seq[Int]] = AdminUtils.assignReplicasToBrokers(Seq(0, 1), 1, 1, 0)
+    assert(value(0) == List(0))
   }
 
   test("should spread replicas on other brokers") {
