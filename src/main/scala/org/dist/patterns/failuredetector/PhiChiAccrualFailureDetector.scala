@@ -47,8 +47,7 @@ class PhiChiAccrualFailureDetector[T] extends FailureDetector[T] {
 
   def getPhiConvictThreshold = {
      // return DatabaseDescriptor.getPhiConvictThreshold//
-//    8.0
-    3.0 //with 3, the crash is detected in 15 seconds.TODO figure out why
+    8.0
   }
 
   def interpret(ep: T): Unit = {

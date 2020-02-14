@@ -48,12 +48,12 @@ class FailureDetectorTests extends FunSuite {
       receiver.failureDetector.isAlive(1)
     }, "Waiting for server 1 to be detected as alive")
 
+    Thread.sleep(1000) //take some time for multiple heartbeats to reach receiver to calculate phi values better
     sender.stop()
 
     TestUtils.waitUntilTrue(() ⇒ {
       receiver.failureDetector.isAlive(1) == false
-    }, "Waiting for server 1 to be detected as crashed", waitTimeMs = 15000)
-    //TODO: Phi factor of 4 takes 15 seconds to detect failure, figure out why.
+    }, "Waiting for server 1 to be detected as crashed")
 
     receiver.stop
   }
