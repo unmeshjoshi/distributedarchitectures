@@ -237,7 +237,19 @@ func newRaft(c *Config) *raft {
 		electionTimeout:           c.ElectionTick,
 		heartbeatTimeout:          c.HeartbeatTick,
 		logger:                    c.Logger,
+		prs:                       tracker.MakeProgressTracker(100),
 	}
+
+	cfg, prs, err := confchange.Restore(confchange.Changer{
+		Tracker:   r.prs,
+		LastIndex: raftlog.lastIndex(),
+	}, cs)
+
+	if err != nil {
+		panic(err)
+	}
+	println(cfg.String())
+	println(prs.String())
 
 	if !IsEmptyHardState(hs) {
 		r.loadState(hs)

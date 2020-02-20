@@ -130,6 +130,8 @@ func NewServer() (srv *Server, err error) {
 }
 
 func NewRaftNode() *raftNode {
+
+
 	var maxInFlightMsgSnap = 16
 	var cfg embed.Config = config{*embed.NewConfig()}.ec
 	s := raft.NewMemoryStorage()
@@ -158,7 +160,6 @@ func NewRaftNode() *raftNode {
 		var ctx []byte
 		peers[i] = raft.Peer{ID: uint64(id), Context: ctx}
 	}
-
 
 	var n = raft.StartNode(c, peers)
 
