@@ -13,12 +13,12 @@ import org.dist.util.SocketIO
 class Receiver(localIp:InetAddressAndPort, peers:List[Peer], val failureDetector:FailureDetector[Int]) extends Logging {
   val tcpListener = new TcpListener(localIp, requestHandler)
 
-  def requestHandler(requestAndSocket:(RequestOrResponse, SocketIO[RequestOrResponse])) = {
+  def requestHandler(requestAndSocket:(RequestOrResponse, SocketIO[RequestOrResponse])):Unit = {
     val response = requestHandler(requestAndSocket._1)
     requestAndSocket._2.write(response)
   }
 
-  def requestHandler(requestOrResponse:RequestOrResponse) = {
+  def requestHandler(requestOrResponse:RequestOrResponse):RequestOrResponse = {
     if (requestOrResponse.requestId == HeartBeatRequestKeys.HeartBeatRequest) {
 
       val heartBeatRequest = JsonSerDes.deserialize(requestOrResponse.messageBodyJson, classOf[HeartBeatRequest])

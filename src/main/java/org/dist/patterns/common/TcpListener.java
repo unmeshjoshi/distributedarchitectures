@@ -1,5 +1,95 @@
 package org.dist.patterns.common;
 
-public class TcpListener {
+import org.dist.kvstore.InetAddressAndPort;
+import org.dist.patterns.singularupdatequeue.SingularUpdateQueue;
+import org.dist.patterns.singularupdatequeue.UpdateHandler;
+import org.dist.patterns.wal.WAL;
+import org.dist.queue.api.RequestOrResponse;
+import org.dist.util.SocketIO;
+import scala.Function2;
+
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+public class TcpListener extends Thread {
+    private InetAddressAndPort listenIp;
+    private final ServerSocket serverSocket;
+
+    public TcpListener(InetAddressAndPort listenIp) {
+        this.listenIp = listenIp;
+        try {
+            this.serverSocket = new ServerSocket();
+            this.serverSocket.bind(new InetSocketAddress(listenIp.address(), listenIp.port()));
+        } catch (IOException e) {
+           throw new RuntimeException(e);
+        }
+    }
+
+    private AtomicBoolean running = new AtomicBoolean(true);
+
+    private UpdateHandler<Pair<RequestOrResponse>, RequestOrResponse> handler = new UpdateHandler<Pair<RequestOrResponse>, RequestOrResponse>() {
+        public RequestOrResponse update(Pair<RequestOrResponse> pair) {
+            RequestOrResponse request = pair.requestOrResponse;
+            pair.socket.write(request);
+            return request;
+        }
+    };
+    private SingularUpdateQueue socketWriterQueue = new SingularUpdateQueue(handler);
+
+
+    private UpdateHandler<Pair<RequestOrResponse>, Pair<RequestOrResponse>> walHandler = new UpdateHandler<Pair<RequestOrResponse>, Pair<RequestOrResponse>>() {
+        private WAL wal = new WAL();
+        @Override
+        public Pair<RequestOrResponse> update(Pair<RequestOrResponse> pair) {
+            SocketIO<RequestOrResponse> socket = pair.socket;
+            wal.write(pair.requestOrResponse.messageBodyJson());
+            RequestOrResponse response = new RequestOrResponse(pair.requestOrResponse.requestId(), "", pair.requestOrResponse.correlationId());
+            return new Pair<RequestOrResponse>(response, socket);
+        }
+    };
+    private SingularUpdateQueue walWriterQueue = new SingularUpdateQueue(walHandler, socketWriterQueue);
+
+    static class Pair<T> {
+        private final T requestOrResponse;
+        private final SocketIO<T> socket;
+        public Pair(T t, SocketIO<T> socket) {
+
+            this.requestOrResponse = t;
+            this.socket = socket;
+        }
+    }
+
+    @Override
+    public void run() {
+        walWriterQueue.start();
+        socketWriterQueue.start();
+
+        while(running.get()) {
+            try {
+                Socket socket = this.serverSocket.accept();
+                final SocketIO<RequestOrResponse> socketIo = new SocketIO<RequestOrResponse>(socket, RequestOrResponse.class);
+
+                Function2<RequestOrResponse, Socket, Object> handler = (requestOrResponse, clientSocket) -> {
+                    walWriterQueue.submit(new Pair<RequestOrResponse>(requestOrResponse, socketIo));
+                    return null;
+                };
+                socketIo.readHandleWithSocket(handler);
+
+            } catch (IOException e) {
+
+            }
+        }
+    }
+
+
+    public void shudown() {
+        try(serverSocket) {
+        } catch (IOException e) {
+        }
+        running.set(false);
+    }
 
 }
