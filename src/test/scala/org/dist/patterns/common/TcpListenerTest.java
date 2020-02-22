@@ -2,13 +2,13 @@ package org.dist.patterns.common;
 
 
 import org.dist.kvstore.InetAddressAndPort;
-import org.dist.patterns.replicatedlog.Client;
 import org.dist.queue.TestUtils;
-import org.dist.queue.api.RequestOrResponse;
 import org.dist.util.Networks;
 import org.junit.Test;
 
 import java.net.InetAddress;
+
+import static org.junit.Assert.assertNotNull;
 
 public class TcpListenerTest {
 
@@ -19,7 +19,10 @@ public class TcpListenerTest {
         TcpListener tcpListener = new TcpListener(serverIp);
         tcpListener.start();
 
-        new Client().sendReceive(new RequestOrResponse((short) 1, "Test String", 0), serverIp);
+        RequestOrResponse requestOrResponse = new Client().sendReceive(new RequestOrResponse(1, "Test String", 0), serverIp);
 
+        System.out.println(requestOrResponse);
+
+        assertNotNull(requestOrResponse);
     }
 }

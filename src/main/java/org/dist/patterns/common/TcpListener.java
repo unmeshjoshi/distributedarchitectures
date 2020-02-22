@@ -4,15 +4,12 @@ import org.dist.kvstore.InetAddressAndPort;
 import org.dist.patterns.singularupdatequeue.SingularUpdateQueue;
 import org.dist.patterns.singularupdatequeue.UpdateHandler;
 import org.dist.patterns.wal.WAL;
-import org.dist.queue.api.RequestOrResponse;
-import org.dist.util.SocketIO;
-import scala.Function2;
-
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 
 public class TcpListener extends Thread {
     private InetAddressAndPort listenIp;
@@ -45,8 +42,8 @@ public class TcpListener extends Thread {
         @Override
         public Pair<RequestOrResponse> update(Pair<RequestOrResponse> pair) {
             SocketIO<RequestOrResponse> socket = pair.socket;
-            wal.write(pair.requestOrResponse.messageBodyJson());
-            RequestOrResponse response = new RequestOrResponse(pair.requestOrResponse.requestId(), "", pair.requestOrResponse.correlationId());
+            wal.write(pair.requestOrResponse.getMessageBodyJson());
+            RequestOrResponse response = new RequestOrResponse(pair.requestOrResponse.getRequestId(), "", pair.requestOrResponse.getCorrelationId());
             return new Pair<RequestOrResponse>(response, socket);
         }
     };
@@ -71,8 +68,7 @@ public class TcpListener extends Thread {
             try {
                 Socket socket = this.serverSocket.accept();
                 final SocketIO<RequestOrResponse> socketIo = new SocketIO<RequestOrResponse>(socket, RequestOrResponse.class);
-
-                Function2<RequestOrResponse, Socket, Object> handler = (requestOrResponse, clientSocket) -> {
+                BiFunction<RequestOrResponse, Socket, RequestOrResponse> handler = (requestOrResponse, clientSocket) -> {
                     walWriterQueue.submit(new Pair<RequestOrResponse>(requestOrResponse, socketIo));
                     return null;
                 };
@@ -83,7 +79,6 @@ public class TcpListener extends Thread {
             }
         }
     }
-
 
     public void shudown() {
         try(serverSocket) {
