@@ -18,8 +18,10 @@ object Dependencies {
     Libs.`jamm`,
     Libs.`pcj`,
     Libs.`commons-codec`,
+    Libs.`disruptor`,
     Libs.`akka-stream-typed`,
     Libs.`scalaTest` % Test,
-    Libs.`mockito` % Test
+    Libs.`mockito` % Test,
+    Libs.`junit`  % Test
   )
 }

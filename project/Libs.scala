@@ -21,4 +21,6 @@ object Libs {
   val `pcj` = "pcj" % "pcj" % "1.2"
   val `akka-stream-typed` = "com.typesafe.akka" %% "akka-stream-typed" % "2.6.1"
   val `commons-codec` = "commons-codec" % "commons-codec" % "1.9"
+  val `disruptor` = "com.lmax" % "disruptor" % "3.4.2"
+  var `junit` = "junit" % "junit" % "4.13"
 }

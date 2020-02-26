@@ -1,7 +1,6 @@
 package org.dist.patterns.common;
 
 
-import org.dist.kvstore.InetAddressAndPort;
 import org.dist.queue.TestUtils;
 import org.dist.util.Networks;
 import org.junit.Test;
@@ -19,10 +18,9 @@ public class TcpListenerTest {
         TcpListener tcpListener = new TcpListener(serverIp);
         tcpListener.start();
 
-        RequestOrResponse requestOrResponse = new Client().sendReceive(new RequestOrResponse(1, "Test String", 0), serverIp);
+        RequestOrResponse request = new RequestOrResponse(1, "Test String", 0);
+        RequestOrResponse response = new Client().sendReceive(request, serverIp);
 
-        System.out.println(requestOrResponse);
-
-        assertNotNull(requestOrResponse);
+        assertNotNull(response);
     }
 }

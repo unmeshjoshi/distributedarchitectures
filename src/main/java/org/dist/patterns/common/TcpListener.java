@@ -1,9 +1,10 @@
 package org.dist.patterns.common;
 
-import org.dist.kvstore.InetAddressAndPort;
+import org.dist.patterns.singularupdatequeue.ExecutorBackedSingularUpdateQueue;
 import org.dist.patterns.singularupdatequeue.SingularUpdateQueue;
 import org.dist.patterns.singularupdatequeue.UpdateHandler;
 import org.dist.patterns.wal.WAL;
+
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -19,7 +20,7 @@ public class TcpListener extends Thread {
         this.listenIp = listenIp;
         try {
             this.serverSocket = new ServerSocket();
-            this.serverSocket.bind(new InetSocketAddress(listenIp.address(), listenIp.port()));
+            this.serverSocket.bind(new InetSocketAddress(listenIp.getAddress(), listenIp.getPort()));
         } catch (IOException e) {
            throw new RuntimeException(e);
         }
@@ -47,13 +48,16 @@ public class TcpListener extends Thread {
             return new Pair<RequestOrResponse>(response, socket);
         }
     };
-    private SingularUpdateQueue walWriterQueue = new SingularUpdateQueue(walHandler, socketWriterQueue);
+    private ExecutorBackedSingularUpdateQueue walWriterQueue = walUpdateQueue(socketWriterQueue);
+
+    private ExecutorBackedSingularUpdateQueue walUpdateQueue(SingularUpdateQueue socketWriterQueue) {
+        return new ExecutorBackedSingularUpdateQueue(walHandler, socketWriterQueue);
+    }
 
     static class Pair<T> {
         private final T requestOrResponse;
         private final SocketIO<T> socket;
         public Pair(T t, SocketIO<T> socket) {
-
             this.requestOrResponse = t;
             this.socket = socket;
         }
@@ -66,11 +70,11 @@ public class TcpListener extends Thread {
 
         while(running.get()) {
             try {
-                Socket socket = this.serverSocket.accept();
-                final SocketIO<RequestOrResponse> socketIo = new SocketIO<RequestOrResponse>(socket, RequestOrResponse.class);
+                var socket = this.serverSocket.accept();
+                final var socketIo = new SocketIO<RequestOrResponse>(socket, RequestOrResponse.class);
                 BiFunction<RequestOrResponse, Socket, RequestOrResponse> handler = (requestOrResponse, clientSocket) -> {
                     walWriterQueue.submit(new Pair<RequestOrResponse>(requestOrResponse, socketIo));
-                    return null;
+                    return requestOrResponse;
                 };
                 socketIo.readHandleWithSocket(handler);
 
