@@ -5,6 +5,7 @@ import org.dist.patterns.singularupdatequeue.SingularUpdateQueue;
 import org.dist.patterns.singularupdatequeue.UpdateHandler;
 import org.dist.patterns.wal.WAL;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
@@ -39,7 +40,7 @@ public class TcpListener extends Thread {
 
 
     private UpdateHandler<Pair<RequestOrResponse>, Pair<RequestOrResponse>> walHandler = new UpdateHandler<Pair<RequestOrResponse>, Pair<RequestOrResponse>>() {
-        private WAL wal = new WAL();
+        private WAL wal = WAL.openWAL(1, new File("/tmp/"));
         @Override
         public Pair<RequestOrResponse> update(Pair<RequestOrResponse> pair) {
             SocketIO<RequestOrResponse> socket = pair.socket;
