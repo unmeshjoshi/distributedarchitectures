@@ -119,7 +119,7 @@ public class Account {
         return queue.submit(new Request(amount, RequestType.CREDIT));
     }
 
-    public CompletableFuture<Response> handleValidationResponse(Request request) {
+    public CompletableFuture<Response> validationResponse(Request request) {
         return queue.submit(request);
     }
 }
