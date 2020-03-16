@@ -12,7 +12,6 @@ class BrokerChangeListenerTest extends ZookeeperTestHarness {
     zookeeperClient.registerBroker(Broker(0, "10.10.10.10", 8000))
 
     val socketServer1 = new TestSocketServer(config)
-
     val controller = new Controller(zookeeperClient, config.brokerId, socketServer1)
     controller.startup()
 

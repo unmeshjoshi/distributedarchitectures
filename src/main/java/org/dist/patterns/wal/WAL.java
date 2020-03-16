@@ -152,6 +152,19 @@ public class WAL {
             throw new RuntimeException(e);
         }
     }
+
+    public void truncate(Long logIndex) {
+        var filePosition = entryOffsets.get(logIndex);
+        if (filePosition == null) throw new IllegalArgumentException("No file position available for logIndex=" + logIndex);
+
+        try {
+            fileChannel.truncate(filePosition);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
 }
 
 

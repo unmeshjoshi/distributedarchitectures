@@ -23,6 +23,8 @@ class Client[K, V](nodes:List[Node[K, V]], failureDetector:FailureDetector[K, V]
     val versionedCopy = new Versioned[V](versioned.getValue, versionedClock.incremented(master.id, System.currentTimeMillis()))
     master.put(key, versionedCopy)
 
+    val replica = nodes(1);
+    replica.put(key, versionedCopy);
     versionedCopy.getVersion
   }
 

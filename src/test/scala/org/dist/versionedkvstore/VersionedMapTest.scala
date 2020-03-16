@@ -27,6 +27,7 @@ class VersionedMapTest extends FunSuite {
     assert(clock1 == client.get("newKey").version)
 
     client.put("newKey", "anotherValue") //
-    assert(clock1.incremented(1, currentTime) == client.get("newKey").version)
+    val clock = clock1.incremented(1, currentTime)
+    assert(clock == client.get("newKey").version)
   }
 }
