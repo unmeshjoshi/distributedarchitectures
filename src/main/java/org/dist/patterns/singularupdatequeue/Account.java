@@ -42,6 +42,7 @@ class Response {
     public static Response None = new Response();
     Map<InetAddressAndPort, RequestOrResponse> messages = new HashMap();
     int amount;
+
     public Response withMessage(RequestOrResponse request, InetAddressAndPort to) {
         this.messages.put(to, request);
         return this;
@@ -67,9 +68,9 @@ class Response {
 
 public class Account {
     Map<Integer, Request> inflightMessages = new HashMap<>();
-
     InetAddressAndPort validationServiceIp = InetAddressAndPort.create("10.10.10.10", 9000);
     private int correlationId = 0;
+
     private int amount;
 
     SingularUpdateQueue<Request, Response> queue
@@ -90,9 +91,10 @@ public class Account {
     }
 
     private Response askToMakeValidationCall(Request request) {
-        int correlationId1 = correlationId++;
-        inflightMessages.put(correlationId1, request);
-        RequestOrResponse validationRequest = new RequestOrResponse(1, "", correlationId1);
+        int messageId = correlationId++;
+        inflightMessages.put(messageId, request);
+
+        RequestOrResponse validationRequest = new RequestOrResponse(1, "", messageId);
         return new Response().withMessage(validationRequest, validationServiceIp);
     }
 
@@ -119,7 +121,7 @@ public class Account {
         return queue.submit(new Request(amount, RequestType.CREDIT));
     }
 
-    public CompletableFuture<Response> validationResponse(Request request) {
+    public CompletableFuture<Response> processValidationResponse(Request request) {
         return queue.submit(request);
     }
 }

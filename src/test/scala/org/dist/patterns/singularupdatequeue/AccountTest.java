@@ -23,7 +23,7 @@ public class AccountTest {
         CompletableFuture<List<Response>> responseCompletableFuture = credit.thenCompose(response -> {
             List<CompletableFuture<RequestOrResponse>> values = makeServiceCall(response);
             List<CompletableFuture<Response>> responseFutures = values.stream().map(future -> {
-                return future.thenCompose(r -> account.validationResponse(new Request(0, RequestType.VALIDATION_RESPONSE, r.getCorrelationId())));
+                return future.thenCompose(r -> account.processValidationResponse(new Request(0, RequestType.VALIDATION_RESPONSE, r.getCorrelationId())));
             }).collect(Collectors.toList());
             return sequence(responseFutures);
         });
