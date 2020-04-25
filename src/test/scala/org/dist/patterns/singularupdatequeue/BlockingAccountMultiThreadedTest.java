@@ -18,7 +18,7 @@ public class BlockingAccountMultiThreadedTest {
     @Test
     public void testMultiThreadedAccountHandling() throws ExecutionException, InterruptedException {
         BlockingAccount account = new BlockingAccount(100);
-        int noOfCores = Runtime.getRuntime().availableProcessors();
+        int noOfCores = Runtime.getRuntime().availableProcessors() * 10;
         ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(noOfCores, noOfCores, 1000, TimeUnit.SECONDS, new LinkedBlockingDeque<>());
         List<Future<?>> futures = new ArrayList();
         long start = System.nanoTime();

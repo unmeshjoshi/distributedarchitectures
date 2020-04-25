@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 public class SingleThreadedAccountTest {
     @Test
-    public void testMultiThreadedAccountHandling() throws ExecutionException, InterruptedException {
+    public void testSingleThreadedAccountHandling() throws ExecutionException, InterruptedException {
         SingleThreadedAccount account = new SingleThreadedAccount(100);
         List<CompletableFuture<Response>> futures = new ArrayList();
         long start = System.nanoTime();
