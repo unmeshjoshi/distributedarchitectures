@@ -37,13 +37,20 @@ public class ClientCnxn {
 
 
     class EventThread extends Thread {
-        private final LinkedBlockingQueue<Object> waitingEvents = new LinkedBlockingQueue<Object>();
+        private final LinkedBlockingQueue<RequestOrResponse> waitingEvents = new LinkedBlockingQueue<>();
+        boolean isRunning = true;
         public void queuePacket(RequestOrResponse response) {
             waitingEvents.add(response);
         }
-        @Override
         public void run() {
-
+            try {
+                while (true) {
+                    RequestOrResponse event = waitingEvents.take();
+                    consumer.accept(event);
+                }
+            } catch (InterruptedException e) {
+                LOG.error("Event thread exiting due to interruption", e);
+            }
         }
     }
 
@@ -85,13 +92,15 @@ public class ClientCnxn {
         }
         @Override
         public void run() {
+            clientCnxnSocket.introduce(this, sessionId, outgoingQueue);
+            clientCnxnSocket.updateNow();
+            clientCnxnSocket.updateLastSendAndHeard();
+
             isRunning = true;
             int to = 0;
             while(isRunning) {
                 try {
-                    clientCnxnSocket.introduce(this, sessionId, outgoingQueue);
-                    clientCnxnSocket.updateNow();
-                    clientCnxnSocket.updateLastSendAndHeard();
+
                     InetSocketAddress serverAddress = null;
                     if (!clientCnxnSocket.isConnected()) {
                         // don't re-establish connection if we are closing

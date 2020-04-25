@@ -1,9 +1,7 @@
 package org.dist.patterns.pipelinedconnection.zk;
 
-import org.apache.zookeeper.ClientCnxn;
-import org.apache.zookeeper.client.ZKClientConfig;
+import org.dist.patterns.common.JsonSerDes;
 import org.dist.patterns.common.RequestOrResponse;
-import org.dist.queue.api.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +9,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -21,7 +20,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 
 public class ClientCnxnSocketNIO extends ClientCnxnSocket {
     private static final Logger LOG = LoggerFactory.getLogger(ClientCnxnSocketNIO.class);
-
+    static int sizeOfInt = 4;
     private final Selector selector = Selector.open();
 
     private SelectionKey sockKey;
@@ -37,6 +36,8 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
     public boolean isConnected() {
         return sockKey != null;
     }
+
+    ByteBuffer bb = null;
 
     void doIO(Queue<RequestOrResponse> pendingQueue, org.dist.patterns.pipelinedconnection.zk.ClientCnxn cnxn) throws InterruptedException, IOException {
         SocketChannel sock = (SocketChannel) sockKey.channel();
@@ -75,7 +76,32 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
                 }
             }
         }
+        if (sockKey.isWritable()) {
+            RequestOrResponse response = findSendablePacket(outgoingQueue, false);
+            if (response != null) {
+                updateLastSend();
+                // If we already started writing p, p.bb will already exist
+                if (bb == null) {
+                    String serialize = JsonSerDes.serialize(response);
+                    byte[] bytes = serialize.getBytes();
+                    bb = ByteBuffer.allocate(sizeOfInt + bytes.length);
+                    bb.putInt(bytes.length);
+                    bb.put(bytes);
+                }
+                sock.write(bb);
+                if (!bb.hasRemaining()) {
+                    sentCount.getAndIncrement();
+                    outgoingQueue.removeFirstOccurrence(response);
+                    synchronized (pendingQueue) {
+                        pendingQueue.add(response);
+                    }
+                    bb = null;
+                }
+
+            }
+        }
     }
+
 
     synchronized void enableWrite() {
         int i = sockKey.interestOps();
@@ -129,6 +155,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
             sendThread.primeConnection();
         }
     }
+
     @Override
     public void connect(InetSocketAddress addr) throws IOException {
         SocketChannel sock = createSock();
@@ -150,7 +177,7 @@ public class ClientCnxnSocketNIO extends ClientCnxnSocket {
 
     @Override
     public Object getLocalSocketAddress() {
-        return  localSocketAddress;
+        return localSocketAddress;
     }
 
     @Override

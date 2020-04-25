@@ -47,6 +47,9 @@ public abstract class ClientCnxnSocket {
         incomingBuffer = ByteBuffer.allocate(len);
     }
 
+    void updateLastSend() {
+        this.lastSend = now;
+    }
 
     void readConnectResult() throws IOException {
         this.sessionId =  -1;////conRsp.getSessionId();

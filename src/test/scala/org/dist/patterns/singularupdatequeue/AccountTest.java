@@ -19,7 +19,10 @@ public class AccountTest {
     @Test
     public void shouldCreditAfterValidationWithExternalServiceCall() throws ExecutionException, InterruptedException {
         Account account = new Account();
+
         CompletableFuture<Response> credit = account.credit(100);
+
+
         CompletableFuture<List<Response>> responseCompletableFuture = credit.thenCompose(response -> {
             List<CompletableFuture<RequestOrResponse>> values = makeServiceCall(response);
             List<CompletableFuture<Response>> responseFutures = values.stream().map(future -> {

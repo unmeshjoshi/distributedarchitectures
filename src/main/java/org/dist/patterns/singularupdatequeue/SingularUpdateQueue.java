@@ -4,7 +4,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
 
 public class SingularUpdateQueue<Request, Response> extends Thread {
-    private ArrayBlockingQueue<RequestWrapper<Request, Response>> workQueue = new ArrayBlockingQueue<RequestWrapper<Request, Response>>(100);
+    private ArrayBlockingQueue<RequestWrapper<Request, Response>> workQueue = new ArrayBlockingQueue<RequestWrapper<Request, Response>>(500000);
     private UpdateHandler<Request, Response> updateHandler;
     private SingularUpdateQueue<Response, ?> next;
 
@@ -40,9 +40,13 @@ public class SingularUpdateQueue<Request, Response> extends Thread {
     }
 
     public CompletableFuture<Response> submit(Request request) {
-        RequestWrapper<Request, Response> wrapper = new RequestWrapper<>(request);
-        workQueue.add(wrapper);
-        return wrapper.future;
+        try {
+            RequestWrapper<Request, Response> wrapper = new RequestWrapper<>(request);
+            workQueue.put(wrapper);
+            return wrapper.future;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
