@@ -3,7 +3,7 @@ package org.dist.patterns.common;
 import org.dist.patterns.singularupdatequeue.ExecutorBackedSingularUpdateQueue;
 import org.dist.patterns.singularupdatequeue.SingularUpdateQueue;
 import org.dist.patterns.singularupdatequeue.UpdateHandler;
-import org.dist.patterns.wal.WAL;
+import org.dist.patterns.wal.WriteAheadLog;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,11 +40,11 @@ public class TcpListener extends Thread {
 
 
     private UpdateHandler<Pair<RequestOrResponse>, Pair<RequestOrResponse>> walHandler = new UpdateHandler<Pair<RequestOrResponse>, Pair<RequestOrResponse>>() {
-        private WAL wal = WAL.openWAL(1, new File("/tmp/"));
+        private WriteAheadLog writeAheadLog = WriteAheadLog.openWAL(1, new File("/tmp/"));
         @Override
         public Pair<RequestOrResponse> update(Pair<RequestOrResponse> pair) {
             SocketIO<RequestOrResponse> socket = pair.socket;
-            wal.write(pair.requestOrResponse.getMessageBodyJson());
+            writeAheadLog.write(pair.requestOrResponse.getMessageBodyJson());
             RequestOrResponse response = new RequestOrResponse(pair.requestOrResponse.getRequestId(), "", pair.requestOrResponse.getCorrelationId());
             return new Pair<RequestOrResponse>(response, socket);
         }

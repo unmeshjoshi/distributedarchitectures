@@ -12,12 +12,12 @@ import java.util.List;
 import java.util.Map;
 
 
-class WALEntry {
+class WriteAheadLogEntry {
     private final Long entryId;
     private final byte[] data;
     private final Integer entryType;
 
-    public WALEntry(Long entryId, byte[] data, Integer entryType) {
+    public WriteAheadLogEntry(Long entryId, byte[] data, Integer entryType) {
         this.entryId = entryId;
         this.data = data;
         this.entryType = entryType;
@@ -48,11 +48,11 @@ class WALEntry {
     }
 
     Integer entrySize() {
-        return data.length + WAL.sizeOfLong + WAL.sizeOfInt; //size of all the fields
+        return data.length + WriteAheadLog.sizeOfLong + WriteAheadLog.sizeOfInt; //size of all the fields
     }
 }
 
-public class WAL {
+public class WriteAheadLog {
     private static String logSuffix = ".log";
     private static String logPrefix = "wal";
     private static int firstLogId = 0;
@@ -61,7 +61,7 @@ public class WAL {
     final RandomAccessFile randomAccessFile;
     final FileChannel fileChannel;
 
-    private WAL(File file) {
+    private WriteAheadLog(File file) {
         try {
             this.randomAccessFile = new RandomAccessFile(file, "rw");
             this.fileChannel = randomAccessFile.getChannel();
@@ -72,9 +72,9 @@ public class WAL {
         }
     }
 
-    public static WAL openWAL(Integer startIndex, File walDir) {
+    public static WriteAheadLog openWAL(Integer startIndex, File walDir) {
         var file = new File(walDir, createFileName(startIndex));
-        return new WAL(file);
+        return new WriteAheadLog(file);
     }
 
     private static String createFileName(Integer startIndex) {
@@ -90,23 +90,23 @@ public class WAL {
 
     public Long writeEntry(byte[] bytes) {
         var logEntryId = lastLogEntryId + 1;
-        var logEntry = new WALEntry(logEntryId, bytes, 0);
+        var logEntry = new WriteAheadLogEntry(logEntryId, bytes, 0);
         var filePosition = writeEntry(logEntry);
         lastLogEntryId = logEntryId;
         entryOffsets.put(logEntryId, filePosition);
         return logEntryId;
     }
 
-    public List<WALEntry> readAll() {
+    public List<WriteAheadLogEntry> readAll() {
         try {
             fileChannel.position(0);
             var totalBytesRead = 0L;
-            var entries = new ArrayList<WALEntry>();
+            var entries = new ArrayList<WriteAheadLogEntry>();
             var deserializer = new WALEntryDeserializer(fileChannel);
             while (totalBytesRead < fileChannel.size()) {
                 var startPosition = fileChannel.position();
-                WALEntry entry = deserializer.readEntry();
-                totalBytesRead += entry.entrySize() + WAL.sizeOfInt; //size of entry + size of int which stores length
+                WriteAheadLogEntry entry = deserializer.readEntry();
+                totalBytesRead += entry.entrySize() + WriteAheadLog.sizeOfInt; //size of entry + size of int which stores length
                 entryOffsets.put(entry.getEntryId(), startPosition);
                 entries.add(entry);
             }
@@ -116,7 +116,7 @@ public class WAL {
         }
     }
 
-    private Long writeEntry(WALEntry entry) {
+    private Long writeEntry(WriteAheadLogEntry entry) {
         var buffer = entry.serialize();
         return writeToChannel(buffer);
     }
@@ -169,24 +169,24 @@ public class WAL {
 
 
 class WALEntryDeserializer {
-    final ByteBuffer intBuffer = ByteBuffer.allocate(WAL.sizeOfInt);
-    final ByteBuffer longBuffer = ByteBuffer.allocate(WAL.sizeOfLong);
+    final ByteBuffer intBuffer = ByteBuffer.allocate(WriteAheadLog.sizeOfInt);
+    final ByteBuffer longBuffer = ByteBuffer.allocate(WriteAheadLog.sizeOfLong);
     private FileChannel logChannel;
 
     public WALEntryDeserializer(FileChannel logChannel) {
         this.logChannel = logChannel;
     }
 
-    WALEntry readEntry() {
+    WriteAheadLogEntry readEntry() {
         Integer entrySize = readInteger();
         Integer entryType = readInteger();
         Long entryId = readLong();
 
-        var dataSize = (entrySize - (WAL.sizeOfInt + WAL.sizeOfLong));
+        var dataSize = (entrySize - (WriteAheadLog.sizeOfInt + WriteAheadLog.sizeOfLong));
         ByteBuffer buffer = ByteBuffer.allocate(dataSize);
         var position = readFromChannel(logChannel, buffer);
-        var bytesRead = entrySize + WAL.sizeOfInt;
-        return new WALEntry(entryId, buffer.array(), entryType);
+        var bytesRead = entrySize + WriteAheadLog.sizeOfInt;
+        return new WriteAheadLogEntry(entryId, buffer.array(), entryType);
     }
 
     public Long readLong() {

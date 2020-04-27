@@ -6,21 +6,26 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public class SingleThreadedAccountTest {
     @Test
     public void testSingleThreadedAccountHandling() throws ExecutionException, InterruptedException {
         SingleThreadedAccount account = new SingleThreadedAccount(100);
-        List<CompletableFuture<Response>> futures = new ArrayList();
+        int noOfCores = Runtime.getRuntime().availableProcessors();
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(noOfCores, noOfCores, 1000, TimeUnit.SECONDS, new LinkedBlockingDeque<>());
+        List<Future<?>> futures = new ArrayList();
         long start = System.nanoTime();
         for (int i = 0; i < 50000000; i++) {
-            CompletableFuture<Response> future = i % 2 == 0 ? account.credit(1) : account.debit(1);
+            Runnable task = i % 2 == 0 ? ()->account.credit(1) : ()->account.debit(1);
+            Future<?> future = threadPoolExecutor.submit(task);
             futures.add(future);
         }
-        for (CompletableFuture<Response> future : futures) {
-            Response result = null;
-            result = future.get();
+        for (Future<?> future : futures) {
+            future.get();
         }
         long end = System.nanoTime();
         System.out.println("totalTime = " + TimeUnit.NANOSECONDS.toMillis(end - start));
