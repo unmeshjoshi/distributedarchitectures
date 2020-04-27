@@ -2,19 +2,17 @@ package org.dist.patterns.singularupdatequeue;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class SingularUpdateQueue<Request, Response> extends Thread {
-    private ArrayBlockingQueue<RequestWrapper<Request, Response>> workQueue = new ArrayBlockingQueue<RequestWrapper<Request, Response>>(500000);
+    private ArrayBlockingQueue<RequestWrapper<Request, Response>> workQueue = new ArrayBlockingQueue<RequestWrapper<Request, Response>>(100000);
     private UpdateHandler<Request, Response> updateHandler;
     private SingularUpdateQueue<Response, ?> next;
 
     public SingularUpdateQueue(UpdateHandler<Request, Response> updateHandler) {
+        super("SingularUpdateQueue");
         this.updateHandler = updateHandler;
-    }
-
-    public SingularUpdateQueue(UpdateHandler<Request, Response> updateHandler, SingularUpdateQueue<Response, ?> next) {
-        this.updateHandler = updateHandler;
-        this.next = next;
     }
 
     static class RequestWrapper<P, R> {

@@ -23,4 +23,8 @@ object Libs {
   val `commons-codec` = "commons-codec" % "commons-codec" % "1.9"
   val `disruptor` = "com.lmax" % "disruptor" % "3.4.2"
   var `junit` = "junit" % "junit" % "4.13"
+  var `jmh-core` = "org.openjdk.jmh" % "jmh-core" % "1.19"
+  var `jmh_bench` = "org.openjdk.jmh" % "jmh-java-benchmark-archetype" % "1.19"
+  var `jmh_generator_ann` = "org.openjdk.jmh" % "jmh-generator-annprocess" % "1.19"
+  var `jmh_generator_bytecode` = "org.openjdk.jmh" % "jmh-generator-bytecode" % "1.19"
 }

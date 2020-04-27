@@ -1,6 +1,6 @@
 package org.dist.patterns.wal;
 
-import org.dist.queue.TestUtils;
+import org.dist.utils.JTestUtils;
 import org.junit.Test;
 
 import java.io.File;
@@ -12,14 +12,14 @@ import static org.junit.Assert.assertNotNull;
 public class WriteAheadLogTest {
     @Test
     public void shouldCreateLogFileForGivenIndex() {
-        WriteAheadLog testWriteAheadLog = WriteAheadLog.openWAL(1, TestUtils.tempDir("testWal"));
+        WriteAheadLog testWriteAheadLog = WriteAheadLog.openWAL(1, JTestUtils.tmpDir("testWal"));
         assertNotNull(testWriteAheadLog.randomAccessFile);
         testWriteAheadLog.close();
     }
 
     @Test
     public void shouldWriteAndReadEntries() {
-        File walDir = TestUtils.tempDir("testWal");
+        File walDir = JTestUtils.tmpDir("testWal");
 
         WriteAheadLog testWriteAheadLog = WriteAheadLog.openWAL(1, walDir);
         testWriteAheadLog.writeEntry("test content".getBytes());
@@ -36,7 +36,7 @@ public class WriteAheadLogTest {
 
     @Test
     public void shouldTruncateLogAtGivenLogIndex() {
-        File walDir = TestUtils.tempDir("testWal");
+        File walDir = JTestUtils.tmpDir("testWal");
 
         WriteAheadLog testWriteAheadLog = WriteAheadLog.openWAL(1, walDir);
         testWriteAheadLog.writeEntry("test content".getBytes());

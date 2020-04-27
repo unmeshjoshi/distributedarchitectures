@@ -22,6 +22,10 @@ object Dependencies {
     Libs.`akka-stream-typed`,
     Libs.`scalaTest` % Test,
     Libs.`mockito` % Test,
-    Libs.`junit`  % Test
+    Libs.`junit`  % Test,
+    Libs.`jmh-core` % Test,
+    Libs.`jmh_bench` % Test,
+    Libs.`jmh_generator_ann` % Test,
+    Libs.`jmh_generator_bytecode` % Test
   )
 }
