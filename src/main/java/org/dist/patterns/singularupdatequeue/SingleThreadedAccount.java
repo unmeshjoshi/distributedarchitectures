@@ -1,15 +1,13 @@
 package org.dist.patterns.singularupdatequeue;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.concurrent.CompletableFuture;
 
 public class SingleThreadedAccount {
     private SingularUpdateQueue<Request, Response> queue;
     private int balance = 0;
     private File file;
-    private FileOutputStream fileOutputStream;
+    private OutputStream fileOutputStream;
 
     public SingleThreadedAccount(int balance, File dir) {
         this.balance = balance;

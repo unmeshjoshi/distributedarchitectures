@@ -1,13 +1,11 @@
 package org.dist.patterns.singularupdatequeue;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 
 public class SynchronizedAccount {
     private int balance;
     private File file;
-    private FileOutputStream fileOutputStream;
+    private OutputStream fileOutputStream;
 
     public SynchronizedAccount(int balance, File dir) {
         this.balance = balance;
