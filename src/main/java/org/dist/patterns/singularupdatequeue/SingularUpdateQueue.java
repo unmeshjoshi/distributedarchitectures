@@ -6,7 +6,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class SingularUpdateQueue<Request, Response> extends Thread {
-    private LinkedBlockingDeque<RequestWrapper<Request, Response>> workQueue = new LinkedBlockingDeque<RequestWrapper<Request, Response>>();
+    private ArrayBlockingQueue<RequestWrapper<Request, Response>> workQueue = new ArrayBlockingQueue<RequestWrapper<Request, Response>>(500);
     private UpdateHandler<Request, Response> updateHandler;
     private SingularUpdateQueue<Response, ?> next;
 

@@ -24,14 +24,14 @@ public class SingleThreadedAccount {
     private Response handleMessage(Request request) {
         if (request.requestType == RequestType.CREDIT) {
            balance += request.amount;
+           writeToFile(balance);
            return new Response().withAmount(balance);
 
         } else if (request.requestType == RequestType.DEBIT) {
-
            balance -= request.amount;
-           return new Response().withAmount(balance);
+            writeToFile(balance);
+            return new Response().withAmount(balance);
         }
-        writeToFile(balance);
         throw new IllegalArgumentException("Unknown request type " + request.requestType);
     };
 

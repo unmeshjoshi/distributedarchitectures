@@ -12,13 +12,12 @@ import java.util.concurrent.*;
 
 public class SingleThreadedAccountPerfMain {
 
-    final public static int TEST_TIME = 60 * 500;
+    final public static int TEST_TIME = 30 * 1000;
 
     public static void main(String[] args) throws ExecutionException, InterruptedException {
         final int numberOfThreads =
                 Runtime.getRuntime().availableProcessors();
 
-        List<String>[] taxPayerList = new ArrayList[numberOfThreads];
         ExecutorService pool =
                 Executors.newFixedThreadPool(numberOfThreads);
         Callable<SingleThreadedAccountCallable.AccountPerfFuture>[] callables =
