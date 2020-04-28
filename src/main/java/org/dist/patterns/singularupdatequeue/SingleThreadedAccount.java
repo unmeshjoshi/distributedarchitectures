@@ -1,34 +1,24 @@
 package org.dist.patterns.singularupdatequeue;
 
+import org.dist.patterns.wal.WriteAheadLog;
+
 import java.io.*;
 import java.util.concurrent.CompletableFuture;
 
 public class SingleThreadedAccount {
     private SingularUpdateQueue<Request, Response> queue;
     private int balance = 0;
-    private File file;
-    private OutputStream fileOutputStream;
+    private WriteAheadLog log;
 
     public SingleThreadedAccount(int balance, File dir) {
         this.balance = balance;
-        try {
-            this.file = new File(dir.getAbsolutePath() + "/test");
-            this.file.createNewFile();
-            fileOutputStream = new FileOutputStream(file);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        this.log = WriteAheadLog.openWAL(0, dir);
         this.queue   = new SingularUpdateQueue<Request, Response>(this::handleMessage);
         this.queue.start();
     }
 
     private void writeToFile(int balance) {
-        try {
-            fileOutputStream.write(balance);
-            fileOutputStream.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        log.write(balance + "");
     }
 
     private Response handleMessage(Request request) {

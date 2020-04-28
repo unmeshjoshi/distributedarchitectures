@@ -1,21 +1,15 @@
 package org.dist.patterns.singularupdatequeue;
 
+import org.dist.patterns.wal.WriteAheadLog;
+
 import java.io.*;
 
 public class SynchronizedAccount {
     private int balance;
-    private File file;
-    private OutputStream fileOutputStream;
-
+    private WriteAheadLog log;
     public SynchronizedAccount(int balance, File dir) {
         this.balance = balance;
-        try {
-            this.file = new File(dir.getAbsolutePath() + "/test");
-            this.file.createNewFile();
-            fileOutputStream = new FileOutputStream(file);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        this.log = WriteAheadLog.openWAL(0, dir);
     }
 
     public synchronized int credit(int amount) {
@@ -34,11 +28,6 @@ public class SynchronizedAccount {
     }
 
     private void writeToFile(int balance) {
-        try {
-            fileOutputStream.write(balance);
-            fileOutputStream.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+       log.write(balance + "");
     }
 }

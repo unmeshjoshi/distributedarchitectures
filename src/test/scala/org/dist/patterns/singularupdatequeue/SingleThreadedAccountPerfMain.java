@@ -55,8 +55,10 @@ public class SingleThreadedAccountPerfMain {
               throw new RuntimeException(ex);
             }
             List<CompletableFuture<Response>> responseFutures = result.getResponseFutures();
-            CompletableFuture<Void> voidCompletableFuture = CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]));
-            voidCompletableFuture.get();
+            CompletableFuture<Void> allFutures = CompletableFuture.allOf(responseFutures.toArray(new CompletableFuture[0]));
+
+            allFutures.get();
+
             totalExecutedCommands += responseFutures.size();
             System.out.println("Iterations per second on thread[" +
                     counter++ + "] -> " +

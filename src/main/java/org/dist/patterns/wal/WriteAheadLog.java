@@ -82,7 +82,7 @@ public class WriteAheadLog {
     }
 
     public void write(String s) {
-        System.out.println("Writing " + s + " to WAL");
+        writeEntry(s.getBytes());
     }
 
     private Long lastLogEntryId = 0l;
@@ -127,6 +127,7 @@ public class WriteAheadLog {
             while (buffer.hasRemaining()) {
                 fileChannel.write(buffer);
             }
+            flush();
             return fileChannel.position();
 
         } catch (IOException e) {
