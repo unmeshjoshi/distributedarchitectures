@@ -1,12 +1,12 @@
 package org.dist.patterns.singularupdatequeue;
 
+import org.dist.kvstore.JsonSerDes;
+import org.dist.patterns.replicatedlog.AppendEntriesRequest;
+
 import java.util.concurrent.Callable;
 
 class SynchronizedAccountCallable implements Callable<SynchronizedAccountCallable.SynchronizedAccountPerfFuture> {
     private static long runTimeInMillis = SingleThreadedAccountPerfMain.TEST_TIME;
-    private long nullCounter, recordsRemoved, newRecordsAdded;
-    private int index;
-    private String taxPayerId;
     private SynchronizedAccount account;
 
     public SynchronizedAccountCallable(SynchronizedAccount account) {
@@ -36,6 +36,8 @@ class SynchronizedAccountCallable implements Callable<SynchronizedAccountCallabl
                 runTimeInMillis -= elapsed;
             }
 
+            String ser = JsonSerDes.serialize(new AppendEntriesRequest(1200, new byte[0], 1l));
+
             if (iterations % 1001 == 0) {
                 account.credit(100);
             } else if (iterations % 60195 == 0) {
@@ -43,6 +45,8 @@ class SynchronizedAccountCallable implements Callable<SynchronizedAccountCallabl
             } else {
                 account.credit(10);
             }
+
+            AppendEntriesRequest deser = JsonSerDes.deserialize(ser, AppendEntriesRequest.class);
 
             if (iterations % 1000 == 0) {
                 elapsedTime = System.currentTimeMillis() - startTime;
@@ -54,33 +58,19 @@ class SynchronizedAccountCallable implements Callable<SynchronizedAccountCallabl
                     iterations / ((double) (elapsedTime / 1000));
         }
         SynchronizedAccountPerfFuture accountPerfFuture =
-                new SynchronizedAccountPerfFuture(iterationsPerSecond, newRecordsAdded,
-                        recordsRemoved, nullCounter);
+                new SynchronizedAccountPerfFuture(iterationsPerSecond
+                );
         return accountPerfFuture;
     }
 
     public class SynchronizedAccountPerfFuture {
         private double iterationsPerSecond;
-        private long recordsAdded, recordsRemoved, nullCounter;
-        public SynchronizedAccountPerfFuture(double iterationsPerSecond, long recordsAdded,
-                                 long recordsRemoved, long nullCounter) {
+        public SynchronizedAccountPerfFuture(double iterationsPerSecond) {
             this.iterationsPerSecond = iterationsPerSecond;
-            this.recordsAdded = recordsAdded;
-            this.recordsRemoved = recordsRemoved;
-            this.nullCounter = nullCounter;
         }
 
         public double getIterationsPerSecond() {
             return iterationsPerSecond;
-        }
-        public long getRecordsAdded() {
-            return recordsAdded;
-        }
-        public long getRecordsRemoved() {
-            return recordsRemoved;
-        }
-        public long getNullCounter() {
-            return nullCounter;
         }
     }
 }

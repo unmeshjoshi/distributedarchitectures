@@ -1,5 +1,8 @@
 package org.dist.patterns.singularupdatequeue;
 
+import org.dist.kvstore.JsonSerDes;
+import org.dist.patterns.replicatedlog.AppendEntriesRequest;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -7,9 +10,6 @@ import java.util.concurrent.CompletableFuture;
 
 class SingleThreadedAccountCallable implements Callable {
     private static long runTimeInMillis = SingleThreadedAccountPerfMain.TEST_TIME;
-    private long nullCounter, recordsRemoved, newRecordsAdded;
-    private int index;
-    private String taxPayerId;
     private SingleThreadedAccount account;
 
     public SingleThreadedAccountCallable(SingleThreadedAccount account) {
@@ -39,6 +39,8 @@ class SingleThreadedAccountCallable implements Callable {
                 startTime = System.currentTimeMillis();
                 runTimeInMillis -= elapsed;
             }
+            String ser = JsonSerDes.serialize(new AppendEntriesRequest(1200, new byte[0], 1l));
+
             CompletableFuture<Response> accountFuture;
             if (iterations % 1001 == 0) {
                 accountFuture = account.credit(100);
@@ -48,6 +50,9 @@ class SingleThreadedAccountCallable implements Callable {
                 accountFuture = account.credit(10);
             }
             responseFutures.add(accountFuture);
+
+            AppendEntriesRequest deser = JsonSerDes.deserialize(ser, AppendEntriesRequest.class);
+
             if (iterations % 1000 == 0) {
                 elapsedTime = System.currentTimeMillis() - startTime;
             }
@@ -58,22 +63,18 @@ class SingleThreadedAccountCallable implements Callable {
                     iterations / ((double) (elapsedTime / 1000));
         }
         AccountPerfFuture accountPerfFuture =
-                new AccountPerfFuture(responseFutures, iterationsPerSecond, newRecordsAdded,
-                        recordsRemoved, nullCounter);
+                new AccountPerfFuture(responseFutures, iterationsPerSecond
+                );
         return accountPerfFuture;
     }
 
     public class AccountPerfFuture {
         private List<CompletableFuture<Response>> responseFutures;
         private double iterationsPerSecond;
-        private long recordsAdded, recordsRemoved, nullCounter;
-        public AccountPerfFuture(List<CompletableFuture<Response>> responseFutures, double iterationsPerSecond, long recordsAdded,
-                                 long recordsRemoved, long nullCounter) {
+
+        public AccountPerfFuture(List<CompletableFuture<Response>> responseFutures, double iterationsPerSecond) {
             this.responseFutures = responseFutures;
             this.iterationsPerSecond = iterationsPerSecond;
-            this.recordsAdded = recordsAdded;
-            this.recordsRemoved = recordsRemoved;
-            this.nullCounter = nullCounter;
         }
 
         public List<CompletableFuture<Response>> getResponseFutures() {
@@ -82,15 +83,6 @@ class SingleThreadedAccountCallable implements Callable {
 
         public double getIterationsPerSecond() {
             return iterationsPerSecond;
-        }
-        public long getRecordsAdded() {
-            return recordsAdded;
-        }
-        public long getRecordsRemoved() {
-            return recordsRemoved;
-        }
-        public long getNullCounter() {
-            return nullCounter;
         }
     }
 }

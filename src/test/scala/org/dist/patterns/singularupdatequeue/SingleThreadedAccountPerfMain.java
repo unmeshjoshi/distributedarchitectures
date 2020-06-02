@@ -43,8 +43,7 @@ public class SingleThreadedAccountPerfMain {
                 " seconds for (" + callables.length +
                 ") threads to complete ...");
         double iterationsPerSecond = 0;
-        long recordsAdded = 0, recordsRemoved = 0;
-        long nullCounter = 0; int counter = 1;
+        int counter = 1;
         long totalExecutedCommands = 0;
         for (Future<SingleThreadedAccountCallable.AccountPerfFuture> future : set) {
             SingleThreadedAccountCallable.AccountPerfFuture result = null;
@@ -63,9 +62,6 @@ public class SingleThreadedAccountPerfMain {
                     counter++ + "] -> " +
                     result.getIterationsPerSecond());
             iterationsPerSecond += result.getIterationsPerSecond();
-            recordsAdded += result.getRecordsAdded();
-            recordsRemoved += result.getRecordsRemoved();
-            nullCounter = result.getNullCounter();
         }
 // print number of totals
         DecimalFormat df = new DecimalFormat("#.##");
@@ -76,14 +72,6 @@ public class SingleThreadedAccountPerfMain {
         System.out.println("Total iterations per second -> " +
                 df.format(iterationsPerSecond));
         NumberFormat nf = NumberFormat.getInstance();
-        System.out.println("Total records added ---------> " +
-                nf.format(recordsAdded));
-        System.out.println("Total records removed -------> " +
-                nf.format(recordsRemoved));
-//        System.out.println("Total records in db ---------> " +
-//                nf.format(db.size()));
-        System.out.println("Total null records encountered: " +
-                nf.format(nullCounter));
         System.exit(0);
 
     }

@@ -12,6 +12,5 @@ object InetAddressAndPort {
 case class InetAddressAndPort(address: InetAddress, port: Int) {
   var defaultPort: Int = 7000
   override def toString = "[%s,%d]".format(address.getHostAddress, port)
-
 }
 

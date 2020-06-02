@@ -61,6 +61,7 @@ public class WriteAheadLog {
     final RandomAccessFile randomAccessFile;
     final FileChannel fileChannel;
 
+
     private WriteAheadLog(File file) {
         try {
             this.randomAccessFile = new RandomAccessFile(file, "rw");
@@ -127,6 +128,7 @@ public class WriteAheadLog {
             while (buffer.hasRemaining()) {
                 fileChannel.write(buffer);
             }
+            fileChannel.force(true);
             return fileChannel.position();
 
         } catch (IOException e) {

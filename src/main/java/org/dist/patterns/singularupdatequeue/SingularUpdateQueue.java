@@ -6,7 +6,8 @@ import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 
 public class SingularUpdateQueue<Request, Response> extends Thread {
-    private ArrayBlockingQueue<RequestWrapper<Request, Response>> workQueue = new ArrayBlockingQueue<RequestWrapper<Request, Response>>(500);
+    //queue size of 10000, default from bookkeeper config.
+    private ArrayBlockingQueue<RequestWrapper<Request, Response>> workQueue = new ArrayBlockingQueue<RequestWrapper<Request, Response>>(25000);
     private UpdateHandler<Request, Response> updateHandler;
     private SingularUpdateQueue<Response, ?> next;
 
