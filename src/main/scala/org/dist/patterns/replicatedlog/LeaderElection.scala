@@ -80,5 +80,10 @@ class Client {
     val clientSocket = new Socket(to.address, to.port)
     new SocketIO[RequestOrResponse](clientSocket, classOf[RequestOrResponse]).requestResponse(requestOrResponse)
   }
+
+  def sendOneWay(requestOrResponse: RequestOrResponse, to:InetAddressAndPort):Unit = {
+    val clientSocket = new Socket(to.address, to.port)
+    new SocketIO[RequestOrResponse](clientSocket, classOf[RequestOrResponse]).write(requestOrResponse)
+  }
 }
 
