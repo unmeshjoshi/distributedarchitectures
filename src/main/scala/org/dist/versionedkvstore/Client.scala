@@ -45,6 +45,7 @@ class Client[K, V](nodes: List[Node[K, V]], failureDetector: FailureDetector[K, 
   def get(key: K, failMaster:Boolean = false): Versioned[V] = {
     for (attempts <- 0 until this.metadataRefreshAttempts) {
       try {
+        //TODO: Read from multiple nodes and do read repair
         val server = if (!failMaster) nodes(0) else nodes(1)
         val items: util.List[Versioned[V]] = server.get(key)
         val resolvedItems = new VectorClockInconsistencyResolver[V]().resolveConflicts(items)
