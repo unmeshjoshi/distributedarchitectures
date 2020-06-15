@@ -19,6 +19,8 @@ class ClusterTest extends FunSuite {
 
     val cluster1 = new Cluster(peerAddr2)
     cluster1.join(peerAddr1)
+
+    Thread.sleep(1000000)
   }
 
 }

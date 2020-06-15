@@ -8,7 +8,7 @@ import org.dist.kvstore.JsonSerDes
 import scala.util.Using
 
 class SocketIO[T](clientSocket: Socket, responseClass: Class[T]) {
-  clientSocket.setSoTimeout(5000)
+  clientSocket.setSoTimeout(50000)
 
   def readHandleWithSocket(handler:(T, Socket) => Any): Unit = {
     val responseBytes = read(clientSocket)

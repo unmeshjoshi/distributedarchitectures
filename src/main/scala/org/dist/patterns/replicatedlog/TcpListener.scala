@@ -28,7 +28,9 @@ class SingularUpdateQueue(handler:RequestOrResponse => RequestOrResponse) extend
     while (running) {
       val (request, socketIo) = workQueue.take()
       val response = handler(request)
-      socketIo.write(response)
+      println(s"writing response ${response}")
+      if (!response.messageBodyJson.isEmpty)
+        socketIo.write(response)
     }
   }
 

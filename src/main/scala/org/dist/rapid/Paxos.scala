@@ -54,7 +54,7 @@ class Paxos(address: InetAddressAndPort,
 
     val phase1b = Phase1bMessage(0, rnd, address, vrnd, vval)
 
-    client.sendOneWay(RequestOrResponse(RapidMessages.phase1aMessage, JsonSerDes.serialize(phase1b), 0), phase1aMessage.address)
+    client.sendOneWay(RequestOrResponse(RapidMessages.phase1bMessage, JsonSerDes.serialize(phase1b), 0), phase1aMessage.address)
   }
 
   var decided = false
@@ -78,8 +78,9 @@ class Paxos(address: InetAddressAndPort,
         })
       }
     }
+  }
 
-    def handlePhase2aMessage(phase2aMessage:Phase2aMessage): Unit = {
+   def handlePhase2aMessage(phase2aMessage:Phase2aMessage): Unit = {
       if (phase2aMessage.configurationId != configurationId) return
 
       trace("At acceptor received phase2aMessage: ${phase2aMessage}")
@@ -168,7 +169,7 @@ class Paxos(address: InetAddressAndPort,
       }
       chosenProposal
     }
-  }
+
 
   /**
    * Primary ordering is by round number, and secondary ordering by the ID of the node that initiated the round.
