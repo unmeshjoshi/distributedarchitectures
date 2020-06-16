@@ -42,6 +42,15 @@ class Client[K, V](nodes: List[Node[K, V]], failureDetector: FailureDetector[K, 
 
   protected var storeName: String = "defaultStore"
 
+  def getNodeValues(key:K):util.List[NodeValue[K, V]] = {
+    val nodeValues = new util.ArrayList[NodeValue[K, V]]()
+    for (node <- nodes) {
+       val values: util.List[Versioned[V]] = node.get(key)
+       values.asScala.foreach(value => nodeValues.add(new NodeValue[K, V](node.id, key, value)))
+    }
+    nodeValues
+  }
+
   def get(key: K, failMaster:Boolean = false): Versioned[V] = {
     for (attempts <- 0 until this.metadataRefreshAttempts) {
       try {
