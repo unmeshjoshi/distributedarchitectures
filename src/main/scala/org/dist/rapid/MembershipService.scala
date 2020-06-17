@@ -5,19 +5,24 @@ import org.dist.patterns.replicatedlog.{Client, TcpListener}
 import org.dist.queue.api.RequestOrResponse
 import org.dist.rapid.messages.{AlertMessage, JoinMessage, JoinResponse, Phase1aMessage, Phase1bMessage, Phase2aMessage, Phase2bMessage, RapidMessages}
 
+import scala.concurrent.{Future, Promise}
+import java.util
+
+import org.dist.util.SocketIO
+
 import scala.jdk.CollectionConverters._
 
 class MembershipService(listenAddress:InetAddressAndPort, view:MembershipView) {
-  val tcpListener = new TcpListener(listenAddress, handle)
+  val socketServer = new SocketServer(listenAddress, handle)
   var paxos = new Paxos(listenAddress, view.endpoints, view.endpoints.size(), (endPoints) => {
     println("Called this one")
   })
 
   def start(): Unit = {
-      tcpListener.start()
+      socketServer.start()
   }
-
-  def handle(request:RequestOrResponse):RequestOrResponse = {
+  val joiners = new util.HashMap[InetAddressAndPort, Future[JoinResponse]]
+  def handle(request:RequestOrResponse, socketIO:SocketIO[RequestOrResponse]):RequestOrResponse = {
     if (request.requestId == RapidMessages.preJoinMessage) {
       view.isSafeToJoin()
       val observer = view.getObservers()
@@ -25,6 +30,7 @@ class MembershipService(listenAddress:InetAddressAndPort, view:MembershipView) {
       RequestOrResponse(RapidMessages.joinPhase1Response, response, request.correlationId)
 
     } else if(request.requestId == RapidMessages.joinMessage) {
+      val promise = Promise[JoinResponse]()
       val joinMessage = JsonSerDes.deserialize(request.messageBodyJson, classOf[JoinMessage])
       val alertMessage = AlertMessage(AlertMessage.UP, joinMessage.address)
       view.endpoints.forEach(endpoint => {

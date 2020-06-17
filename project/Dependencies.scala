@@ -20,6 +20,7 @@ object Dependencies {
     Libs.`commons-codec`,
     Libs.`disruptor`,
     Libs.`akka-stream-typed`,
+    Libs.`jna`,
     Libs.`scalaTest` % Test,
     Libs.`mockito` % Test,
     Libs.`junit`  % Test,

@@ -27,4 +27,5 @@ object Libs {
   var `jmh_bench` = "org.openjdk.jmh" % "jmh-java-benchmark-archetype" % "1.19"
   var `jmh_generator_ann` = "org.openjdk.jmh" % "jmh-generator-annprocess" % "1.19"
   var `jmh_generator_bytecode` = "org.openjdk.jmh" % "jmh-generator-bytecode" % "1.19"
+  var `jna` = "net.java.dev.jna" % "jna" % "4.2.2"
 }
