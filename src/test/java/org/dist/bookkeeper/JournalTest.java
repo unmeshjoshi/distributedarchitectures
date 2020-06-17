@@ -6,6 +6,8 @@ import org.dist.kvstore.InetAddressAndPort;
 import org.dist.queue.TestUtils;
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.junit.Assert.*;
@@ -19,15 +21,20 @@ public class JournalTest {
         long l2 = 2L;
         Journal journal = new Journal(TestUtils.tempDir("journal"));
         journal.start();
+        List<Long> entriedFlushedToDisk = new ArrayList<Long>();
 
+        WriteCallback writeCallback = (int rc, long ledgerId, long entryId1, InetAddressAndPort addr, Object ctx) -> {
+            entriedFlushedToDisk.add(entryId1);
+        };
         for (int i = 0; i < 10000; i++) {
             int entryId = i + 1;
-            journal.logAddEntry(1, entryId, createByteBuf(l1, 0L, entrySize), false, (int rc, long ledgerId, long entryId1, InetAddressAndPort addr, Object ctx) -> {
-            }, this);
+
+            journal.logAddEntry(1, entryId, createByteBuf(l1, 0L, entrySize), false, writeCallback, this);
         }
 
-
-        journal.join();
+        TestUtils.waitUntilTrue(()-> {
+            return entriedFlushedToDisk.size() == 10000;
+        }, ()-> "Waiting for entries to be flushed to disk", 10000, 100);
 
     }
 
