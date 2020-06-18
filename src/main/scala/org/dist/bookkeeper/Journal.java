@@ -22,12 +22,12 @@ import java.util.concurrent.*;
 /**
  * A writer callback interface.
  */
-interface WriteCallback {
-    void writeComplete(int rc, long ledgerId, long entryId, InetAddressAndPort addr, Object ctx);
-}
 
 
 public class Journal extends Thread {
+    public interface WriteCallback {
+        void writeComplete(int rc, long ledgerId, long entryId, InetAddressAndPort addr, Object ctx);
+    }
 
     static final long MB = 1024 * 1024L;
     static final int KB = 1024;

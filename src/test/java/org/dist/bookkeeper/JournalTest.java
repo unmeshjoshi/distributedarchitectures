@@ -23,7 +23,7 @@ public class JournalTest {
         journal.start();
         List<Long> entriedFlushedToDisk = new ArrayList<Long>();
 
-        WriteCallback writeCallback = (int rc, long ledgerId, long entryId1, InetAddressAndPort addr, Object ctx) -> {
+        Journal.WriteCallback writeCallback = (int rc, long ledgerId, long entryId1, InetAddressAndPort addr, Object ctx) -> {
             entriedFlushedToDisk.add(entryId1);
         };
         for (int i = 0; i < 10000; i++) {

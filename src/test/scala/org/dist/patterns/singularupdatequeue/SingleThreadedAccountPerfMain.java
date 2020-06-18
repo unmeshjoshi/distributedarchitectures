@@ -22,6 +22,7 @@ public class SingleThreadedAccountPerfMain {
                 Executors.newFixedThreadPool(numberOfThreads);
         Callable<SingleThreadedAccountCallable.AccountPerfFuture>[] callables =
                 new SingleThreadedAccountCallable[numberOfThreads];
+
         SingleThreadedAccount account = new SingleThreadedAccount(100, JTestUtils.tmpDir("perf"));
         for (int i = 0; i < callables.length; i++) {
             callables[i] = new SingleThreadedAccountCallable(account);

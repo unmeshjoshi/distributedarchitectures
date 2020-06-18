@@ -128,7 +128,7 @@ public class WriteAheadLog {
             while (buffer.hasRemaining()) {
                 fileChannel.write(buffer);
             }
-            fileChannel.force(true);
+            fileChannel.force(false);
             return fileChannel.position();
 
         } catch (IOException e) {
