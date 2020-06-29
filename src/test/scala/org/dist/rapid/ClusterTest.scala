@@ -13,15 +13,15 @@ class ClusterTest extends FunSuite {
 
 
   def assertSame(view: MembershipView, view1: MembershipView): Boolean = {
-    view.endpoints.size() == view1.endpoints.size() && 
+    view.endpoints.size() == view1.endpoints.size() &&
     view.endpoints.asScala.map(address => {
       view1.endpoints.contains(address)
     }).reduce(_ && _)
   }
 
-  test("should start 3 node cluster") {
+  test("should start 5 node cluster") {
     val address = new Networks().ipv4Address
-    val ports = TestUtils.choosePorts(4)
+    val ports = TestUtils.choosePorts(5)
     val peerAddr1 = InetAddressAndPort(address, ports(0))
     val peerAddr2 = InetAddressAndPort(address, ports(1))
 
@@ -59,6 +59,20 @@ class ClusterTest extends FunSuite {
       assertSame(seed.membershipService.view, server2.membershipService.view) &&
       assertSame(seed.membershipService.view, server3.membershipService.view) &&
       assertSame(seed.membershipService.view, server1.membershipService.view)
+    }, "Waiting for all the servers to agree on a view", 1000, 100)
+
+    val peerAddr5 = InetAddressAndPort(address, ports(4))
+
+    val server4 = new Cluster(peerAddr5)
+    server4.join(peerAddr1)
+
+    expectedView.add(peerAddr5)
+    TestUtils.waitUntilTrue(()=> {
+      assertSame(seed.membershipService.view, new MembershipView(expectedView)) &&
+        assertSame(seed.membershipService.view, server2.membershipService.view) &&
+        assertSame(seed.membershipService.view, server3.membershipService.view) &&
+        assertSame(seed.membershipService.view, server1.membershipService.view)
+        assertSame(seed.membershipService.view, server4.membershipService.view)
     }, "Waiting for all the servers to agree on a view", 1000, 100)
   }
 

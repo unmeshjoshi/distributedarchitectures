@@ -29,6 +29,7 @@ class DecideViewChangeFunction(membershipService:MembershipService) extends Cons
       if (joinerSocketIO != null) {
         val joinResponse = JoinResponse(membershipService.view.endpoints.asScala.toList)
         joinerSocketIO.write(RequestOrResponse(RapidMessages.joinMessage, JsonSerDes.serialize(joinResponse), 0))
+        membershipService.joiners.remove(address)
       }
     })
   }
