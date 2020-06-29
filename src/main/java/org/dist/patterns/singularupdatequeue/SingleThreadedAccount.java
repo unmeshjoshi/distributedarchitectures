@@ -72,12 +72,12 @@ public class SingleThreadedAccount {
 
 
     public CompletableFuture<Response> credit(int amount) {
-        return addToJournal(amount);
-//        return queue.submit(new Request(amount, RequestType.CREDIT));
+//        return addToJournal(amount);
+        return queue.submit(new Request(amount, RequestType.CREDIT));
     }
 
     public CompletableFuture<Response> debit(int amount) {
-        return addToJournal(amount);
-//        return queue.submit(new Request(amount, RequestType.DEBIT));
+//        return addToJournal(amount);
+        return queue.submit(new Request(amount, RequestType.DEBIT));
     }
 }

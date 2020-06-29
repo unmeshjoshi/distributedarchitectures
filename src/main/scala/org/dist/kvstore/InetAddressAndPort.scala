@@ -1,6 +1,7 @@
 package org.dist.kvstore
 
 import java.net.InetAddress
+import java.util.Comparator
 
 object InetAddressAndPort {
   //FIXME: Remove this.

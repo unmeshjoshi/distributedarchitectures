@@ -14,7 +14,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.control.Breaks
 
 class Paxos(address: InetAddressAndPort,
-            peers: util.List[InetAddressAndPort],
+            membershipService: MembershipService,
             N: Int,
             consumer: Consumer[List[InetAddressAndPort]],
             var vval: util.List[InetAddressAndPort] = Collections.emptyList[InetAddressAndPort],
@@ -29,12 +29,18 @@ class Paxos(address: InetAddressAndPort,
   private val acceptResponses = new HashMap[Rank, Map[InetAddressAndPort, Phase2bMessage]]
 
 
+  def peers = membershipService.view.endpoints.asScala.toList.asJava
+
   def startPhase1a(round: Int): Unit = {
     if (crnd.round > round) //dont participiate in round higher than coordinator round.
       return
+
+    info(s"Starting paxos phase1 at ${address}")
+
     crnd = Rank(round, address.hashCode())
     val message = Phase1aMessage(0, address, crnd)
 
+    info(s"Sending paxos phase1 messages to ${peers}")
     peers.asScala.foreach(addr => {
       val response = RequestOrResponse(RapidMessages.phase1aMessage, JsonSerDes.serialize(message), 0)
       client.sendOneWay(response, addr)
@@ -53,7 +59,6 @@ class Paxos(address: InetAddressAndPort,
     }
 
     val phase1b = Phase1bMessage(0, rnd, address, vrnd, vval)
-
     client.sendOneWay(RequestOrResponse(RapidMessages.phase1bMessage, JsonSerDes.serialize(phase1b), 0), phase1aMessage.address)
   }
 
@@ -62,6 +67,7 @@ class Paxos(address: InetAddressAndPort,
   def handlePhase1bMessage(phase1bMessage:Phase1bMessage):Unit = {
     if (phase1bMessage.configurationId != configurationId) return
 
+    info(s"Got phase1b messages from ${phase1bMessage.sender}")
     // Only handle responses from crnd == i
     if (compareRanks(crnd, phase1bMessage.rnd) != 0) return
 
@@ -70,7 +76,7 @@ class Paxos(address: InetAddressAndPort,
       val chosenProposal = selectProposalUsingCoordinatorRule(phase1bMessages)
       if (crnd == phase1bMessage.rnd && cval.isEmpty && !chosenProposal.isEmpty) {
         cval = chosenProposal
-
+        info(s"Chosen proposal ${cval}")
         peers.asScala.foreach(addr => {
           val message = Phase2aMessage(configurationId, address, crnd, chosenProposal)
           val response = RequestOrResponse(RapidMessages.phase2aMessage, JsonSerDes.serialize(message), 0)
@@ -83,13 +89,16 @@ class Paxos(address: InetAddressAndPort,
    def handlePhase2aMessage(phase2aMessage:Phase2aMessage): Unit = {
       if (phase2aMessage.configurationId != configurationId) return
 
-      trace("At acceptor received phase2aMessage: ${phase2aMessage}")
+      trace(s"At acceptor received phase2aMessage: ${phase2aMessage}")
       if (compareRanks(rnd, phase2aMessage.crnd) <= 0 && !(vrnd == phase2aMessage.crnd)) {
         rnd = phase2aMessage.crnd
         vrnd = phase2aMessage.crnd
         vval = phase2aMessage.chosenProposal
         trace(s"${address} accepted value in vrnd: ${vrnd}, vval: ${vval}")
         val message = Phase2bMessage(configurationId, phase2aMessage.crnd, address, vval)
+
+        trace(s"sending phase2b messages from ${address} to ${peers}")
+
         peers.asScala.foreach(addr => {
           val response = RequestOrResponse(RapidMessages.phase2bMessage, JsonSerDes.serialize(message), 0)
           client.sendOneWay(response, addr)
@@ -102,7 +111,7 @@ class Paxos(address: InetAddressAndPort,
         return
       }
 
-      trace(s"Received phase2bMessage: ${phase2bMessage.sender}")
+      trace(s"Received phase2bMessage from ${phase2bMessage.sender}")
       val phase2bMessagesInRnd = acceptResponses.computeIfAbsent(phase2bMessage.rnd, (k: Rank) => new util.HashMap[InetAddressAndPort, Phase2bMessage])
       phase2bMessagesInRnd.put(phase2bMessage.sender, phase2bMessage)
       if (phase2bMessagesInRnd.size > (N / 2) && !decided) {

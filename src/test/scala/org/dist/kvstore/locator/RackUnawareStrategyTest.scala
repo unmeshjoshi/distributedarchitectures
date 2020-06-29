@@ -30,6 +30,7 @@ class RackUnawareStrategyTest extends FunSuite {
     assert(-2 == util.Collections.binarySearch(ints, 3))
     assert(-3 == util.Collections.binarySearch(ints, 15))
     assert(-1 == util.Collections.binarySearch(ints, 0))
+    assert(2 == util.Collections.binarySearch(ints, 10))
   }
 
   private def newToken() = {

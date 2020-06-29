@@ -11,7 +11,7 @@ import org.dist.queue.utils.Utils
 import org.dist.util.SocketIO
 
 
-class SingularUpdateQueue(handler:(RequestOrResponse, SocketIO[RequestOrResponse]) => RequestOrResponse) extends Thread {
+class SingularUpdateQueue(handler:(RequestOrResponse, SocketIO[RequestOrResponse]) => Unit) extends Thread {
   val workQueue = new ArrayBlockingQueue[(RequestOrResponse, SocketIO[RequestOrResponse])](100)
   @volatile var running = true
 
@@ -26,16 +26,13 @@ class SingularUpdateQueue(handler:(RequestOrResponse, SocketIO[RequestOrResponse
   override def run(): Unit = {
     while (running) {
       val (request, socketIo: SocketIO[RequestOrResponse]) = workQueue.take()
-      val response = handler(request, socketIo)
-      if (!response.messageBodyJson.isEmpty)
-        println(s"writing response ${response}")
-        socketIo.write(response)
+      handler(request, socketIo)
     }
   }
 }
 
 
-class SocketServer(localEp: InetAddressAndPort, handler: (RequestOrResponse, SocketIO[RequestOrResponse]) ⇒ RequestOrResponse) extends Thread with Logging {
+class SocketServer(localEp: InetAddressAndPort, handler: (RequestOrResponse, SocketIO[RequestOrResponse]) ⇒ Unit) extends Thread with Logging {
   val isRunning = new AtomicBoolean(true)
   var serverSocket: ServerSocket = null
 

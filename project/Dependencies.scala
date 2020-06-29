@@ -21,6 +21,7 @@ object Dependencies {
     Libs.`disruptor`,
     Libs.`akka-stream-typed`,
     Libs.`jna`,
+    Libs.`yammer-core`,
     Libs.`scalaTest` % Test,
     Libs.`mockito` % Test,
     Libs.`junit`  % Test,
