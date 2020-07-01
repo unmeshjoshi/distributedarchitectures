@@ -14,9 +14,9 @@ class ClusterTest extends FunSuite {
 
   def assertSame(view: MembershipView, view1: MembershipView): Boolean = {
     view.endpoints.size() == view1.endpoints.size() &&
-    view.endpoints.asScala.map(address => {
-      view1.endpoints.contains(address)
-    }).reduce(_ && _)
+      view.endpoints.asScala.map(address => {
+        view1.endpoints.contains(address)
+      }).reduce(_ && _)
   }
 
   test("should start 5 node cluster") {
@@ -54,11 +54,11 @@ class ClusterTest extends FunSuite {
     server3.join(peerAddr1)
 
     expectedView.add(peerAddr4)
-    TestUtils.waitUntilTrue(()=> {
+    TestUtils.waitUntilTrue(() => {
       assertSame(seed.membershipService.view, new MembershipView(expectedView)) &&
-      assertSame(seed.membershipService.view, server2.membershipService.view) &&
-      assertSame(seed.membershipService.view, server3.membershipService.view) &&
-      assertSame(seed.membershipService.view, server1.membershipService.view)
+        assertSame(seed.membershipService.view, server2.membershipService.view) &&
+        assertSame(seed.membershipService.view, server3.membershipService.view) &&
+        assertSame(seed.membershipService.view, server1.membershipService.view)
     }, "Waiting for all the servers to agree on a view", 1000, 100)
 
     val peerAddr5 = InetAddressAndPort(address, ports(4))
@@ -67,13 +67,46 @@ class ClusterTest extends FunSuite {
     server4.join(peerAddr1)
 
     expectedView.add(peerAddr5)
-    TestUtils.waitUntilTrue(()=> {
+    TestUtils.waitUntilTrue(() => {
       assertSame(seed.membershipService.view, new MembershipView(expectedView)) &&
         assertSame(seed.membershipService.view, server2.membershipService.view) &&
         assertSame(seed.membershipService.view, server3.membershipService.view) &&
         assertSame(seed.membershipService.view, server1.membershipService.view)
-        assertSame(seed.membershipService.view, server4.membershipService.view)
+      assertSame(seed.membershipService.view, server4.membershipService.view)
     }, "Waiting for all the servers to agree on a view", 1000, 100)
+  }
+
+
+  test("should start 10 node cluster") {
+    val noOfServers = 10
+    val ports = TestUtils.choosePorts(noOfServers + 1)
+
+    val address = new Networks().ipv4Address
+    val peerAddr1 = InetAddressAndPort(address, ports(0))
+
+
+    val seed = new Cluster(peerAddr1)
+    seed.start()
+
+
+
+    val expectedView = new util.ArrayList[InetAddressAndPort]()
+    expectedView.add(peerAddr1)
+
+
+    for (i <- 1 to noOfServers) {
+
+      val peerAddr2 = InetAddressAndPort(address, ports(i))
+      val server1 = new Cluster(peerAddr2)
+      server1.join(peerAddr1)
+
+
+      expectedView.add(peerAddr2)
+      TestUtils.waitUntilTrue(()=> {
+      assertSame(seed.membershipService.view, MembershipView(expectedView)) &&
+      assertSame(seed.membershipService.view, server1.membershipService.view)},
+        "waiting for view to be same on all the servers", 5000, 100)
+    }
   }
 
 }

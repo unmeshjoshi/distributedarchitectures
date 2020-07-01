@@ -68,7 +68,7 @@ class Server(config:Config) extends Thread with Logging {
       state match {
         case ServerState.LOOKING ⇒ {
           try {
-            val electionResult = new LeaderElection(config.peerConfig, new Client(), this).lookForLeader()
+            val electionResult = new LeaderElection(config.peerConfig, new SocketClient(), this).lookForLeader()
             electionTimeoutChecker.cancel()
           } catch {
             case e: Exception ⇒ {
@@ -81,7 +81,7 @@ class Server(config:Config) extends Thread with Logging {
           electionTimeoutChecker.cancel()
 
 //          info(s"Server ${myid} now leading")
-          this.leader = new Leader(config.peerConfig, new Client(), this)
+          this.leader = new Leader(config.peerConfig, new SocketClient(), this)
           this.leader.startLeading()
         }
         case ServerState.FOLLOWING ⇒ {
@@ -173,7 +173,7 @@ class Server(config:Config) extends Thread with Logging {
 case class AppendEntriesRequest(xid:Long, data:Array[Byte], commitIndex:Long)
 case class AppendEntriesResponse(xid:Long, success:Boolean)
 
-class Leader(allServers:List[Peer], client:Client, val self:Server) extends Logging {
+class Leader(allServers:List[Peer], client:SocketClient, val self:Server) extends Logging {
   val peerProxies = self.peers().map(p ⇒ PeerProxy(p, client, 0, sendHeartBeat))
   def startLeading() = {
     peerProxies.foreach(_.start())

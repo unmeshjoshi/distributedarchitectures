@@ -13,7 +13,7 @@ import org.dist.util.SocketIO
 import scala.jdk.CollectionConverters._
 import scala.util.control.Breaks.{break, breakable}
 
-class LeaderElection(servers:List[Peer], client:Client, self:Server) extends Logging {
+class LeaderElection(servers:List[Peer], client:SocketClient, self:Server) extends Logging {
 
   private def setLeaderOrFollowerState(electionResult: ElectionResult) = {
     //set state as leader
@@ -75,7 +75,7 @@ class LeaderElection(servers:List[Peer], client:Client, self:Server) extends Log
 
 }
 
-class Client {
+class SocketClient {
   def sendReceive(requestOrResponse: RequestOrResponse, to:InetAddressAndPort):RequestOrResponse = {
     val clientSocket = new Socket(to.address, to.port)
     new SocketIO[RequestOrResponse](clientSocket, classOf[RequestOrResponse]).requestResponse(requestOrResponse)

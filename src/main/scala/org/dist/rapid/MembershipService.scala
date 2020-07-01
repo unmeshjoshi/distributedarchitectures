@@ -1,12 +1,14 @@
 package org.dist.rapid
 
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
-import org.dist.patterns.replicatedlog.{Client, TcpListener}
+import org.dist.patterns.replicatedlog.{SocketClient, TcpListener}
 import org.dist.queue.api.RequestOrResponse
 import org.dist.rapid.messages.{AlertMessage, JoinMessage, JoinResponse, Phase1aMessage, Phase1bMessage, Phase2aMessage, Phase2bMessage, RapidMessages}
 
 import scala.concurrent.{Future, Promise}
 import java.util
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.{ExecutorService, Executors, LinkedBlockingQueue, ScheduledExecutorService, ScheduledFuture, ThreadLocalRandom, ThreadPoolExecutor, TimeUnit}
 import java.util.function.Consumer
 
 import org.dist.queue.common.Logging
@@ -20,6 +22,7 @@ class DecideViewChangeFunction(membershipService:MembershipService) extends Cons
     respondToJoiners(endPoints)
     info(s"Resetting paxos instance in ${membershipService.listenAddress}")
     membershipService.paxos = new Paxos(membershipService.listenAddress, membershipService, membershipService.view.endpoints.size(), new DecideViewChangeFunction(membershipService))
+    membershipService.cancelPaxosIfScheduled()
   }
 
   private def respondToJoiners(endPoints: util.List[InetAddressAndPort]) = {
@@ -44,10 +47,22 @@ class DecideViewChangeFunction(membershipService:MembershipService) extends Cons
 class MembershipService(val listenAddress:InetAddressAndPort, val view:MembershipView) extends Logging {
   val socketServer = new SocketServer(listenAddress, handle)
   var paxos = new Paxos(listenAddress, this, view.endpoints.size(), new DecideViewChangeFunction(this))
+  private val scheduledExecutorService: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
+
+  private val decided = new AtomicBoolean(false)
+
+  private var scheduledClassicRoundTask:ScheduledFuture[_] = null
+
+  def cancelPaxosIfScheduled() = {
+    if (scheduledClassicRoundTask != null) {
+      scheduledClassicRoundTask.cancel(true)
+    }
+  }
 
   def start(): Unit = {
       socketServer.start()
   }
+
   val joiners = new util.HashMap[InetAddressAndPort, SocketIO[RequestOrResponse]]
 
   def handle(request:RequestOrResponse, socketIO:SocketIO[RequestOrResponse]):Unit = {
@@ -65,13 +80,18 @@ class MembershipService(val listenAddress:InetAddressAndPort, val view:Membershi
       val alertMessage = AlertMessage(AlertMessage.UP, joinMessage.address)
       view.endpoints.forEach(endpoint => {
         val r = RequestOrResponse(RapidMessages.alertMessage, JsonSerDes.serialize(alertMessage), request.correlationId)
-        new Client().sendOneWay(r, endpoint)
+        new SocketClient().sendOneWay(r, endpoint)
       })
 
     } else if (request.requestId == RapidMessages.alertMessage) {
       val alertMessage = JsonSerDes.deserialize(request.messageBodyJson, classOf[AlertMessage])
-      paxos.vval = List(alertMessage.address).asJava
-      paxos.startPhase1a(1)
+      paxos.registerFastRoundVote(List(alertMessage.address).asJava)
+
+      val ms: Long = getRandomDelayMs
+
+      val runnable:Runnable = () => { startClassicPaxosRound() }
+      scheduledClassicRoundTask = scheduledExecutorService.schedule(runnable, ms, TimeUnit.MILLISECONDS)
+
 
     } else if (request.requestId == RapidMessages.phase1aMessage) {
       paxos.handlePhase1aMessage(JsonSerDes.deserialize(request.messageBodyJson, classOf[Phase1aMessage]))
@@ -86,5 +106,16 @@ class MembershipService(val listenAddress:InetAddressAndPort, val view:Membershi
       paxos.handlePhase2bMessage(JsonSerDes.deserialize(request.messageBodyJson, classOf[Phase2bMessage]))
 
     }
+  }
+
+  private def getRandomDelayMs = {
+    val rate = 1 / view.endpoints.size().toDouble
+    val jitter = (-1000 * Math.log(1 - ThreadLocalRandom.current.nextDouble) / rate).toLong
+    val ms = 1000 + jitter
+    ms
+  }
+
+  def startClassicPaxosRound() = {
+    paxos.startPhase1a(2)
   }
 }

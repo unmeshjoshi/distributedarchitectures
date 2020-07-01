@@ -3,7 +3,7 @@ package org.dist.patterns.failuredetector
 import java.net.Socket
 
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
-import org.dist.patterns.replicatedlog.{Client, TcpListener}
+import org.dist.patterns.replicatedlog.{SocketClient, TcpListener}
 import org.dist.patterns.replicatedlog.heartbeat.{HeartBeatScheduler, Peer, PeerProxy}
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.common.Logging
@@ -50,7 +50,7 @@ case class HeartBeatResponse(success:Boolean)
 
 class Sender(id:Int, peers:List[Peer]) extends Logging {
   var counter = 0
-  val client = new Client()
+  val client = new SocketClient()
   val peerProxies = peers.map(p ⇒ PeerProxy(p, client, 0, sendHeartBeat))
 
   def start(): Unit = {
