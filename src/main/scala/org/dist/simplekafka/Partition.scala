@@ -14,7 +14,7 @@ import scala.jdk.CollectionConverters._
 import scala.util.{Failure, Success, Try}
 
 class Partition(config:Config, topicAndPartition: TopicAndPartition) (implicit system:ActorSystem) {
-  def checkEnoughReplicasReachOffset(requiredOffset: Long) = ???
+  def checkEnoughReplicasReachOffset(requiredOffset: Long) = false
 
   val LogFileSuffix = ".log"
   val logFile =
