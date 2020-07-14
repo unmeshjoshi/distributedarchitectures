@@ -1,4 +1,4 @@
-package org.dist.queue.utils
+package org.dist.simplekafka.utils.timer
 
 /**
  * A mockable interface for time functions

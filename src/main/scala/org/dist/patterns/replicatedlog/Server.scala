@@ -10,6 +10,7 @@ import org.dist.patterns.replicatedlog.heartbeat.{HeartBeatScheduler, Peer, Peer
 import org.dist.patterns.wal.{SetValueCommand, WalEntry}
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.common.Logging
+import org.dist.rapid.SocketClient
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer

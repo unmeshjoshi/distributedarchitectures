@@ -3,7 +3,6 @@ package org.dist.rapid
 import java.util
 
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
-import org.dist.patterns.replicatedlog.SocketClient
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.common.Logging
 import org.dist.rapid.messages.{JoinMessage, JoinResponse, PreJoinMessage, RapidMessages}

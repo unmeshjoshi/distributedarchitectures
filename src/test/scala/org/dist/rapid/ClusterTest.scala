@@ -1,10 +1,12 @@
 package org.dist.rapid
 
 import java.util
+import java.util.concurrent.Executors
 
 import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.TestUtils
 import org.dist.util.Networks
+import org.junit.Ignore
 import org.scalatest.FunSuite
 
 import scala.jdk.CollectionConverters._
@@ -77,7 +79,7 @@ class ClusterTest extends FunSuite {
   }
 
 
-  test("should start 10 node cluster") {
+  test("should start 10 node cluster sequentially") {
     val noOfServers = 10
     val ports = TestUtils.choosePorts(noOfServers + 1)
 
@@ -107,6 +109,36 @@ class ClusterTest extends FunSuite {
       assertSame(seed.membershipService.view, server1.membershipService.view)},
         "waiting for view to be same on all the servers", 5000, 100)
     }
+  }
+
+  test("should start 10 node cluster concurrently") {
+    val noOfServers = 10
+    val ports = TestUtils.choosePorts(noOfServers + 1)
+
+    val address = new Networks().ipv4Address
+    val peerAddr1 = InetAddressAndPort(address, ports(0))
+
+    val seed = new Cluster(peerAddr1)
+    seed.start()
+
+    val executor = Executors.newFixedThreadPool(Runtime.getRuntime.availableProcessors)
+    val expectedView = new util.ArrayList[InetAddressAndPort]()
+    expectedView.add(peerAddr1)
+
+    for (i <- 1 to noOfServers) {
+
+      val peerAddress = InetAddressAndPort(address, ports(i))
+      executor.execute(() => {
+        val server1 = new Cluster(peerAddress)
+        server1.join(peerAddr1)
+      })
+
+      expectedView.add(peerAddress)
+    }
+
+    TestUtils.waitUntilTrue(()=> {
+      assertSame(seed.membershipService.view, MembershipView(expectedView))},
+      "waiting for view to be same on all the servers", 15000, 100)
   }
 
 }

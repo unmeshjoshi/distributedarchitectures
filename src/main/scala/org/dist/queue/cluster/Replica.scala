@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicLong
 import org.dist.queue.common.{KafkaException, Logging}
 import org.dist.queue.log.Log
 import org.dist.queue.server.ReplicaManager
-import org.dist.queue.utils.{SystemTime, Time}
+import org.dist.simplekafka.utils.timer.{SystemTime, Time}
 
 
 case class Replica(val brokerId: Int,

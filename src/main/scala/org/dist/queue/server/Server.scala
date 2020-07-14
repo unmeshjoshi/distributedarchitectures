@@ -7,7 +7,8 @@ import org.dist.queue.common.{KafkaScheduler, Logging}
 import org.dist.queue.controller.Controller
 import org.dist.queue.log.LogManager
 import org.dist.queue.network.SocketServer
-import org.dist.queue.utils.{SystemTime, Time, Utils}
+import org.dist.queue.utils.Utils
+import org.dist.simplekafka.utils.timer.{SystemTime, Time}
 
 class Server(val config: Config, time: Time = SystemTime) extends Logging {
   private var shutdownLatch = new CountDownLatch(1)

@@ -1,7 +1,7 @@
 package org.dist.rapid
 
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
-import org.dist.patterns.replicatedlog.{SocketClient, TcpListener}
+import org.dist.patterns.replicatedlog.TcpListener
 import org.dist.queue.api.RequestOrResponse
 import org.dist.rapid.messages.{AlertMessage, JoinMessage, JoinResponse, Phase1aMessage, Phase1bMessage, Phase2aMessage, Phase2bMessage, RapidMessages}
 
@@ -21,7 +21,8 @@ class DecideViewChangeFunction(membershipService:MembershipService) extends Cons
     updateView(endPoints)
     respondToJoiners(endPoints)
     info(s"Resetting paxos instance in ${membershipService.listenAddress}")
-    membershipService.paxos = new Paxos(membershipService.listenAddress, membershipService, membershipService.view.endpoints.size(), new DecideViewChangeFunction(membershipService))
+    membershipService.announcedProposal.set(false)
+    membershipService.paxos = new Paxos(membershipService.listenAddress, membershipService.view.endpoints.size(), new DecideViewChangeFunction(membershipService), new DefaultPaxosMessagingClient(membershipService.view))
     membershipService.cancelPaxosIfScheduled()
   }
 
@@ -46,10 +47,11 @@ class DecideViewChangeFunction(membershipService:MembershipService) extends Cons
 
 class MembershipService(val listenAddress:InetAddressAndPort, val view:MembershipView) extends Logging {
   val socketServer = new SocketServer(listenAddress, handle)
-  var paxos = new Paxos(listenAddress, this, view.endpoints.size(), new DecideViewChangeFunction(this))
+  var paxos = new Paxos(listenAddress, view.endpoints.size(), new DecideViewChangeFunction(this), new DefaultPaxosMessagingClient(view))
   private val scheduledExecutorService: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor()
 
-  private val decided = new AtomicBoolean(false)
+  val decided = new AtomicBoolean(false)
+  var announcedProposal = new AtomicBoolean(false)
 
   private var scheduledClassicRoundTask:ScheduledFuture[_] = null
 
@@ -88,8 +90,13 @@ class MembershipService(val listenAddress:InetAddressAndPort, val view:Membershi
       paxos.registerFastRoundVote(List(alertMessage.address).asJava)
 
       val ms: Long = getRandomDelayMs
-
-      val runnable:Runnable = () => { startClassicPaxosRound() }
+      if (announcedProposal.get()) {
+        return
+      }
+      announcedProposal.set(true)
+      val runnable:Runnable = () => {
+        startClassicPaxosRound()
+      }
       scheduledClassicRoundTask = scheduledExecutorService.schedule(runnable, ms, TimeUnit.MILLISECONDS)
 
 

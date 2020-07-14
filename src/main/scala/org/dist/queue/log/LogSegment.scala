@@ -4,7 +4,8 @@ import java.io.File
 
 import org.dist.queue.common.Logging
 import org.dist.queue.message.{ByteBufferMessageSet, MessageSet}
-import org.dist.queue.utils.{SystemTime, Time, Utils}
+import org.dist.queue.utils.Utils
+import org.dist.simplekafka.utils.timer.{SystemTime, Time}
 
 import scala.math._
 

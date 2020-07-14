@@ -5,7 +5,8 @@ import java.io.{File, IOException}
 import org.dist.queue.common._
 import org.dist.queue.log.Log._
 import org.dist.queue.server.Config
-import org.dist.queue.utils.{Time, Utils}
+import org.dist.queue.utils.Utils
+import org.dist.simplekafka.utils.timer.Time
 
 import scala.collection.{Iterable, Seq}
 

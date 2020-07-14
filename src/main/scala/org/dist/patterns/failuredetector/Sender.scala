@@ -3,10 +3,11 @@ package org.dist.patterns.failuredetector
 import java.net.Socket
 
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
-import org.dist.patterns.replicatedlog.{SocketClient, TcpListener}
+import org.dist.patterns.replicatedlog.TcpListener
 import org.dist.patterns.replicatedlog.heartbeat.{HeartBeatScheduler, Peer, PeerProxy}
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.common.Logging
+import org.dist.rapid.SocketClient
 import org.dist.util.SocketIO
 
 

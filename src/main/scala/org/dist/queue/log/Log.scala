@@ -9,7 +9,8 @@ import java.util.{ArrayList, Collections, Comparator}
 import org.dist.queue.api.OffsetRequest
 import org.dist.queue.common.{InvalidMessageSizeException, KafkaException, KafkaStorageException, Logging}
 import org.dist.queue.message._
-import org.dist.queue.utils.{SystemTime, Time, Utils}
+import org.dist.queue.utils.Utils
+import org.dist.simplekafka.utils.timer.{SystemTime, Time}
 
 import scala.math.ceil
 

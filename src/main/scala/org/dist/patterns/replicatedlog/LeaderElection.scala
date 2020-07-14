@@ -8,6 +8,7 @@ import org.dist.patterns.replicatedlog.api.{RequestKeys, VoteRequest, VoteRespon
 import org.dist.patterns.replicatedlog.heartbeat.Peer
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.common.Logging
+import org.dist.rapid.SocketClient
 import org.dist.util.SocketIO
 
 import scala.jdk.CollectionConverters._
@@ -72,18 +73,7 @@ class LeaderElection(servers:List[Peer], client:SocketClient, self:Server) exten
     })
     votes
   }
-
 }
 
-class SocketClient {
-  def sendReceive(requestOrResponse: RequestOrResponse, to:InetAddressAndPort):RequestOrResponse = {
-    val clientSocket = new Socket(to.address, to.port)
-    new SocketIO[RequestOrResponse](clientSocket, classOf[RequestOrResponse]).requestResponse(requestOrResponse)
-  }
 
-  def sendOneWay(requestOrResponse: RequestOrResponse, to:InetAddressAndPort):Unit = {
-    val clientSocket = new Socket(to.address, to.port)
-    new SocketIO[RequestOrResponse](clientSocket, classOf[RequestOrResponse]).write(requestOrResponse)
-  }
-}
 

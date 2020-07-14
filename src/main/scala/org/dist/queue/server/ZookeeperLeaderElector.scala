@@ -5,7 +5,8 @@ import org.I0Itec.zkclient.exception.ZkNodeExistsException
 import org.dist.queue.common.Logging
 import org.dist.queue.controller.{Controller, ControllerContext}
 import org.dist.queue.utils.ZkUtils._
-import org.dist.queue.utils.{SystemTime, Utils, ZkUtils}
+import org.dist.simplekafka.utils.timer.SystemTime
+import org.dist.queue.utils.{Utils, ZkUtils}
 
 
 class ZookeeperLeaderElector(controllerContext: ControllerContext, electionPath: String, onBecomingLeader: () => Unit,

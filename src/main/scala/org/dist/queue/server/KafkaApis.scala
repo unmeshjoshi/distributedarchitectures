@@ -8,7 +8,8 @@ import org.dist.queue.common._
 import org.dist.queue.controller.{Controller, PartitionStateInfo}
 import org.dist.queue.message.{ByteBufferMessageSet, KeyedMessage, MessageSet}
 import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.queue.utils.{SystemTime, Utils, ZkUtils}
+import org.dist.simplekafka.utils.timer.SystemTime
+import org.dist.queue.utils.{Utils, ZkUtils}
 
 import scala.collection.{Map, mutable}
 

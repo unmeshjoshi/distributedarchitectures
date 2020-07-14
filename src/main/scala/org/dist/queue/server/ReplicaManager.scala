@@ -9,7 +9,8 @@ import org.dist.queue.common._
 import org.dist.queue.controller.{Controller, PartitionStateInfo}
 import org.dist.queue.log.LogManager
 import org.dist.queue.utils.ZkUtils.Broker
-import org.dist.queue.utils.{Time, ZkUtils}
+import org.dist.queue.utils.ZkUtils
+import org.dist.simplekafka.utils.timer.Time
 
 import scala.collection.{Set, mutable}
 

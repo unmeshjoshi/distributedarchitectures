@@ -5,7 +5,6 @@ import java.util
 import java.util.{ArrayList, Collections, HashMap, List, Map}
 
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
-import org.dist.patterns.replicatedlog.SocketClient
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.common.Logging
 import org.dist.rapid.messages.{Phase1aMessage, Phase1bMessage, Phase2aMessage, Phase2bMessage, Rank, RapidMessages}
@@ -13,10 +12,48 @@ import org.dist.rapid.messages.{Phase1aMessage, Phase1bMessage, Phase2aMessage, 
 import scala.jdk.CollectionConverters._
 import scala.util.control.Breaks
 
+trait PaxosMessagingClient {
+  def sendPhase1bMessage(message:Phase1bMessage, to:InetAddressAndPort)
+  def broadcast(phase1aMessage:Phase1aMessage)
+  def broadcast(phase2aMessage:Phase2aMessage)
+  def broadcast(phase2bMessage: Phase2bMessage)
+}
+
+class DefaultPaxosMessagingClient(view:MembershipView) extends PaxosMessagingClient {
+
+  val socketClient = new SocketClient()
+  def peers = view.endpoints.asScala.toList.asJava
+
+  override def sendPhase1bMessage(phase1bMessage: Phase1bMessage, to:InetAddressAndPort): Unit = {
+    val request = RequestOrResponse(RapidMessages.phase1bMessage, JsonSerDes.serialize(phase1bMessage), 0)
+    socketClient.sendOneWay(request, to)
+  }
+
+  override def broadcast(phase1aMessage: Phase1aMessage): Unit = {
+
+  }
+
+  override def broadcast(phase2aMessage: Phase2aMessage): Unit = {
+    val request = RequestOrResponse(RapidMessages.phase2aMessage, JsonSerDes.serialize(phase2aMessage), 0)
+    broadcast(request)
+  }
+
+  private def broadcast(request: RequestOrResponse) = {
+    peers.asScala.foreach(addr => {
+      val response = request
+      socketClient.sendOneWay(response, addr)
+    })
+  }
+
+  override def broadcast(phase2bMessage: Phase2bMessage): Unit = {
+
+  }
+}
+
 class Paxos(address: InetAddressAndPort,
-            membershipService: MembershipService,
             N: Int,
             consumer: Consumer[List[InetAddressAndPort]],
+            val messagingClient:PaxosMessagingClient,
             var vval: util.List[InetAddressAndPort] = Collections.emptyList[InetAddressAndPort],
             var cval: util.List[InetAddressAndPort] = Collections.emptyList[InetAddressAndPort],
             var crnd: Rank = Rank(0, 0),
@@ -31,12 +68,8 @@ class Paxos(address: InetAddressAndPort,
 
   val configurationId = 0
 
-  val socketClient = new SocketClient()
   private val phase1bMessages = new util.ArrayList[Phase1bMessage]
   private val acceptResponses = new HashMap[Rank, Map[InetAddressAndPort, Phase2bMessage]]
-
-
-  def peers = membershipService.view.endpoints.asScala.toList.asJava
 
   def startPhase1a(round: Int): Unit = {
     if (crnd.round > round) //dont participiate in round higher than coordinator round.
@@ -46,9 +79,8 @@ class Paxos(address: InetAddressAndPort,
 
     crnd = Rank(round, address.hashCode())
 
-    info(s"Sending paxos phase1 messages to ${peers}")
     val phase1aMessage = Phase1aMessage(0, address, crnd)
-    broadcast(phase1aMessage)
+    messagingClient.broadcast(phase1aMessage)
   }
 
   def handlePhase1aMessage(phase1aMessage:Phase1aMessage): Unit = {
@@ -63,7 +95,7 @@ class Paxos(address: InetAddressAndPort,
     }
 
     val phase1b = Phase1bMessage(0, rnd, address, vrnd, vval)
-    socketClient.sendOneWay(RequestOrResponse(RapidMessages.phase1bMessage, JsonSerDes.serialize(phase1b), 0), phase1aMessage.address)
+    messagingClient.sendPhase1bMessage(phase1b, phase1aMessage.address)
   }
 
   var decided = false
@@ -82,16 +114,9 @@ class Paxos(address: InetAddressAndPort,
         cval = chosenProposal
         info(s"Chosen proposal ${cval}")
         val message = Phase2aMessage(configurationId, address, crnd, chosenProposal)
-        broadcast(message)
+        messagingClient.broadcast(message)
       }
     }
-  }
-
-  private def broadcast(message: Phase2aMessage) = {
-    peers.asScala.foreach(addr => {
-      val response = RequestOrResponse(RapidMessages.phase2aMessage, JsonSerDes.serialize(message), 0)
-      socketClient.sendOneWay(response, addr)
-    })
   }
 
   def handlePhase2aMessage(phase2aMessage:Phase2aMessage): Unit = {
@@ -103,20 +128,12 @@ class Paxos(address: InetAddressAndPort,
       vrnd = phase2aMessage.crnd
       vval = phase2aMessage.chosenProposal
       trace(s"${address} accepted value in vrnd: ${vrnd}, vval: ${vval}")
-      val message = Phase2bMessage(configurationId, phase2aMessage.crnd, address, vval)
+      val phase2bMessage = Phase2bMessage(configurationId, phase2aMessage.crnd, address, vval)
 
-      trace(s"sending phase2b messages from ${address} to ${peers}")
-
-      val phase2bMessage = RequestOrResponse(RapidMessages.phase2bMessage, JsonSerDes.serialize(message), 0)
-      broadcast(phase2bMessage)
+      messagingClient.broadcast(phase2bMessage)
     }
   }
 
-  private def broadcast(phase2bMessage: RequestOrResponse) = {
-    peers.asScala.foreach(addr => {
-      socketClient.sendOneWay(phase2bMessage, addr)
-    })
-  }
 
   def handlePhase2bMessage(phase2bMessage: Phase2bMessage):Unit = {
     if (phase2bMessage.configurationId != configurationId) {
@@ -199,12 +216,5 @@ class Paxos(address: InetAddressAndPort,
     val compRound = Integer.compare(left.round, right.round)
     if (compRound == 0) return Integer.compare(left.nodeIndex, right.nodeIndex)
     compRound
-  }
-
-  private def broadcast(message: Phase1aMessage) = {
-    val response = RequestOrResponse(RapidMessages.phase1aMessage, JsonSerDes.serialize(message), 0)
-    peers.asScala.foreach(addr => {
-      socketClient.sendOneWay(response, addr)
-    })
   }
 }

@@ -1,7 +1,8 @@
 package org.dist.patterns.replicatedlog.heartbeat
 
 import org.dist.kvstore.InetAddressAndPort
-import org.dist.patterns.replicatedlog.{SocketClient, Leader}
+import org.dist.patterns.replicatedlog.Leader
+import org.dist.rapid.SocketClient
 
 
 case class Peer(id:Int, address:InetAddressAndPort)
