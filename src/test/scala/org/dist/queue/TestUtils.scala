@@ -3,6 +3,7 @@ package org.dist.queue
 import java.io.File
 import java.net.ServerSocket
 import java.util.Random
+import java.util.concurrent.TimeUnit
 
 import org.dist.util.Networks
 import org.scalatest.Assertions.fail
@@ -22,6 +23,8 @@ object TestUtils {
     val sockets =
       for(i <- 0 until count)
         yield new ServerSocket(0)
+
+    TimeUnit.MILLISECONDS.sleep(100)
     val socketList = sockets.toList
     val ports = socketList.map(_.getLocalPort)
     socketList.map(_.close)

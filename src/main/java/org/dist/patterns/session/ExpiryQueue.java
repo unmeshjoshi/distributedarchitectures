@@ -84,8 +84,10 @@ public class ExpiryQueue<E> {
      *                 changed, or null if unchanged
      */
     public Long update(E elem, int timeout, long now) {
+        System.out.println("Now is " + now);
         Long prevExpiryTime = elemMap.get(elem);
         Long newExpiryTime = roundToNextInterval(now + timeout);
+        System.out.println("Next expiration time is " + nextExpirationTime);
 
         if (newExpiryTime.equals(prevExpiryTime)) {
             // No change, so nothing to update

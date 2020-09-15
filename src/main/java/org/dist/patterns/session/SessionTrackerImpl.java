@@ -54,6 +54,10 @@ public class SessionTrackerImpl extends Thread implements SessionTracker {
     private final ConcurrentMap<Long, Integer> sessionsWithTimeout;
     private final AtomicLong nextSessionId = new AtomicLong();
 
+    public ConcurrentHashMap<Long, SessionImpl> getSessionsById() {
+        return sessionsById;
+    }
+
     public static class SessionImpl implements Session {
 
         SessionImpl(long sessionId, int timeout) {

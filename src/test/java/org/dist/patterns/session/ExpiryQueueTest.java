@@ -10,13 +10,18 @@ import static org.junit.Assert.*;
 public class ExpiryQueueTest {
 
     @Test
-    public void shouldSetExpirationTimeForGivenKey() {
-        ExpiryQueue<String> queue = new ExpiryQueue<String>(100);
-        long now = Time.currentElapsedTime();
-        queue.update("sessionId", 1000, now);
-        long timeout = ((now + 1000) / 100 + 1) * 100;
+    public void shouldSetExpirationTimeForGivenKey() throws InterruptedException {
+        ExpiryQueue<String> queue = new ExpiryQueue<String>(3000);
+
+        queue.update("sessionId", 1000, Time.currentElapsedTime());
+        Thread.sleep(1000);
+        queue.update("sessionId1", 1000, Time.currentElapsedTime());
+        queue.update("sessionId3", 1000, Time.currentElapsedTime());
+        var now = Time.currentElapsedTime();
+        long timeout = ((now + 1000) / 3000 + 1) * 3000;
 
         Set<String> o = (Set<String>) queue.getExpiryMap().get(timeout);
+        System.out.println(o.size());
         assertEquals(o.iterator().next(), "sessionId");
     }
     @Test
