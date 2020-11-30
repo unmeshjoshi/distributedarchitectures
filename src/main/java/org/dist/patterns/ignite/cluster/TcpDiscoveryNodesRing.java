@@ -1,0 +1,697 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.dist.patterns.ignite.cluster;
+
+
+import java.util.*;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+public class TcpDiscoveryNodesRing {
+    /** Visible nodes filter. */
+    public static final IgnitePredicate<TcpDiscoveryNode> VISIBLE_NODES = new P1<TcpDiscoveryNode>() {
+        @Override public boolean apply(TcpDiscoveryNode node) {
+            if (node.visible()) {
+                assert node.order() > 0 : "Invalid node order: " + node;
+
+                return true;
+            }
+
+            return false;
+        }
+    };
+
+    /** Client nodes filter. */
+    private static final PN CLIENT_NODES = new PN() {
+        @Override public boolean apply(ClusterNode node) {
+            assert node instanceof TcpDiscoveryNode : node;
+
+            return ((TcpDiscoveryNode) node).clientRouterNodeId() != null;
+        }
+    };
+
+    /** Local node. */
+    private volatile TcpDiscoveryNode locNode;
+
+    /** All nodes in topology. */
+    private NavigableSet<TcpDiscoveryNode> nodes = new TreeSet<>();
+
+    /** All started nodes. */
+    
+    private Map<UUID, TcpDiscoveryNode> nodesMap = new HashMap<>();
+
+    /** Current topology version */
+    private long topVer;
+
+    /** */
+    private long nodeOrder;
+
+    /** */
+    private long maxInternalOrder;
+
+    /** Lock. */
+    
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+
+    /** */
+    private Integer minNodeVer;
+
+    /**
+     * @return Minimum node version.
+     */
+    public int minimumNodeVersion() {
+        rwLock.readLock().lock();
+
+        try {
+            return minNodeVer;
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Sets local node.
+     *
+     * @param locNode Local node.
+     */
+    public void localNode(TcpDiscoveryNode locNode) {
+        assert locNode != null;
+
+        rwLock.writeLock().lock();
+
+        try {
+            this.locNode = locNode;
+
+            clear();
+
+            maxInternalOrder = locNode.internalOrder();
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Gets all nodes in the topology.
+     *
+     * @return Collection of all nodes.
+     */
+    public Collection<TcpDiscoveryNode> allNodes() {
+        return nodes();
+    }
+
+    /**
+     * Gets visible nodes in the topology.
+     *
+     * @return Collection of visible nodes.
+     */
+    public Collection<TcpDiscoveryNode> visibleNodes() {
+        return nodes(VISIBLE_NODES);
+    }
+
+    /**
+     * Gets remote nodes.
+     *
+     * @return Collection of remote nodes in grid.
+     */
+    public Collection<TcpDiscoveryNode> remoteNodes() {
+        return nodes(F.remoteNodes(locNode.id()));
+    }
+
+    /**
+     * Gets visible remote nodes in the topology.
+     *
+     * @return Collection of visible remote nodes.
+     */
+    public Collection<TcpDiscoveryNode> visibleRemoteNodes() {
+        return nodes(F.remoteNodes(locNode.id()), VISIBLE_NODES);
+    }
+
+    /**
+     * @return Client nodes.
+     */
+    public Collection<TcpDiscoveryNode> clientNodes() {
+        return nodes(CLIENT_NODES);
+    }
+
+    /**
+     * @return Server nodes.
+     */
+    public Collection<TcpDiscoveryNode> serverNodes() {
+        return nodes(new PN() {
+            @Override public boolean apply(ClusterNode node) {
+                return ((TcpDiscoveryNode)node).clientRouterNodeId() == null;
+            }
+        });
+    }
+
+    /**
+     * Checks whether the topology has remote nodes in.
+     *
+     * @return {@code true} if the topology has remote nodes in.
+     */
+    public boolean hasRemoteNodes() {
+        rwLock.readLock().lock();
+
+        try {
+            return nodes.size() > 1;
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Checks whether the topology has remote server nodes in.
+     *
+     * @return {@code true} if the topology has remote server nodes in.
+     */
+    public boolean hasRemoteServerNodes() {
+        rwLock.readLock().lock();
+
+        try {
+            if (nodes.size() < 2)
+                return false;
+
+            for (TcpDiscoveryNode node : nodes)
+                if (node.clientRouterNodeId() == null && !node.id().equals(locNode.id()))
+                    return true;
+
+            return false;
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Adds node to topology, also initializes node last update time with current
+     * system time.
+     *
+     * @param node Node to add.
+     * @return {@code true} if such node was added and did not present previously in the topology.
+     */
+    public boolean add(TcpDiscoveryNode node) {
+        assert node != null;
+        assert node.internalOrder() > 0;
+
+        rwLock.writeLock().lock();
+
+        try {
+            if (nodesMap.containsKey(node.id()))
+                return false;
+
+            long maxInternalOrder0 = maxInternalOrder();
+
+            assert node.internalOrder() > maxInternalOrder0 : "Adding node to the middle of the ring " +
+                "[ring=" + this + ", node=" + node + ']';
+
+            nodesMap.put(node.id(), node);
+
+            nodes = new TreeSet<>(nodes);
+
+            node.lastUpdateTimeNanos(System.nanoTime());
+
+            nodes.add(node);
+
+            nodeOrder = node.internalOrder();
+
+            maxInternalOrder = node.internalOrder();
+
+            initializeMinimumVersion();
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+
+        return true;
+    }
+
+    /**
+     * @return Max internal order.
+     */
+    public long maxInternalOrder() {
+        rwLock.readLock().lock();
+
+        try {
+            if (maxInternalOrder == 0) {
+                TcpDiscoveryNode last = nodes.last();
+
+                return last != null ? maxInternalOrder = last.internalOrder() : -1;
+            }
+
+            return maxInternalOrder;
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Restores topology from parameters values.
+     * <p>
+     * This method is called when new node receives topology from coordinator.
+     * In this case all nodes received are remote for local.
+     * <p>
+     * Also initializes nodes last update time with current system time.
+     *
+     * @param nodes List of remote nodes.
+     * @param topVer Topology version.
+     */
+    public void restoreTopology(Iterable<TcpDiscoveryNode> nodes, long topVer) {
+        assert !F.isEmpty(nodes);
+        assert topVer > 0;
+
+        rwLock.writeLock().lock();
+
+        try {
+            locNode.internalOrder(topVer);
+
+            clear();
+
+            boolean firstAdd = true;
+
+            for (TcpDiscoveryNode node : nodes) {
+                if (nodesMap.containsKey(node.id()))
+                    continue;
+
+                nodesMap.put(node.id(), node);
+
+                if (firstAdd) {
+                    this.nodes = new TreeSet<>(this.nodes);
+
+                    firstAdd = false;
+                }
+
+                node.lastUpdateTimeNanos(System.nanoTime());
+
+                this.nodes.add(node);
+            }
+
+            nodeOrder = topVer;
+
+            initializeMinimumVersion();
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Finds node by ID.
+     *
+     * @param nodeId Node id to find.
+     * @return Node with ID provided or {@code null} if not found.
+     */
+     public TcpDiscoveryNode node(UUID nodeId) {
+        assert nodeId != null;
+
+        rwLock.readLock().lock();
+
+        try {
+            return nodesMap.get(nodeId);
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Removes node from the topology.
+     *
+     * @param nodeId ID of the node to remove.
+     * @return {@code true} if node was removed.
+     */
+     public TcpDiscoveryNode removeNode(UUID nodeId) {
+        assert nodeId != null;
+        assert !locNode.id().equals(nodeId);
+
+        rwLock.writeLock().lock();
+
+        try {
+            TcpDiscoveryNode rmv = nodesMap.remove(nodeId);
+
+            if (rmv != null) {
+                nodes = new TreeSet<>(nodes);
+
+                nodes.remove(rmv);
+            }
+
+            initializeMinimumVersion();
+
+            return rmv;
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Removes all remote nodes, leaves only local node.
+     * <p>
+     * This should be called when SPI should be disconnected from topology and
+     * reconnected back after.
+     */
+    public void clear() {
+        rwLock.writeLock().lock();
+
+        try {
+            nodes = new TreeSet<>();
+
+            if (locNode != null)
+                nodes.add(locNode);
+
+            nodesMap = new HashMap<>();
+
+            if (locNode != null)
+                nodesMap.put(locNode.id(), locNode);
+
+            nodeOrder = 0;
+            maxInternalOrder = 0;
+
+            topVer = 0;
+
+            if (locNode != null)
+                minNodeVer = locNode.version();
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Finds coordinator in the topology.
+     *
+     * @return Coordinator node that gives versions to topology (node with the smallest order).
+     */
+     public TcpDiscoveryNode coordinator() {
+        rwLock.readLock().lock();
+
+        try {
+            if (F.isEmpty(nodes))
+                return null;
+
+            return coordinator(null);
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Finds coordinator in the topology filtering excluded nodes from the search.
+     * <p>
+     * This may be used when handling current coordinator leave or failure.
+     *
+     * @param excluded Nodes to exclude from the search (optional).
+     * @return Coordinator node among remaining nodes or {@code null} if all nodes are excluded.
+     */
+     public TcpDiscoveryNode coordinator( Collection<TcpDiscoveryNode> excluded) {
+        rwLock.readLock().lock();
+
+        try {
+            Collection<TcpDiscoveryNode> filtered = serverNodes(excluded);
+
+            if (F.isEmpty(filtered))
+                return null;
+
+            return Collections.min(filtered);
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Finds next node in the topology.
+     *
+     * @return Next node.
+     */
+     public TcpDiscoveryNode nextNode() {
+        rwLock.readLock().lock();
+
+        try {
+            if (nodes.size() < 2)
+                return null;
+
+            return nextNode(null);
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Finds next node in the topology filtering excluded nodes from search.
+     * <p>
+     * This may be used when detecting and handling nodes failure.
+     *
+     * @param excluded Nodes to exclude from the search (optional). If provided,
+     * cannot contain local node.
+     * @return Next node or {@code null} if all nodes were filtered out or
+     * topology contains less than two nodes.
+     */
+     public TcpDiscoveryNode nextNode( Collection<TcpDiscoveryNode> excluded) {
+        assert locNode.internalOrder() > 0 : locNode;
+        assert excluded == null || excluded.isEmpty() || !excluded.contains(locNode) : excluded;
+
+        rwLock.readLock().lock();
+
+        try {
+            Collection<TcpDiscoveryNode> filtered = serverNodes(excluded);
+
+            if (filtered.size() < 2)
+                return null;
+
+            Iterator<TcpDiscoveryNode> iter = filtered.iterator();
+
+            while (iter.hasNext()) {
+                TcpDiscoveryNode node = iter.next();
+
+                if (locNode.equals(node))
+                    break;
+            }
+
+            return iter.hasNext() ? iter.next() : F.first(filtered);
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Finds previous node in the topology filtering excluded nodes from search.
+     * <p>
+     * This may be used when detecting and handling nodes failure.
+     *
+     * @param excluded Nodes to exclude from the search (optional). If provided,
+     * cannot contain local node.
+     * @return Previous node or {@code null} if all nodes were filtered out or
+     * topology contains less than two nodes.
+     */
+     public TcpDiscoveryNode previousNode( Collection<TcpDiscoveryNode> excluded) {
+        rwLock.readLock().lock();
+
+        try {
+            Collection<TcpDiscoveryNode> filtered = serverNodes(excluded);
+
+            if (filtered.size() < 2)
+                return null;
+
+            TcpDiscoveryNode previous = null;
+
+            // Get last node that is previous in a ring
+            for (TcpDiscoveryNode node : filtered) {
+                if (locNode.equals(node) && previous != null)
+                    break;
+
+                previous = node;
+            }
+
+            return previous;
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * @param ringNode Node for which to find a predecessor.
+     * @return Previous node of the given node in the ring.
+     * @throws IllegalArgumentException If the given node was not found in the ring.
+     */
+    public TcpDiscoveryNode previousNodeOf(TcpDiscoveryNode ringNode) {
+        rwLock.readLock().lock();
+
+        try {
+            TcpDiscoveryNode prev = null;
+
+            for (TcpDiscoveryNode node : nodes) {
+                if (node.equals(ringNode)) {
+                    if (prev == null)
+                        // ringNode is the first node, return last node in the ring.
+                        return nodes.last();
+
+                    return prev;
+                }
+
+                prev = node;
+            }
+
+            throw new IllegalArgumentException("Failed to find previous node (ringNode is not in the ring) " +
+                "[ring=" + this + ", ringNode=" + ringNode + ']');
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Gets current topology version.
+     *
+     * @return Current topology version.
+     */
+    public long topologyVersion() {
+        rwLock.readLock().lock();
+
+        try {
+            return topVer;
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Sets new topology version.
+     *
+     * @param topVer New topology version (should be greater than current, otherwise no-op).
+     * @return {@code True} if topology has been changed.
+     */
+    public boolean topologyVersion(long topVer) {
+        rwLock.writeLock().lock();
+
+        try {
+            if (this.topVer < topVer) {
+                this.topVer = topVer;
+
+                return true;
+            }
+
+            return false;
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Increments topology version and gets new value.
+     *
+     * @return Topology version (incremented).
+     */
+    public long incrementTopologyVersion() {
+        rwLock.writeLock().lock();
+
+        try {
+            return ++topVer;
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * Increments topology version and gets new value.
+     *
+     * @return Topology version (incremented).
+     */
+    public long nextNodeOrder() {
+        rwLock.writeLock().lock();
+
+        try {
+            if (nodeOrder == 0)
+                nodeOrder = maxInternalOrder();
+
+            return ++nodeOrder;
+        }
+        finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    /**
+     * @param p Filters.
+     * @return Unmodifiable collection of nodes.
+     */
+    private Collection<TcpDiscoveryNode> nodes(IgnitePredicate<? super TcpDiscoveryNode>... p) {
+        rwLock.readLock().lock();
+
+        try {
+            List<TcpDiscoveryNode> list = U.arrayList(nodes, p);
+
+            return Collections.unmodifiableCollection(list);
+        }
+        finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    /**
+     * Gets server nodes from topology.
+     *
+     * @param excluded Nodes to exclude from the search (optional).
+     * @return Collection of server nodes.
+     */
+    private Collection<TcpDiscoveryNode> serverNodes( final Collection<TcpDiscoveryNode> excluded) {
+        final boolean excludedEmpty = F.isEmpty(excluded);
+
+        return F.view(nodes, new P1<TcpDiscoveryNode>() {
+            @Override public boolean apply(TcpDiscoveryNode node) {
+                return node.clientRouterNodeId() == null && (excludedEmpty || !excluded.contains(node));
+            }
+        });
+    }
+
+    /**
+     *
+     */
+    private void initializeMinimumVersion() {
+        minNodeVer = null;
+
+        for (TcpDiscoveryNode node : nodes) {
+            if (minNodeVer == null || node.version().compareTo(minNodeVer) < 0)
+                minNodeVer = node.version();
+        }
+    }
+
+    @Override
+    public String toString() {
+        return "TcpDiscoveryNodesRing{" +
+                "locNode=" + locNode +
+                ", nodes=" + nodes +
+                ", nodesMap=" + nodesMap +
+                ", topVer=" + topVer +
+                ", nodeOrder=" + nodeOrder +
+                ", maxInternalOrder=" + maxInternalOrder +
+                ", rwLock=" + rwLock +
+                ", minNodeVer=" + minNodeVer +
+                '}';
+    }
+}

@@ -20,7 +20,7 @@ import "encoding/binary"
 // First 8 bytes is the revision.main in big-endian format. The 9th byte
 // is a '_'. The last 8 bytes is the revision.sub in big-endian format.
 const revBytesLen = 8 + 1 + 8
-
+const markedRevBytesLen      = revBytesLen + 1
 // A revision indicates modification of the key-value space.
 // The set of changes that share same main revision changes the key-value space atomically.
 type revision struct {
