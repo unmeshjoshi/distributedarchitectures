@@ -36,7 +36,6 @@ public class LedgerCache {
         valueBuff.putLong(location);
         valueBuff.flip();
         byte[] positionBytes = valueBuff.array();
-
         try {
             db.put(keyBuff.array(), positionBytes);
         } catch (RocksDBException e) {

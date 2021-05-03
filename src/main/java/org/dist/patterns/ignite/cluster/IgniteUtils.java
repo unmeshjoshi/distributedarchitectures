@@ -1,7 +1,5 @@
 package org.dist.patterns.ignite.cluster;
 
-import org.jetbrains.annotations.Nullable;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -9,7 +7,7 @@ import java.util.List;
 
 public class IgniteUtils {
 
-    public static <T extends R, R> List<R> arrayList(Collection<T> c, @Nullable IgnitePredicate<? super T>... p) {
+    public static <T extends R, R> List<R> arrayList(Collection<T> c,  IgnitePredicate<? super T>... p) {
         assert c != null;
 
         return arrayList(c.iterator(), c.size(), p);
@@ -32,7 +30,7 @@ public class IgniteUtils {
      * @return Resulting array list.
      */
     public static <T extends R, R> List<R> arrayList(Iterator<T> c, int cap,
-                                                     @Nullable IgnitePredicate<? super T>... p) {
+                                                      IgnitePredicate<? super T>... p) {
         assert c != null;
         assert cap >= 0;
 

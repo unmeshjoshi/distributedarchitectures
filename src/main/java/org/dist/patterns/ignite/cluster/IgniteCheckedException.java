@@ -17,7 +17,6 @@
 
 package org.dist.patterns.ignite.cluster;
 
-import org.jetbrains.annotations.Nullable;
 
 /**
  * General grid exception. This exception is used to indicate any error condition
@@ -61,7 +60,7 @@ public class IgniteCheckedException extends Exception {
      * @param writableStackTrace whether or not the stack trace should
      *                           be writable
      */
-    public IgniteCheckedException(String msg, @Nullable Throwable cause, boolean writableStackTrace) {
+    public IgniteCheckedException(String msg, Throwable cause, boolean writableStackTrace) {
         super(msg, cause, true, writableStackTrace);
     }
 
@@ -71,7 +70,7 @@ public class IgniteCheckedException extends Exception {
      * @param msg Error message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public IgniteCheckedException(String msg, @Nullable Throwable cause) {
+    public IgniteCheckedException(String msg, Throwable cause) {
         super(msg, cause);
     }
 
@@ -83,7 +82,7 @@ public class IgniteCheckedException extends Exception {
      *      {@code false} otherwise.
      */
     @SafeVarargs
-    public final boolean hasCause(@Nullable Class<? extends Throwable>... cls) {
+    public final boolean hasCause( Class<? extends Throwable>... cls) {
         return X.hasCause(this, cls);
     }
 
@@ -93,7 +92,7 @@ public class IgniteCheckedException extends Exception {
      * @param cls Cause class to get cause (if {@code null}, {@code null} is returned).
      * @return First causing exception of passed in class, {@code null} otherwise.
      */
-    @Nullable public <T extends Throwable> T getCause(@Nullable Class<T> cls) {
+    public <T extends Throwable> T getCause( Class<T> cls) {
         return X.cause(this, cls);
     }
 

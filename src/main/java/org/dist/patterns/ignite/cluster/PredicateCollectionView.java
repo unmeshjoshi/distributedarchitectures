@@ -17,8 +17,6 @@
 
 package org.dist.patterns.ignite.cluster;
 
-import org.jetbrains.annotations.NotNull;
-
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -54,7 +52,7 @@ public class PredicateCollectionView<T> extends GridSerializableCollection<T> {
     }
 
     /** {@inheritDoc} */
-    @NotNull @Override public Iterator<T> iterator() {
+    @Override public Iterator<T> iterator() {
         return F.iterator0(col, false, preds);
     }
 

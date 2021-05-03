@@ -18,6 +18,7 @@
 package org.dist.patterns.ignite.cluster;
 
 import com.google.common.base.Objects;
+import org.dist.kvstore.InetAddressAndPort;
 
 import java.io.Externalizable;
 import java.io.IOException;
@@ -60,7 +61,7 @@ public class TcpDiscoveryNode extends GridMetadataAwareAdapter implements Cluste
      * Internal discovery addresses as strings.
      */
 
-    private Collection<String> addrs;
+    private Collection<InetAddressAndPort> addrs;
 
     /**
      * Internal discovery host names as strings.
@@ -163,7 +164,7 @@ public class TcpDiscoveryNode extends GridMetadataAwareAdapter implements Cluste
      * @param consistentId Node consistent ID.
      */
     public TcpDiscoveryNode(UUID id,
-                            Collection<String> addrs,
+                            Collection<InetAddressAndPort> addrs,
                             Collection<String> hostNames,
                             int discPort,
                             int ver,
@@ -172,9 +173,9 @@ public class TcpDiscoveryNode extends GridMetadataAwareAdapter implements Cluste
 
         this.id = id;
 
-        List<String> sortedAddrs = new ArrayList<>(addrs);
+        List<InetAddressAndPort> sortedAddrs = new ArrayList<>(addrs);
 
-        Collections.sort(sortedAddrs);
+        Collections.sort(sortedAddrs, (o1, o2) -> o1.toString().compareTo(o2.toString()));
 
         this.addrs = sortedAddrs;
         this.hostNames = hostNames;
@@ -184,16 +185,16 @@ public class TcpDiscoveryNode extends GridMetadataAwareAdapter implements Cluste
         this.consistentId = consistentId != null ? consistentId : consistentId(sortedAddrs, discPort);
 
         sockAddrs = addresses().stream().map(s -> {
-            return new InetSocketAddress(s, 8080);
+            return new InetSocketAddress(s.address(), s.port());
         }).collect(Collectors.toList());
     }
 
-    public static String consistentId(Collection<String> addrs, int port) {
+    public static String consistentId(Collection<InetAddressAndPort> addrs, int port) {
 
         StringBuilder sb = new StringBuilder();
 
-        for (String addr : addrs)
-            sb.append(addr).append(',');
+        for (InetAddressAndPort addr : addrs)
+            sb.append(addr.toString()).append(',');
 
         sb.delete(sb.length() - 1, sb.length());
 
@@ -314,9 +315,10 @@ public class TcpDiscoveryNode extends GridMetadataAwareAdapter implements Cluste
 
     /**
      * {@inheritDoc}
+     * @return
      */
     @Override
-    public Collection<String> addresses() {
+    public Collection<InetAddressAndPort> addresses() {
         return addrs;
     }
 

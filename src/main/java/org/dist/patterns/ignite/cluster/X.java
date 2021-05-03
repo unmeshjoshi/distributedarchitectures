@@ -1,6 +1,5 @@
 package org.dist.patterns.ignite.cluster;
 
-import org.jetbrains.annotations.Nullable;
 
 public class X {
     public static <T extends Throwable> T cause(Throwable t, Class<T> cls) {

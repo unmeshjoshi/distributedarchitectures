@@ -5,7 +5,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Objects;
 
-class InetAddressAndPort {
+public class InetAddressAndPort {
     private final InetAddress address;
     private final Integer port;
 

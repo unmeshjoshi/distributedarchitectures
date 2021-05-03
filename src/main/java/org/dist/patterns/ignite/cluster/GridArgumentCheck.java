@@ -17,7 +17,6 @@
 
 package org.dist.patterns.ignite.cluster;
 
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 
@@ -44,7 +43,7 @@ public class GridArgumentCheck {
      * @param val Argument value to check.
      * @param name Name of the argument in the code (used in error message).
      */
-    public static void notNull(@Nullable Object val, String name) {
+    public static void notNull(Object val, String name) {
         if (val == null)
             throw new NullPointerException(NULL_MSG_PREFIX + name);
     }

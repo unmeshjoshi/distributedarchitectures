@@ -1,7 +1,5 @@
 package org.dist.patterns.ignite.cluster;
 
-import org.jetbrains.annotations.Nullable;
-
 import java.util.*;
 
 public class GridFunc {
@@ -19,7 +17,7 @@ public class GridFunc {
      * @return Number of elements in the collection for which all given predicates
      *      evaluates to {@code true}. If no predicates is provided - all elements are counted.
      */
-    public static <T> int size(@Nullable Collection<? extends T> c, @Nullable IgnitePredicate<? super T>... p) {
+    public static <T> int size( Collection<? extends T> c,  IgnitePredicate<? super T>... p) {
         return c == null || c.isEmpty() ? 0 : isEmpty(p) || isAlwaysTrue(p) ? c.size() : size(c.iterator(), p);
     }
 
@@ -33,7 +31,7 @@ public class GridFunc {
      * @return Number of elements in the iterator for which all given predicates
      *      evaluates to {@code true}. If no predicates is provided - all elements are counted.
      */
-    public static <T> int size(@Nullable Iterator<? extends T> it, @Nullable IgnitePredicate<? super T>... p) {
+    public static <T> int size( Iterator<? extends T> it,  IgnitePredicate<? super T>... p) {
         if (it == null)
             return 0;
 
@@ -57,7 +55,7 @@ public class GridFunc {
 
     public static <T1, T2> GridIterator<T2> iterator(final Iterable<? extends T1> c,
                                                      final IgniteClosure<? super T1, T2> trans, final boolean readOnly,
-                                                     @Nullable final IgnitePredicate<? super T1>... p) {
+                                                      final IgnitePredicate<? super T1>... p) {
         A.notNull(c, "c", trans, "trans");
 
         if (isAlwaysFalse(p))
@@ -71,15 +69,15 @@ public class GridFunc {
         return F.iterator(c, IDENTITY, readOnly, p);
     }
     @SafeVarargs
-    public static <T> Collection<T> view(@Nullable final Collection<T> c,
-                                         @Nullable final IgnitePredicate<? super T>... p) {
+    public static <T> Collection<T> view( final Collection<T> c,
+                                          final IgnitePredicate<? super T>... p) {
         if (isEmpty(c) || isAlwaysFalse(p))
             return Collections.emptyList();
 
         return isEmpty(p) || isAlwaysTrue(p) ? c : new PredicateCollectionView<>(c, p);
     }
 
-    public static boolean isAlwaysTrue(@Nullable IgnitePredicate[] p) {
+    public static boolean isAlwaysTrue( IgnitePredicate[] p) {
         return p != null && p.length == 1 && isAlwaysTrue(p[0]);
     }
 
@@ -94,15 +92,15 @@ public class GridFunc {
     }
 
     @Deprecated
-    public static boolean isAlwaysFalse(@Nullable IgnitePredicate[] p) {
+    public static boolean isAlwaysFalse( IgnitePredicate[] p) {
         return p != null && p.length == 1 && isAlwaysFalse(p[0]);
     }
 
-    public static <T> boolean isEmpty(@Nullable T[] c) {
+    public static <T> boolean isEmpty( T[] c) {
         return c == null || c.length == 0;
     }
 
-    public static <T> boolean isAll(@Nullable T t, @Nullable IgnitePredicate<? super T>... p) {
+    public static <T> boolean isAll( T t,  IgnitePredicate<? super T>... p) {
         if (p != null)
             for (IgnitePredicate<? super T> r : p)
                 if (r != null && !r.apply(t))
@@ -118,7 +116,7 @@ public class GridFunc {
      * @param <T> Type of the collection.
      * @return Collections' first element or {@code null} in case if the collection is empty.
      */
-    public static <T> T first(@Nullable Iterable<? extends T> c) {
+    public static <T> T first( Iterable<? extends T> c) {
         if (c == null)
             return null;
 
@@ -153,7 +151,7 @@ public class GridFunc {
         return new HasNotEqualIdPredicate<>(locNodeId);
     }
 
-    public static boolean isEmpty(@Nullable Iterable<?> c) {
+    public static boolean isEmpty( Iterable<?> c) {
         return c == null || (c instanceof Collection<?> ? ((Collection<?>) c).isEmpty() : !c.iterator().hasNext());
     }
 
@@ -163,7 +161,7 @@ public class GridFunc {
      * @param c Collection to test.
      * @return Whether or not the given collection is {@code null} or empty.
      */
-    public static boolean isEmpty(@Nullable Collection<?> c) {
+    public static boolean isEmpty( Collection<?> c) {
         return c == null || c.isEmpty();
     }
 
@@ -173,7 +171,7 @@ public class GridFunc {
      * @param m Map to test.
      * @return Whether or not the given collection is {@code null} or empty.
      */
-    public static boolean isEmpty(@Nullable Map<?, ?> m) {
+    public static boolean isEmpty( Map<?, ?> m) {
         return m == null || m.isEmpty();
     }
 }

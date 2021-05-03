@@ -17,25 +17,37 @@
 
 package org.dist.patterns.ignite.cluster;
 
+/**
+ * State of local node {@link org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi}.
+ */
+public enum TcpDiscoverySpiState {
+    /** */
+    DISCONNECTED,
 
-import org.dist.kvstore.InetAddressAndPort;
+    /** */
+    CONNECTING,
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.UUID;
+    /** */
+    CONNECTED,
 
-public interface ClusterNode {
-    public UUID id();
+    /** */
+    DISCONNECTING,
 
-    public Object consistentId();
-    public <T> T attribute(String name);
+    /** */
+    STOPPING,
 
-    public Map<String, Object> attributes();
-    public Collection<InetAddressAndPort> addresses();
-    public Collection<String> hostNames();
-    public long order();
-    default public Integer version() {return 0;};
-    public boolean isLocal();
-    public boolean isDaemon();
-    public boolean isClient();
+    /** */
+    LEFT,
+
+    /** */
+    DUPLICATE_ID,
+
+    /** */
+    AUTH_FAILED,
+
+    /** */
+    CHECK_FAILED,
+
+    /** */
+    LOOPBACK_PROBLEM
 }
