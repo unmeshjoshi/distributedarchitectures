@@ -1,14 +1,12 @@
 package org.dist.rapid
 
-import java.util
-import java.util.concurrent.Executors
-
 import org.dist.kvstore.InetAddressAndPort
 import org.dist.queue.TestUtils
 import org.dist.util.Networks
-import org.junit.Ignore
 import org.scalatest.FunSuite
 
+import java.util
+import java.util.concurrent.{Executors, ThreadLocalRandom}
 import scala.jdk.CollectionConverters._
 
 class ClusterTest extends FunSuite {
@@ -111,6 +109,10 @@ class ClusterTest extends FunSuite {
     }
   }
 
+
+  //Concurrent execution of paxos instances do not terminate.
+  ///Need to add batching and random delays to remove
+  //the possibility of concurrent paxos instances happening.
   test("should start 10 node cluster concurrently") {
     val noOfServers = 10
     val ports = TestUtils.choosePorts(noOfServers + 1)
@@ -138,7 +140,14 @@ class ClusterTest extends FunSuite {
 
     TestUtils.waitUntilTrue(()=> {
       assertSame(seed.membershipService.view, MembershipView(expectedView))},
-      "waiting for view to be same on all the servers", 15000, 100)
+      "waiting for view to be same on all the servers", 25000, 100)
+  }
+
+
+  private def getRandomDelayMs = {
+    val jitter = (-1000 * Math.log(1 - ThreadLocalRandom.current.nextDouble)).toLong
+    val ms = 1000 + jitter
+    ms
   }
 
 }

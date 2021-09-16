@@ -1,14 +1,13 @@
 package org.dist.rapid
 
-import java.util.function.Consumer
-import java.util
-import java.util.{ArrayList, Collections, HashMap, List, Map}
-
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
 import org.dist.queue.api.RequestOrResponse
 import org.dist.queue.common.Logging
-import org.dist.rapid.messages.{Phase1aMessage, Phase1bMessage, Phase2aMessage, Phase2bMessage, Rank, RapidMessages}
+import org.dist.rapid.messages._
 
+import java.util
+import java.util.function.Consumer
+import java.util.{Collections, HashMap, List, Map}
 import scala.jdk.CollectionConverters._
 import scala.util.control.Breaks
 
@@ -30,7 +29,8 @@ class DefaultPaxosMessagingClient(view:MembershipView) extends PaxosMessagingCli
   }
 
   override def broadcast(phase1aMessage: Phase1aMessage): Unit = {
-
+    val request = RequestOrResponse(RapidMessages.phase1aMessage, JsonSerDes.serialize(phase1aMessage), 0)
+    broadcast(request)
   }
 
   override def broadcast(phase2aMessage: Phase2aMessage): Unit = {
@@ -46,7 +46,8 @@ class DefaultPaxosMessagingClient(view:MembershipView) extends PaxosMessagingCli
   }
 
   override def broadcast(phase2bMessage: Phase2bMessage): Unit = {
-
+    val request = RequestOrResponse(RapidMessages.phase2bMessage, JsonSerDes.serialize(phase2bMessage), 0)
+    broadcast(request)
   }
 }
 

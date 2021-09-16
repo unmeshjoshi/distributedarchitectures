@@ -1,19 +1,15 @@
 package org.dist.rapid
 
 import org.dist.kvstore.{InetAddressAndPort, JsonSerDes}
-import org.dist.patterns.replicatedlog.TcpListener
 import org.dist.queue.api.RequestOrResponse
-import org.dist.rapid.messages.{AlertMessage, JoinMessage, JoinResponse, Phase1aMessage, Phase1bMessage, Phase2aMessage, Phase2bMessage, RapidMessages}
-
-import scala.concurrent.{Future, Promise}
-import java.util
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.{ExecutorService, Executors, LinkedBlockingQueue, ScheduledExecutorService, ScheduledFuture, ThreadLocalRandom, ThreadPoolExecutor, TimeUnit}
-import java.util.function.Consumer
-
 import org.dist.queue.common.Logging
+import org.dist.rapid.messages._
 import org.dist.util.SocketIO
 
+import java.util
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent._
+import java.util.function.Consumer
 import scala.jdk.CollectionConverters._
 
 class DecideViewChangeFunction(membershipService:MembershipService) extends Consumer[util.List[InetAddressAndPort]] with Logging {
@@ -91,12 +87,14 @@ class MembershipService(val listenAddress:InetAddressAndPort, val view:Membershi
 
       val ms: Long = getRandomDelayMs
       if (announcedProposal.get()) {
+        info(s"already announced proposal ${announcedProposal}. Ignoring alertment ${alertMessage}")
         return
       }
       announcedProposal.set(true)
       val runnable:Runnable = () => {
         startClassicPaxosRound()
       }
+      info(s"Scheduling class paxos round at ${ms} millis")
       scheduledClassicRoundTask = scheduledExecutorService.schedule(runnable, ms, TimeUnit.MILLISECONDS)
 
 

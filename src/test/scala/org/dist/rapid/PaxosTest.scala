@@ -89,7 +89,7 @@ class PaxosTest extends FunSuite {
   }
 
 
-  test("should chose proposed value if none of the acceptors") {
+  test("should choose proposed value if none of the acceptors") {
     val address = InetAddressAndPort.create("10.10.10.10", 1009)
     val consensusOnAddress = new util.ArrayList[InetAddressAndPort]()
     val stubClient = new StubPaxosMessagingClient
