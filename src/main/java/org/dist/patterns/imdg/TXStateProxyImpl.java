@@ -23,7 +23,9 @@ public class TXStateProxyImpl implements TXStateProxy {
 
     @Override
     public void precommit() {
-        //
+        for (EntryEventImpl entryEvent : pendingValue) {
+            entryEvent.getRegion().writeLock();
+        }
     }
 
     @Override

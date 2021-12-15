@@ -5,7 +5,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Objects;
 
-public class InetAddressAndPort {
+public class InetAddressAndPort implements Comparable<InetAddressAndPort> {
     private final InetAddress address;
     private final Integer port;
 
@@ -52,5 +52,14 @@ public class InetAddressAndPort {
                 "address=" + address +
                 ", port=" + port +
                 '}';
+    }
+
+    @Override
+    public int compareTo(InetAddressAndPort other) {
+        int result = this.address.getHostAddress().compareTo(other.address.getHostAddress());
+        if (result == 0) {
+            result = this.port.compareTo(other.port);
+        }
+        return result;
     }
 }

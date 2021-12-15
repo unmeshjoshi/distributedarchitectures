@@ -2,6 +2,7 @@ package org.dist.patterns.imdg;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class LocalRegion<K, V> implements Region<K, V> {
 
@@ -16,7 +17,12 @@ public class LocalRegion<K, V> implements Region<K, V> {
 
     @Override
     public V get(K key) {
-        return values.get(key);
+        lock.readLock().lock();
+        try {
+            return values.get(key);
+        } finally {
+            lock.readLock().unlock();
+        }
     }
 
     public V put(TransactionId id, K key, V value) {
@@ -95,5 +101,14 @@ public class LocalRegion<K, V> implements Region<K, V> {
     Map<K, V> values = new HashMap<>();
     public void putInternal(K key, V value) {
        values.put(key, value);
+    }
+
+    ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    public void writeLock() {
+        lock.writeLock().lock();
+    }
+
+    public void unlock() {
+        lock.writeLock().unlock();
     }
 }

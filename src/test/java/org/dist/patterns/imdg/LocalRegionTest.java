@@ -23,16 +23,24 @@ public class LocalRegionTest {
 
         public TransactionId begin() {
             id = new TransactionId(UUID.randomUUID());
+            //add record in the log for begin transaction
             return id;
         }
 
         public void put(String key, String value) {
             LocalRegion<String, String> region = getRegionFor(key);
             regionsInTxn.add(region);
+            //update the transaction record to add the server participating in the txn to the log.
+            //change txn state to ongoing
             region.put(id, key, value);
         }
 
         public void commit() {
+            //update transaction record to preparing state
+            //send prepare message to all the servers
+            //update transaction record to prepared state
+            //send commit message to all the participants
+            //once all servers return a reply, update transaction record to commit complete.
             for (LocalRegion localRegion : regionsInTxn) {
                 localRegion.commit(id);
             }
