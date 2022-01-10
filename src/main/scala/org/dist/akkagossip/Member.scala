@@ -17,7 +17,7 @@ class Member(val uniqueAddress: InetAddressAndPort,
     case _ ⇒ false
   }
 
-  override def toString = s"Member(address = ${address}, status = ${status})"
+  override def toString = s"Member(address = ${address}, upNumber=${upNumber} status = ${status})"
 
   /**
    * Is this member older, has been part of cluster longer, than another

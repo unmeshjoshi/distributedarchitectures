@@ -207,21 +207,21 @@ class ClusterDaemonTest extends FunSuite {
   }
 
 
-  test("gossip state converges") {
+  test("Leadership changes to lower ip address nodes as the new nodes join the network") {
     val s1Address = InetAddressAndPort.create("localhost", 9999)
     val s1 = new ClusterDaemon(s1Address);
-
-    val s5Address = InetAddressAndPort.create("localhost", 9998)
-    val s5 = new ClusterDaemon(s5Address);
 
     val s2Address = InetAddressAndPort.create("localhost", 9995)
     val s2 = new ClusterDaemon(s2Address);
 
-    val s4Address = InetAddressAndPort.create("localhost", 9997)
-    val s4 = new ClusterDaemon(s4Address);
-
     val s3Address = InetAddressAndPort.create("localhost", 9996)
     val s3 = new ClusterDaemon(s3Address);
+
+    val s5Address = InetAddressAndPort.create("localhost", 9998)
+    val s5 = new ClusterDaemon(s5Address);
+
+    val s4Address = InetAddressAndPort.create("localhost", 9997)
+    val s4 = new ClusterDaemon(s4Address);
 
     val networkIO = new DirectNetworkIO();
     networkIO.connections = Map(s1Address -> s1, s2Address -> s2, s3Address -> s3, s4Address -> s4, s5Address -> s5)
@@ -232,27 +232,20 @@ class ClusterDaemonTest extends FunSuite {
     s4.networkIO = networkIO
     s5.networkIO = networkIO
 
-    //if s1 and s2 both act as seed nodes, but they don't know about each other, split brain can happen.
-    //This puts extra restriction on seed nodes, that they all should know each other and completely join the cluster before they
-    //can start receiving requests from other cluster nodes.
 
-    println("Joining s1")
+    //only s1 and s5 join the cluster. S5 is elected is the leader. UpNumber for s5 is 1
     s1.join(s1Address)
-
-    println("Joining s5")
     s5.join(s1Address)
 
-    println("Joining s2")
-    s2.join(s1Address)
+    TestUtils.waitUntilTrue(() => nodesConverge(s1, s5), "all nodes see the gossip")
+    assert(s1.membershipState.isLeader(s5Address))
 
-    TestUtils.waitUntilTrue(() => nodesConverge(s1, s2, s5), "all nodes see the gossip")
-    assert(s1.membershipState.isLeader(s2Address))
+    s1.membershipState.members.foreach(m => println(m))
 
-    println("Joining s4")
+    //s4, s3, s2 join the cluster. s2 is now the leader. But upNumber remains same for all the existing nodes.
     s4.join(s1Address)
-
-    println("Joining s3")
     s3.join(s1Address)
+    s2.join(s1Address)
 
     TestUtils.waitUntilTrue(() => nodesConverge(s1, s2,s5,  s3, s4), "all five nodes see the gossip")
     assert(s2.membershipState.isLeader(s2Address))
