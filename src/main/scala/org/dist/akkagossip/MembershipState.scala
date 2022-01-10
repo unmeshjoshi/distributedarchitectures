@@ -6,6 +6,7 @@ import org.dist.patterns.common.InetAddressAndPort
 import scala.collection.immutable
 
 case class MembershipState(latestGossip: Gossip, selfUniqueAddress: InetAddressAndPort) {
+
   def allMembersUp(clusterSize: Int) = {
     members.size == clusterSize && members.forall(m => m.status == MemberStatus.Up)
   }

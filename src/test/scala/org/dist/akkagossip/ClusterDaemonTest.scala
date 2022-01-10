@@ -207,7 +207,7 @@ class ClusterDaemonTest extends FunSuite {
   }
 
 
-  test("Leadership changes to lower ip address nodes as the new nodes join the network") {
+  test("Leadership changes to lower ip address nodes but upNumbers remain as is the new nodes join the network") {
     val s1Address = InetAddressAndPort.create("localhost", 9999)
     val s1 = new ClusterDaemon(s1Address);
 
@@ -239,6 +239,8 @@ class ClusterDaemonTest extends FunSuite {
 
     TestUtils.waitUntilTrue(() => nodesConverge(s1, s5), "all nodes see the gossip")
     assert(s1.membershipState.isLeader(s5Address))
+    assert(s1.oldestMember().upNumber == 1)
+    assert(s1.oldestMember().address == s5Address)
 
     s1.membershipState.members.foreach(m => println(m))
 
@@ -249,9 +251,10 @@ class ClusterDaemonTest extends FunSuite {
 
     TestUtils.waitUntilTrue(() => nodesConverge(s1, s2,s5,  s3, s4), "all five nodes see the gossip")
     assert(s2.membershipState.isLeader(s2Address))
-
-    s1.membershipState.members.foreach(m => println(m))
+    assert(s2.oldestMember().upNumber == 1)
+    assert(s2.oldestMember().address == s5Address)
   }
+
 
   import scala.jdk.CollectionConverters._
   private def nodesConverge(nodes: ClusterDaemon*) = {

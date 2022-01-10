@@ -1,5 +1,6 @@
 package org.dist.akkagossip
 
+import org.dist.akkagossip.Member.ageOrdering
 import org.dist.akkagossip.MemberStatus._
 import org.dist.patterns.common.InetAddressAndPort
 import org.dist.patterns.singularupdatequeue.SingularUpdateQueue
@@ -8,9 +9,14 @@ import org.dist.queue.common.Logging
 import java.util
 import java.util.Collections
 import java.util.concurrent.{CompletableFuture, ScheduledThreadPoolExecutor, ThreadLocalRandom}
+import scala.collection.immutable
 
 
 class ClusterDaemon(selfUniqueAddress:InetAddressAndPort) extends Logging {
+  def oldestMember() = {
+    immutable.SortedSet.empty(ageOrdering).union(membershipState.members).firstKey
+  }
+
   def allMembersUp(clusterSize:Int) = {
     membershipState.allMembersUp(clusterSize)
   }
