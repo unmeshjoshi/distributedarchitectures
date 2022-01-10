@@ -2,14 +2,19 @@ package org.dist.akkagossip
 
 import org.dist.akkagossip.MemberStatus._
 import org.dist.patterns.common.InetAddressAndPort
+import org.dist.patterns.singularupdatequeue.SingularUpdateQueue
 import org.dist.queue.common.Logging
 
 import java.util
 import java.util.Collections
-import java.util.concurrent.{ScheduledThreadPoolExecutor, ThreadLocalRandom}
+import java.util.concurrent.{CompletableFuture, ScheduledThreadPoolExecutor, ThreadLocalRandom}
 
 
 class ClusterDaemon(selfUniqueAddress:InetAddressAndPort) extends Logging {
+  def allMembersUp(clusterSize:Int) = {
+    membershipState.allMembersUp(clusterSize)
+  }
+
   def join(seedNode: InetAddressAndPort) = {
     networkIO.send(seedNode, Join(selfUniqueAddress))
   }
@@ -29,12 +34,13 @@ class ClusterDaemon(selfUniqueAddress:InetAddressAndPort) extends Logging {
   //</codeFragment>
   private val leaderActionExecutor = new ScheduledThreadPoolExecutor(1)
   leaderActionExecutor.scheduleAtFixedRate(()=>{
-    ClusterDaemon.this.leaderActions()
+   q.submit(LeaderActionTick())
+
   }, 1000, 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
 
   private val gossipExecutor = new ScheduledThreadPoolExecutor(1)
   gossipExecutor.scheduleAtFixedRate(()=>{
-    gossipRandomN(2)
+    q.submit(GossipTick())
   }, 1000, 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
 
   def isSingletonCluster: Boolean = latestGossip.isSingletonCluster
@@ -66,22 +72,33 @@ class ClusterDaemon(selfUniqueAddress:InetAddressAndPort) extends Logging {
   }
 
   def receive(message: Message) = {
+    val value: CompletableFuture[Message] = q.submit(message)
+  }
+
+
+  private def handleReceive(message: Message) = {
     message match {
+      case gossipTick: GossipTick =>
+        gossipRandomN(2)
+      case leaderAction: LeaderActionTick =>
+        leaderActions()
       case envelope: GossipEnvelope =>
         handleGossip(envelope)
-      case welcome:Welcome =>
+      case welcome: Welcome =>
         handleWelcome(welcome)
-      case join:Join =>
+      case join: Join =>
         joining(join.address)
     }
   }
 
-
   def handleGossip(envelope: GossipEnvelope) = {
     val remoteGossip = envelope.latestGossip
     val localGossip = latestGossip
-    println(s"Received Gossip from ${envelope.from}")
+
+
     val comparison = remoteGossip.version.compareTo(localGossip.version)
+
+    info(s"Received Gossip from ${envelope.from} in ${selfUniqueAddress} comparison=${comparison}")
 
     val (winningGossip, talkback, gossipType) = comparison match {
       case VectorClock.Same =>
@@ -103,7 +120,7 @@ class ClusterDaemon(selfUniqueAddress:InetAddressAndPort) extends Logging {
     if (talkback)
       gossipTo(envelope.from)
 
-    println(membershipState)
+    info(s"${membershipState}")
   }
 
   def publishMembershipState() = {}
@@ -208,12 +225,24 @@ class ClusterDaemon(selfUniqueAddress:InetAddressAndPort) extends Logging {
   def publish(latestGossip: Gossip) = {
   }
 
+  val q  = new SingularUpdateQueue[Message, Message]((message)=>{
+    handleReceive(message)
+    message
+  })
+  q.start()
+
   def leaderActionsOnConvergence() = {
-    info("Leader actions on convergence")
+    info("Leader actions on convergence in " + selfUniqueAddress)
     val localGossip = latestGossip
     val localMembers = localGossip.members
     val localOverview = localGossip.overview
     val localSeen = localOverview.seen
+
+    val removedUnreachable = for {
+      node ← localOverview.reachability.allUnreachableOrTerminated
+      m = localGossip.member(node)
+      if Gossip.removeUnreachableWithMemberStatus(m.status)
+    } yield m
 
     val changedMembers = {
       val enoughMembers: Boolean = isMinNrOfMembersFulfilled
@@ -247,57 +276,52 @@ class ClusterDaemon(selfUniqueAddress:InetAddressAndPort) extends Logging {
       // handle changes
 
       // replace changed members
-      val newMembers = changedMembers
+//      val newMembers = changedMembers union localMembers diff removedUnreachable
+//FIXME: in akka 2.4
+//      val newMembers = localMembers union changedMembers diff removedUnreachable
 
-      // removing REMOVED nodes from the `seen` table
-      val removed = Set[InetAddressAndPort]()
-      val newSeen = localSeen diff removed
-      // removing REMOVED nodes from the `reachability` table
-      val newReachability = localOverview.reachability.remove(removed)
-      val newOverview = localOverview copy (seen = newSeen, reachability = newReachability)
-      // Clear the VectorClock when member is removed. The change made by the leader is stamped
-      // and will propagate as is if there are no other changes on other nodes.
-      // If other concurrent changes on other nodes (e.g. join) the pruning is also
-      // taken care of when receiving gossips.
-      val newVersion = removed.foldLeft(localGossip.version) { (v, node) ⇒
-        v.prune(VectorClock.Node(Gossip.vclockName(node)))
-      }
-      val newGossip = localGossip copy (members = newMembers, overview = newOverview, version = newVersion)
+      // replace changed members
+//      val removed = removedUnreachable
+//        .map(_.uniqueAddress)
+//        .union(removedExitingConfirmed)
+//        .union(removedOtherDc.map(_.uniqueAddress))
+
+      val newGossip = latestGossip.update(changedMembers).removeAll(removedUnreachable.map(_.uniqueAddress)
+        , System.currentTimeMillis())
 
       updateLatestGossip(newGossip)
 
       // log status changes
       changedMembers foreach { m ⇒
-        info(s"Leader is moving node [${m.address}] to [${m.status}]")
+        info(s"Leader ${selfUniqueAddress} is moving node [${m.address}] to [${m.status}]")
       }
+      info(s"$membershipState")
+
       publish(latestGossip)
     }
   }
+
 
   val MinNrOfMembers = 2
   def isMinNrOfMembersFulfilled: Boolean = {
     latestGossip.members.size >= MinNrOfMembers
   }
   def leaderActions() = {
-    info("doing leader actions")
+    info("doing leader actions in " + selfUniqueAddress)
     if (membershipState.isLeader(selfUniqueAddress)) {
-      info(s"${selfUniqueAddress} is leader" )
+      info(s"${selfUniqueAddress} is leader in ${membershipState}" )
       if (!isCurrentlyLeader) {
         info(s"${selfUniqueAddress} is the new leader among reachable nodes (more leaders may exist)")
         isCurrentlyLeader = true
       }
-      val firstNotice = 20
-      val periodicNotice = 60
       if (membershipState.convergence(exitingConfirmed)) {
-        if (leaderActionCounter >= firstNotice)
-          info("Leader can perform its duties again")
         leaderActionCounter = 0
         leaderActionsOnConvergence()
       } else {
 
       }
     } else {
-      info("no leader elected yet " + membershipState)
+      info(s"${selfUniqueAddress} is not leader in ${membershipState}" )
     }
   }
 
@@ -323,25 +347,33 @@ class ClusterDaemon(selfUniqueAddress:InetAddressAndPort) extends Logging {
 
         // add joining node as Joining
         // add self in case someone else joins before self has joined (Set discards duplicates)
-        val newMembers = localMembers + Member(joiningNode) + Member(selfUniqueAddress)
-        val newGossip = latestGossip.copy(members = newMembers)
-
-        updateLatestGossip(newGossip)
+        addJoiningMember(joiningNode)
 
         if (joiningNode == selfUniqueAddress) {
           info(
-            s"Node [${joiningNode.getAddress}] is JOINING itself forming new cluster")
+            s"Node [${joiningNode}] is JOINING itself forming new cluster")
           if (localMembers.isEmpty){}
 //            leaderActions() //TODO: Figure out why this is important for deterministic oldest when bootstrapping
         } else {
             info(
-              s"Node [${joiningNode.getAddress}] is JOINING")
+              s"Node [${joiningNode}] is JOINING")
             networkIO.send(joiningNode, Welcome(selfUniqueAddress, joiningNode, latestGossip))
           }
         }
   }
 
+  def addJoiningMember(joiningNode: InetAddressAndPort) = {
+    val localMembers = latestGossip.members
+    val newMembers = localMembers + Member(joiningNode) + Member(selfUniqueAddress)
+    val newGossip = latestGossip.copy(members = newMembers)
+
+    updateLatestGossip(newGossip)
+
+  }
+
   def gossipTo(node: InetAddressAndPort): Unit =
-    if (membershipState.validNodeForGossip(node))
+    if (membershipState.validNodeForGossip(node)) {
+       info(s"Gossiping from ${selfUniqueAddress}to ${node}")
        networkIO.send(node, GossipEnvelope(selfUniqueAddress, node, latestGossip))
+    }
 }

@@ -61,7 +61,7 @@ object TestUtils {
     f
   }
 
-  val DEFAULT_MAX_WAIT_MS = 10000
+  val DEFAULT_MAX_WAIT_MS = 1000000
 
   /**
    *  Wait until the given condition is true or throw an exception if the given wait time elapses.

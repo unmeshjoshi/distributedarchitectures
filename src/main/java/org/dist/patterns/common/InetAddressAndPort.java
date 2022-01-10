@@ -6,8 +6,8 @@ import java.net.UnknownHostException;
 import java.util.Objects;
 
 public class InetAddressAndPort implements Comparable<InetAddressAndPort> {
-    private final InetAddress address;
-    private final Integer port;
+    public final InetAddress address;
+    public final Integer port;
 
     public InetAddressAndPort(InetAddress address, Integer port) {
 
