@@ -30,6 +30,25 @@ case class Gossip(
      tombstones: Map[InetAddressAndPort, Gossip.Timestamp] = Map.empty) {
 
 
+  def merge(that: Gossip): Gossip = {
+
+    // 1. merge vector clocks
+    val mergedVClock = this.version merge that.version
+
+    // 2. merge members by selecting the single Member with highest MemberStatus out of the Member groups
+    val mergedMembers = Gossip.emptyMembers union Member.pickHighestPriority(this.members, that.members)
+
+    // 3. merge reachability table by picking records with highest version
+    val mergedReachability = this.overview.reachability.merge(
+      mergedMembers.map(_.uniqueAddress),
+      that.overview.reachability)
+
+    // 4. Nobody can have seen this new gossip yet
+    val mergedSeen = Set.empty[InetAddressAndPort]
+
+    Gossip(mergedMembers, GossipOverview(mergedSeen, mergedReachability), mergedVClock)
+  }
+
   /**
    * Remove the given member from the set of members and mark it's removal with a tombstone to avoid having it
    * reintroduced when merging with another gossip that has not seen the removal.
