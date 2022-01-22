@@ -44,16 +44,21 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
   case object Merge extends ReceiveGossipType
 
   //</codeFragment>
-  private val leaderActionExecutor = new ScheduledThreadPoolExecutor(1)
-  leaderActionExecutor.scheduleAtFixedRate(() => {
+  private val scheduler = new ScheduledThreadPoolExecutor(1)
+  scheduler.scheduleAtFixedRate(() => {
     q.submit(LeaderActionTick)
 
   }, 1000, 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
 
-  private val gossipExecutor = new ScheduledThreadPoolExecutor(1)
-  gossipExecutor.scheduleAtFixedRate(() => {
+  scheduler.scheduleAtFixedRate(() => {
     q.submit(GossipTick)
   }, 1000, 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
+
+
+  scheduler.scheduleAtFixedRate(() => {
+    q.submit(ReapUnreachableTick)
+  }, 1000, 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
+
 
   def isSingletonCluster: Boolean = latestGossip.isSingletonCluster
 

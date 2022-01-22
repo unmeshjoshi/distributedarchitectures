@@ -78,7 +78,7 @@ class ClusterDaemonTest extends FunSuite {
     assert(s1.membershipState.isLeader(s2Address))
   }
 
-  test("node marks the node as down if no response") {
+  test("node marks the node as unreachable if no response") {
     val s1Address = InetAddressAndPort.create("localhost", 9999)
     val s1 = new ClusterDaemon(s1Address);
 
@@ -103,6 +103,8 @@ class ClusterDaemonTest extends FunSuite {
     networkIO.disconnect(s2Address, s1Address)
 
     TestUtils.waitUntilTrue(()=> false == s1.heartbeat.state.failureDetector.isAvailable(s2Address), "node marked as down")
+
+    Thread.sleep(50000)
   }
 
   test("heartbeat state has all the members once nodes converge") {
