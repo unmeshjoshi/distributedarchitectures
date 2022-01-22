@@ -8,11 +8,12 @@ import org.dist.queue.common.Logging
 
 import java.util
 import java.util.Collections
-import java.util.concurrent.{CompletableFuture, ScheduledThreadPoolExecutor, ThreadLocalRandom}
+import java.util.concurrent.{CompletableFuture, ScheduledThreadPoolExecutor, ThreadLocalRandom, TimeUnit}
 import scala.collection.immutable
 import scala.collection.immutable.VectorBuilder
+import scala.concurrent.duration.Duration
 
-class ClusterDaemon(selfUniqueAddress: InetAddressAndPort) extends Logging {
+class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
   def oldestMember() = {
     immutable.SortedSet.empty(ageOrdering).union(membershipState.members).firstKey
   }
@@ -45,13 +46,13 @@ class ClusterDaemon(selfUniqueAddress: InetAddressAndPort) extends Logging {
   //</codeFragment>
   private val leaderActionExecutor = new ScheduledThreadPoolExecutor(1)
   leaderActionExecutor.scheduleAtFixedRate(() => {
-    q.submit(LeaderActionTick())
+    q.submit(LeaderActionTick)
 
   }, 1000, 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
 
   private val gossipExecutor = new ScheduledThreadPoolExecutor(1)
   gossipExecutor.scheduleAtFixedRate(() => {
-    q.submit(GossipTick())
+    q.submit(GossipTick)
   }, 1000, 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
 
   def isSingletonCluster: Boolean = latestGossip.isSingletonCluster
@@ -86,19 +87,87 @@ class ClusterDaemon(selfUniqueAddress: InetAddressAndPort) extends Logging {
     val value: CompletableFuture[Message] = q.submit(message)
   }
 
+  case object  LeaderActionTick extends Message(selfUniqueAddress)
+  case object GossipTick extends Message(selfUniqueAddress)
+  case object ReapUnreachableTick extends Message(selfUniqueAddress)
 
+  def sendHeartbeatResponse(from: InetAddressAndPort):Unit = {
+    info(s"Sending heartbeat response from ${selfUniqueAddress} to ${from}")
+    networkIO.send(from, HeartbeatRsp(selfUniqueAddress))
+  }
   private def handleReceive(message: Message) = {
     message match {
-      case gossipTick: GossipTick =>
+      case GossipTick =>
         gossipRandomN(2)
-      case leaderAction: LeaderActionTick =>
+      case LeaderActionTick =>
         leaderActions()
       case envelope: GossipEnvelope =>
         handleGossip(envelope)
       case welcome: Welcome =>
         handleWelcome(welcome)
       case join: Join =>
-        joining(join.address)
+        joining(join.fromAddress)
+      case heartbeat: Heartbeat =>
+        sendHeartbeatResponse(heartbeat.from)
+      case heartbeatRsp: HeartbeatRsp =>
+          heartbeatResponse(heartbeatRsp)
+      case  ReapUnreachableTick =>
+        reapUnreachableMembers()
+
+    }
+  }
+
+  private def heartbeatResponse(heartbeatRsp: HeartbeatRsp) = {
+    heartbeat.heartbeatResponse(heartbeatRsp)
+  }
+
+  def reapUnreachableMembers(): Unit = {
+    if (!isSingletonCluster) {
+      // only scrutinize if we are a non-singleton cluster
+
+      val localGossip = latestGossip
+      val localOverview = localGossip.overview
+      val localMembers = localGossip.members
+
+      val newlyDetectedUnreachableMembers = localMembers filterNot { member ⇒
+        member.uniqueAddress == selfUniqueAddress ||
+          localOverview.reachability.status(selfUniqueAddress, member.uniqueAddress) == Reachability.Unreachable ||
+          localOverview.reachability.status(selfUniqueAddress, member.uniqueAddress) == Reachability.Terminated ||
+          failureDetector.isAvailable(member.address)
+      }
+
+      val newlyDetectedReachableMembers = localOverview.reachability.allUnreachableFrom(selfUniqueAddress) collect {
+        case node if node != selfUniqueAddress && failureDetector.isAvailable(node) ⇒
+          localGossip.member(node)
+      }
+
+      if (newlyDetectedUnreachableMembers.nonEmpty || newlyDetectedReachableMembers.nonEmpty) {
+
+        val newReachability1 = (localOverview.reachability /: newlyDetectedUnreachableMembers) {
+          (reachability, m) ⇒ reachability.unreachable(selfUniqueAddress, m.uniqueAddress)
+        }
+        val newReachability2 = (newReachability1 /: newlyDetectedReachableMembers) {
+          (reachability, m) ⇒ reachability.reachable(selfUniqueAddress, m.uniqueAddress)
+        }
+
+        if (newReachability2 ne localOverview.reachability) {
+          val newOverview = localOverview copy (reachability = newReachability2)
+          val newGossip = localGossip copy (overview = newOverview)
+
+          val oldMemberstate = updateLatestGossip(newGossip)
+
+          val (exiting, nonExiting) = newlyDetectedUnreachableMembers.partition(_.status == Exiting)
+          if (nonExiting.nonEmpty)
+            info(s"Cluster Node [${selfUniqueAddress}] - Marking node(s) as UNREACHABLE [${nonExiting.mkString(", ")}]. Node roles [{}]")
+          if (exiting.nonEmpty)
+            info(
+              s"Marking exiting node(s) as UNREACHABLE [${exiting.mkString(", ")}]. This is expected and they will be removed.")
+          if (newlyDetectedReachableMembers.nonEmpty)
+            info(s"Marking node(s) as REACHABLE [${newlyDetectedReachableMembers.mkString(", ")}]. Node roles [{}]" )
+
+          publishChanges(oldMemberstate, membershipState)
+        }
+      }
     }
   }
 
@@ -194,7 +263,8 @@ class ClusterDaemon(selfUniqueAddress: InetAddressAndPort) extends Logging {
   }
 
 
-  var networkIO = new DirectNetworkIO();
+  var networkIO = new DirectNetworkIO(Map());
+
 
   var membershipState = MembershipState(
     Gossip.empty, selfUniqueAddress)
@@ -281,8 +351,13 @@ class ClusterDaemon(selfUniqueAddress: InetAddressAndPort) extends Logging {
   var leaderActionCounter = 0
   var exitingConfirmed = Set.empty[InetAddressAndPort]
 
-  def startAcceptingUserRequests() = {
-    println(s"Node ${selfUniqueAddress} joined the cluster. Accepting user requests")
+  val failureDetector = new DefaultFailureDetectorRegistry[InetAddressAndPort](()=> new DeadlineFailureDetector(Duration(3, TimeUnit.SECONDS), Duration(1, TimeUnit.SECONDS)))
+  val MonitoredByNrOfMembers = 5
+  val heartbeat = new ClusterHeartbeat(this, selfUniqueAddress, MonitoredByNrOfMembers, failureDetector);
+
+  def startHeartbeating() = {
+    heartbeat.start()
+    println(s"Node ${selfUniqueAddress} joined the cluster. Starting heartbeats")
   }
 
   val ageOrdering = Member.ageOrdering
@@ -347,7 +422,9 @@ class ClusterDaemon(selfUniqueAddress: InetAddressAndPort) extends Logging {
     memberEvent match {
       case MemberUp(m) => {
         if (m.address.eq(selfUniqueAddress)) {
-          startAcceptingUserRequests()
+          startHeartbeating()
+        } else {
+          heartbeat.addMember(m)
         }
         val before = membersByAge.headOption
         // replace, it's possible that the upNumber is changed

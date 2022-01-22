@@ -27,8 +27,7 @@ class ClusterDaemonTest extends FunSuite {
     val s5Address = InetAddressAndPort.create("localhost", 9998)
     val s5 = new ClusterDaemon(s5Address);
 
-    val networkIO = new DirectNetworkIO();
-    networkIO.connections = Map(s1Address -> s1, s2Address -> s2, s3Address -> s3, s4Address -> s4, s5Address -> s5)
+    val networkIO = new DirectNetworkIO(Map(s1Address -> s1, s2Address -> s2, s3Address -> s3, s4Address -> s4, s5Address -> s5))
 
     s1.networkIO = networkIO
     s2.networkIO = networkIO
@@ -64,8 +63,7 @@ class ClusterDaemonTest extends FunSuite {
     val s2Address = InetAddressAndPort.create("localhost", 9995)
     val s2 = new ClusterDaemon(s2Address);
 
-    val networkIO = new DirectNetworkIO();
-    networkIO.connections = Map(s1Address -> s1, s2Address -> s2)
+    val networkIO = new DirectNetworkIO(Map(s1Address -> s1, s2Address -> s2))
 
     s1.networkIO = networkIO
     s2.networkIO = networkIO
@@ -80,6 +78,56 @@ class ClusterDaemonTest extends FunSuite {
     assert(s1.membershipState.isLeader(s2Address))
   }
 
+  test("node marks the node as down if no response") {
+    val s1Address = InetAddressAndPort.create("localhost", 9999)
+    val s1 = new ClusterDaemon(s1Address);
+
+    val s2Address = InetAddressAndPort.create("localhost", 9995)
+    val s2 = new ClusterDaemon(s2Address);
+
+    val networkIO = new DirectNetworkIO(Map(s1Address -> s1, s2Address -> s2))
+
+    s1.networkIO = networkIO
+    s2.networkIO = networkIO
+
+    println("Joining s1")
+    s1.join(s1Address)
+
+    println("Joining s2")
+    s2.join(s1Address)
+
+    TestUtils.waitUntilTrue(() => nodesConverge(s1, s2), "all nodes gossip converges and members marked as UP")
+    assert(s1.membershipState.isLeader(s2Address))
+//
+    Thread.sleep(2000)
+    networkIO.disconnect(s2Address, s1Address)
+
+    TestUtils.waitUntilTrue(()=> false == s1.heartbeat.state.failureDetector.isAvailable(s2Address), "node marked as down")
+  }
+
+  test("heartbeat state has all the members once nodes converge") {
+    val s1Address = InetAddressAndPort.create("localhost", 9999)
+    val s1 = new ClusterDaemon(s1Address);
+
+    val s2Address = InetAddressAndPort.create("localhost", 9995)
+    val s2 = new ClusterDaemon(s2Address);
+
+    val networkIO = new DirectNetworkIO(Map(s1Address -> s1, s2Address -> s2))
+
+    s1.networkIO = networkIO
+    s2.networkIO = networkIO
+
+    println("Joining s1")
+    s1.join(s1Address)
+
+    println("Joining s2")
+    s2.join(s1Address)
+
+    TestUtils.waitUntilTrue(() => nodesConverge(s1, s2), "all nodes gossip converges and members marked as UP")
+    assert(s1.membershipState.isLeader(s2Address))
+
+  }
+
   test("basic convergence 3 nodes") {
     val s1Address = InetAddressAndPort.create("localhost", 9999)
     val s1 = new ClusterDaemon(s1Address);
@@ -90,8 +138,7 @@ class ClusterDaemonTest extends FunSuite {
     val s3Address = InetAddressAndPort.create("localhost", 9996)
     val s3 = new ClusterDaemon(s3Address);
 
-    val networkIO = new DirectNetworkIO();
-    networkIO.connections = Map(s1Address -> s1, s2Address -> s2, s3Address -> s3)
+    val networkIO = new DirectNetworkIO(Map(s1Address -> s1, s2Address -> s2, s3Address -> s3))
 
     s1.networkIO = networkIO
     s2.networkIO = networkIO
@@ -123,8 +170,7 @@ class ClusterDaemonTest extends FunSuite {
     val s4Address = InetAddressAndPort.create("localhost", 9997)
     val s4 = new ClusterDaemon(s4Address);
 
-    val networkIO = new DirectNetworkIO();
-    networkIO.connections = Map(s1Address -> s1, s2Address -> s2, s3Address -> s3, s4Address -> s4)
+    val networkIO = new DirectNetworkIO(Map(s1Address -> s1, s2Address -> s2, s3Address -> s3, s4Address -> s4))
 
     s1.networkIO = networkIO
     s2.networkIO = networkIO
@@ -176,8 +222,7 @@ class ClusterDaemonTest extends FunSuite {
     val s5Address = InetAddressAndPort.create("localhost", 9998)
     val s5 = new ClusterDaemon(s5Address);
 
-    val networkIO = new DirectNetworkIO();
-    networkIO.connections = Map(s1Address -> s1, s2Address -> s2, s3Address -> s3, s4Address -> s4, s5Address -> s5)
+    val networkIO = new DirectNetworkIO(Map(s1Address -> s1, s2Address -> s2, s3Address -> s3, s4Address -> s4, s5Address -> s5))
 
     s1.networkIO = networkIO
     s2.networkIO = networkIO
@@ -223,8 +268,7 @@ class ClusterDaemonTest extends FunSuite {
     val s4Address = InetAddressAndPort.create("localhost", 9997)
     val s4 = new ClusterDaemon(s4Address);
 
-    val networkIO = new DirectNetworkIO();
-    networkIO.connections = Map(s1Address -> s1, s2Address -> s2, s3Address -> s3, s4Address -> s4, s5Address -> s5)
+    val networkIO = new DirectNetworkIO(Map(s1Address -> s1, s2Address -> s2, s3Address -> s3, s4Address -> s4, s5Address -> s5))
 
     s1.networkIO = networkIO
     s2.networkIO = networkIO
@@ -253,11 +297,16 @@ class ClusterDaemonTest extends FunSuite {
     assert(s2.membershipState.isLeader(s2Address))
     assert(s2.oldestMember().upNumber == 1)
     assert(s2.oldestMember().address == s5Address)
+
+
+    println(s1)
   }
 
 
   import scala.jdk.CollectionConverters._
   private def nodesConverge(nodes: ClusterDaemon*) = {
-    nodes.asJava.stream().allMatch(d => d.allMembersUp(nodes.size))
+    nodes.forall(d => d.allMembersUp(nodes.size)) &&
+      nodes.forall(d => d.heartbeat.state.ring.nodes.forall(nodes.map(d => d.selfUniqueAddress).contains(_)))
   }
+
 }
