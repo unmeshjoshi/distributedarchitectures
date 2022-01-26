@@ -103,8 +103,6 @@ class ClusterDaemonTest extends FunSuite {
     networkIO.disconnect(s2Address, s1Address)
 
     TestUtils.waitUntilTrue(()=> false == s1.heartbeat.state.failureDetector.isAvailable(s2Address), "node marked as down")
-
-    Thread.sleep(50000)
   }
 
   test("heartbeat state has all the members once nodes converge") {
