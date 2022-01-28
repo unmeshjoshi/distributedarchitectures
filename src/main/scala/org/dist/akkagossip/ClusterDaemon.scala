@@ -141,6 +141,9 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
           failureDetector.isAvailable(member.address)
       }
 
+      if (newlyDetectedUnreachableMembers.nonEmpty) {
+        info(s"newly detected UNREACHABLE members in ${selfUniqueAddress} is ${newlyDetectedUnreachableMembers}")
+      }
       val newlyDetectedReachableMembers = localOverview.reachability.allUnreachableFrom(selfUniqueAddress) collect {
         case node if node != selfUniqueAddress && failureDetector.isAvailable(node) ⇒
           localGossip.member(node)
@@ -159,7 +162,7 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
           val newOverview = localOverview copy (reachability = newReachability2)
           val newGossip = localGossip copy (overview = newOverview)
 
-          val oldMemberstate = updateLatestGossip(newGossip)
+          val oldMembershipState = updateLatestGossip(newGossip)
 
           val (exiting, nonExiting) = newlyDetectedUnreachableMembers.partition(_.status == Exiting)
           if (nonExiting.nonEmpty)
@@ -170,10 +173,14 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
           if (newlyDetectedReachableMembers.nonEmpty)
             info(s"Marking node(s) as REACHABLE [${newlyDetectedReachableMembers.mkString(", ")}]. Node roles [{}]" )
 
-          publishChanges(oldMemberstate, membershipState)
+          publishChanges(oldMembershipState, membershipState)
         }
       }
     }
+  }
+
+  def isAvailable(address: InetAddressAndPort) = {
+    heartbeat.state.failureDetector.isAvailable(address)
   }
 
   def publishChanges(oldMembershipState: MembershipState, membershipState: MembershipState) = {
@@ -190,7 +197,7 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
     if (newGossip eq oldGossip) Nil
     else {
       val newMembers = newGossip.members diff oldGossip.members
-      val membersGroupedByAddress = List(newGossip.members, oldGossip.members).flatten.groupBy(_.uniqueAddress)
+      val membersGroupedByAddress: Map[InetAddressAndPort, List[Member]] = List(newGossip.members, oldGossip.members).flatten.groupBy(_.uniqueAddress)
       val changedMembers = membersGroupedByAddress collect {
         case (_, newMember :: oldMember :: Nil) if newMember.status != oldMember.status || newMember.upNumber != oldMember.upNumber ⇒
           newMember
@@ -258,10 +265,12 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
 
   def handleWelcome(welcome: Welcome): Unit = {
     require(latestGossip.members.isEmpty, "Join can only be done from empty state")
+    val oldMembershipState = membershipState
     membershipState = membershipState.copy(latestGossip = welcome.latestGossip).seen()
     info(s"Welcome from [${welcome.from}]")
     assertLatestGossip()
     publishMembershipState()
+    publishChanges(oldMembershipState, membershipState)
     if (welcome.from != selfUniqueAddress)
       gossipTo(welcome.from)
     becomeInitialized()
@@ -356,7 +365,7 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
   var leaderActionCounter = 0
   var exitingConfirmed = Set.empty[InetAddressAndPort]
 
-  val failureDetector = new DefaultFailureDetectorRegistry[InetAddressAndPort](()=> new DeadlineFailureDetector(Duration(3, TimeUnit.SECONDS), Duration(1, TimeUnit.SECONDS)))
+  val failureDetector = new DefaultFailureDetectorRegistry[InetAddressAndPort](()=> new DeadlineFailureDetector(Duration(3, TimeUnit.SECONDS), Duration(10, TimeUnit.SECONDS)))
   val MonitoredByNrOfMembers = 5
   val heartbeat = new ClusterHeartbeat(this, selfUniqueAddress, MonitoredByNrOfMembers, failureDetector);
 

@@ -13,7 +13,8 @@ class DirectNetworkIO(var connections:Map[InetAddressAndPort, ClusterDaemon]) {
   }
 
   def send(node: InetAddressAndPort, message: Message):Unit = {
-    if (hasDisconnectionFor(node, message)) {
+    //drop message if disconnection added.
+    if (hasDisconnectionFor(message, node)) {
       return
     }
 
@@ -23,8 +24,8 @@ class DirectNetworkIO(var connections:Map[InetAddressAndPort, ClusterDaemon]) {
     }
   }
 
-  private def hasDisconnectionFor(node: InetAddressAndPort, message: Message) = {
+  private def hasDisconnectionFor(message: Message, toAddress: InetAddressAndPort) = {
     !disconnections.isEmpty &&
-    disconnections.get(message.from).forall(_.eq(node))
+    disconnections.get(message.from).forall(_.eq(toAddress))
   }
 }
