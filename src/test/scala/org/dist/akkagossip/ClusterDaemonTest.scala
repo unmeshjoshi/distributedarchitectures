@@ -102,7 +102,7 @@ class ClusterDaemonTest extends FunSuite {
     Thread.sleep(2000)
     networkIO.disconnect(s2Address, s1Address)
 
-    TestUtils.waitUntilTrue(()=> false == s1.isAvailable(s2Address), "node marked as down")
+    TestUtils.waitUntilTrue(()=> false == s1.isAliveInFailureDetector(s2Address), "node marked as down")
   }
 
   test("heartbeat state has all the members once nodes converge") {
@@ -156,8 +156,24 @@ class ClusterDaemonTest extends FunSuite {
     TestUtils.waitUntilTrue(() => nodesConverge(s1, s2, s3), "all nodes gossip converges and members marked as UP")
     assert(s1.membershipState.isLeader(s2Address))
 
+    TestUtils.waitUntilTrue(() => s3.heartbeat.state.failureDetector.isMonitoring(s2Address), "s5 got a few heartbeats from s2")
+    TestUtils.waitUntilTrue(() => s1.heartbeat.state.failureDetector.isMonitoring(s2Address), "s5 got a few heartbeats from s2")
 
+    networkIO.disconnect(s2Address, s3Address)
 
+    TestUtils.waitUntilTrue(() => {
+      s3.isUnreachableInFailureDetector(s2Address)
+    }, "S3  marks s2 as unrachable")
+
+    //with gossip, S2 will be marked unreachable in all the nodes.
+    TestUtils.waitUntilTrue(() => {
+      (!s3.membershipState.latestGossip.overview.reachability.isReachable(s2Address) &&
+        !s1.membershipState.latestGossip.overview.reachability.isReachable(s2Address))
+    }, "All nodes mark s2 as unrachable")
+
+    println("Reachability in s1")
+    println(s1.membershipState.latestGossip.overview.reachability.records)
+    assert(s1.membershipState.isLeader(s3Address))
   }
 
   test("basic convergence 4 nodes") {
@@ -303,13 +319,16 @@ class ClusterDaemonTest extends FunSuite {
     networkIO.disconnect(s2Address, s5Address)
 
     TestUtils.waitUntilTrue(() => {
-      !s5.isAvailable(s2Address)
+      s5.isUnreachableInFailureDetector(s2Address)
     }, "S5  marks s2 as unrachable")
 
-    //with gossip, S2 will be marked unreachable in all the nodes.
     TestUtils.waitUntilTrue(() => {
-      (!s5.isAvailable(s2Address) && !s4.isAvailable(s2Address) && !s3.isAvailable(s2Address) && !s1.isAvailable(s2Address))
-    }, "All nodes mark s2 as unrachable")
+      !s1.membershipState.latestGossip.overview.reachability.isReachable(s2Address)},
+      "S1 still sees s2 as reachable")
+
+    println("Reachability in s1")
+    println(s1.membershipState.latestGossip.overview.reachability.records)
+    assert(s1.membershipState.isLeader(s3Address))
   }
 
 

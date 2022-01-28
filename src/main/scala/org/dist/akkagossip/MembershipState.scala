@@ -70,6 +70,7 @@ case class MembershipState(latestGossip: Gossip, selfUniqueAddress: InetAddressA
     if (reachableMembers.isEmpty) None
     else reachableMembers.find(m ⇒ leaderMemberStatus(m.status)).
       orElse(Some(reachableMembers.min(Member.leaderStatusOrdering))).map(_.uniqueAddress)
+
   }
 
 

@@ -26,6 +26,7 @@ class DirectNetworkIO(var connections:Map[InetAddressAndPort, ClusterDaemon]) {
 
   private def hasDisconnectionFor(message: Message, toAddress: InetAddressAndPort) = {
     !disconnections.isEmpty &&
-    disconnections.get(message.from).forall(_.eq(toAddress))
+    !disconnections.get(message.from).isEmpty &&
+      disconnections.get(message.from).get == toAddress
   }
 }

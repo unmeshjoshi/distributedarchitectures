@@ -151,7 +151,8 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
 
       if (newlyDetectedUnreachableMembers.nonEmpty || newlyDetectedReachableMembers.nonEmpty) {
 
-        val newReachability1 = (localOverview.reachability /: newlyDetectedUnreachableMembers) {
+        val reachability1: Reachability = localOverview.reachability
+        val newReachability1 = (reachability1 /: newlyDetectedUnreachableMembers) {
           (reachability, m) ⇒ reachability.unreachable(selfUniqueAddress, m.uniqueAddress)
         }
         val newReachability2 = (newReachability1 /: newlyDetectedReachableMembers) {
@@ -179,7 +180,9 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
     }
   }
 
-  def isAvailable(address: InetAddressAndPort) = {
+  def isUnreachableInFailureDetector(address:InetAddressAndPort) = !isAliveInFailureDetector(address)
+
+  def isAliveInFailureDetector(address: InetAddressAndPort) = {
     heartbeat.state.failureDetector.isAvailable(address)
   }
 
