@@ -311,7 +311,7 @@ class Reachability private (
     } yield {
       val record = rows(subject)
       val aggregated = status(subject)
-      s"${observer.getAddress} -> ${subject.getAddress}: ${record.status} [$aggregated] (${record.version})"
+      s"${observer} -> ${subject}: ${record.status} [$aggregated] (${record.version})"
     }
 
     rows.mkString(", ")

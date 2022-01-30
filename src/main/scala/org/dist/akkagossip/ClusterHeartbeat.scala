@@ -36,7 +36,7 @@ class ClusterHeartbeat(clusterDaemon: ClusterDaemon,
                        MonitoredByNrOfMembers:Int,
                        failureDetectorRegistry: FailureDetectorRegistry[InetAddressAndPort]) extends Logging {
   def heartbeatResponse(heartbeatRsp: HeartbeatRsp) = {
-    info(s"received heartbeat response from ${heartbeatRsp.from}")
+    info(s"${selfUniqueAddress} received heartbeat response from ${heartbeatRsp.from}")
     state = state.heartbeatRsp(heartbeatRsp.from)
   }
 

@@ -67,6 +67,9 @@ case class MembershipState(latestGossip: Gossip, selfUniqueAddress: InetAddressA
       if (overview.reachability.isAllReachable) mbrs.filterNot(_.status == Down)
       else mbrs.filter(m ⇒ m.status != Down &&
         (overview.reachability.isReachable(m.uniqueAddress) || m.uniqueAddress == selfUniqueAddress))
+
+    println(s"reachableMembers=${reachableMembers}")
+
     if (reachableMembers.isEmpty) None
     else reachableMembers.find(m ⇒ leaderMemberStatus(m.status)).
       orElse(Some(reachableMembers.min(Member.leaderStatusOrdering))).map(_.uniqueAddress)

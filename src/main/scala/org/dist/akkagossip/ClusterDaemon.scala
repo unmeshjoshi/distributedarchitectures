@@ -13,7 +13,18 @@ import scala.collection.immutable
 import scala.collection.immutable.VectorBuilder
 import scala.concurrent.duration.Duration
 
+object ClusterDaemon {
+
+  implicit val clusterNodeOrdering: Ordering[ClusterDaemon] = (a: ClusterDaemon, b: ClusterDaemon) => {
+    a.selfUniqueAddress compareTo b.selfUniqueAddress
+  }
+
+}
+
 class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
+
+
+
   def oldestMember() = {
     immutable.SortedSet.empty(ageOrdering).union(membershipState.members).firstKey
   }
@@ -178,6 +189,11 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
         }
       }
     }
+  }
+
+
+  def isMonitoring(address: InetAddressAndPort) = {
+    heartbeat.state.failureDetector.isMonitoring(address)
   }
 
   def isUnreachableInFailureDetector(address:InetAddressAndPort) = !isAliveInFailureDetector(address)
@@ -369,7 +385,7 @@ class ClusterDaemon(val selfUniqueAddress: InetAddressAndPort) extends Logging {
   var exitingConfirmed = Set.empty[InetAddressAndPort]
 
   val failureDetector = new DefaultFailureDetectorRegistry[InetAddressAndPort](()=> new DeadlineFailureDetector(Duration(3, TimeUnit.SECONDS), Duration(10, TimeUnit.SECONDS)))
-  val MonitoredByNrOfMembers = 5
+  val MonitoredByNrOfMembers = 7
   val heartbeat = new ClusterHeartbeat(this, selfUniqueAddress, MonitoredByNrOfMembers, failureDetector);
 
   def startHeartbeating() = {

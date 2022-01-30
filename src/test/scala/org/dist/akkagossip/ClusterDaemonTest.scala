@@ -156,8 +156,8 @@ class ClusterDaemonTest extends FunSuite {
     TestUtils.waitUntilTrue(() => nodesConverge(s1, s2, s3), "all nodes gossip converges and members marked as UP")
     assert(s1.membershipState.isLeader(s2Address))
 
-    TestUtils.waitUntilTrue(() => s3.heartbeat.state.failureDetector.isMonitoring(s2Address), "s5 got a few heartbeats from s2")
-    TestUtils.waitUntilTrue(() => s1.heartbeat.state.failureDetector.isMonitoring(s2Address), "s5 got a few heartbeats from s2")
+    TestUtils.waitUntilTrue(() => s3.isMonitoring(s2Address), "s5 got a few heartbeats from s2")
+    TestUtils.waitUntilTrue(() => s1.isMonitoring(s2Address), "s1 got a few heartbeats from s2")
 
     networkIO.disconnect(s2Address, s3Address)
 
@@ -314,7 +314,7 @@ class ClusterDaemonTest extends FunSuite {
     TestUtils.waitUntilTrue(() => nodesConverge(s1, s2, s3, s4, s5), "all nodes gossip converges and members marked as UP")
     assert(s1.membershipState.isLeader(s2Address))
 
-    TestUtils.waitUntilTrue(() => s5.heartbeat.state.failureDetector.isMonitoring(s2Address), "s5 got a few heartbeats from s2")
+    TestUtils.waitUntilTrue(() => s5.isMonitoring(s2Address), "s5 got a few heartbeats from s2")
 
     networkIO.disconnect(s2Address, s5Address)
 
@@ -326,11 +326,76 @@ class ClusterDaemonTest extends FunSuite {
       !s1.membershipState.latestGossip.overview.reachability.isReachable(s2Address)},
       "S1 still sees s2 as reachable")
 
-    println("Reachability in s1")
-    println(s1.membershipState.latestGossip.overview.reachability.records)
     assert(s1.membershipState.isLeader(s3Address))
   }
 
+
+
+  def createClusterNodes(n: Int): List[ClusterDaemon] = {
+    val basePort = 8000
+    List.range(1, n+1).map(index => new ClusterDaemon(InetAddressAndPort.create("localhost",  basePort + index)))
+  }
+
+
+  test("partial network failure - split brain resolution") {
+    val nodes = createClusterNodes(7)
+
+    val addressToNodeMap = nodes.map(n => (n.selfUniqueAddress, n)).toMap
+    val networkIO = new DirectNetworkIO(addressToNodeMap)
+    nodes.foreach(n => n.networkIO = networkIO)
+
+    val leader = nodes.sorted(ClusterDaemon.clusterNodeOrdering).head
+    nodes.foreach(n => n.join(leader.selfUniqueAddress))
+
+    TestUtils.waitUntilTrue(() => nodesConverge(nodes:_*), "all nodes gossip converges and members marked as UP")
+
+    val splitAt = 3
+    val firstPartition = nodes.slice(0, splitAt)
+    val secondPartition = nodes.slice(splitAt, nodes.size)
+
+    TestUtils.waitUntilTrue(() => firstPartition.forall(n => {
+      secondPartition.exists(s => n.isMonitoring(s.selfUniqueAddress))
+    }), "waiting till few heartbeats are transferred")
+
+    TestUtils.waitUntilTrue(() => secondPartition.forall(n => {
+      firstPartition.exists(s => n.isMonitoring(s.selfUniqueAddress))
+    }), "waiting till few heartbeats are transferred")
+
+    networkIO.disconnect(firstPartition.map(n => n.selfUniqueAddress), secondPartition.map(n => n.selfUniqueAddress))
+    networkIO.disconnect(secondPartition.map(n => n.selfUniqueAddress), firstPartition.map(n => n.selfUniqueAddress))
+
+    TestUtils.waitUntilTrue(() => {
+      notReachable(firstPartition, secondPartition)
+    },
+      "0,1,2 mark 3,4,6,7 as unreachable")
+
+    TestUtils.waitUntilTrue(() => {
+      notReachable(secondPartition, firstPartition)
+    },
+      "3,4,6,7 mark 0,1,2 as unreachable")
+
+    assert(firstPartition.forall(n => {
+      println(s"Leader in ${n.selfUniqueAddress} is ${n.membershipState.leader}")
+      println(n.membershipState.latestGossip.overview.reachability)
+      n.membershipState.isLeader(firstPartition.sorted.head.selfUniqueAddress)
+    }))
+    assert(secondPartition.forall(n => {
+      println(s"Leader in ${n.selfUniqueAddress} is ${n.membershipState.leader}")
+      println(n.membershipState.latestGossip.overview.reachability)
+      n.membershipState.isLeader(secondPartition.sorted.head.selfUniqueAddress)
+    }))
+
+    //TODO: different leaders in different partitions
+  }
+
+
+  private def notReachable(nodes:List[ClusterDaemon], disconnectedNodes:List[ClusterDaemon]):Boolean = {
+    nodes.forall(n => {
+      disconnectedNodes.forall(dn => {
+        !n.membershipState.latestGossip.overview.reachability.isReachable(dn.selfUniqueAddress)
+      })
+    })
+  }
 
   test("Leadership changes to lower ip address nodes but upNumbers remain as is the new nodes join the network") {
     val s1Address = InetAddressAndPort.create("localhost", 9999)
