@@ -6,7 +6,7 @@ import org.dist.util.Networks
 
 import scala.jdk.CollectionConverters._
 
-
+// TODO Flaky test. Code block ("clean up") towards the end is an attempt to fix the flakiness
 class ControllerZookeeperFailureTests extends ZookeeperTestHarness {
   test("should elect new broker as leader once controller shuts down") {
     val broker1 = newBroker(1)
@@ -54,6 +54,11 @@ class ControllerZookeeperFailureTests extends ZookeeperTestHarness {
     partitionReplicaLeaderInfo.foreach(leaderAndReplicas => {
       assert(leaderAndReplicas.partitionStateInfo.leader.id != 1)
     })
+
+    // Clean up
+    broker2.shutdown()
+    broker3.shutdown()
+    Thread.sleep(1000)  // Delay for brokers to finish shutting down.
   }
 
   def testSocketServer(server: Server) = {
